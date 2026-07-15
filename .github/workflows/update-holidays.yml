@@ -1,0 +1,45 @@
+name: 공휴일 자동 업데이트
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 매주 월요일 09:15 KST (00:15 UTC)
+    - cron: "15 0 * * 1"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: holiday-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 저장소 받기
+        uses: actions/checkout@v4
+
+      - name: Python 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 공식 API에서 공휴일 생성
+        env:
+          DATA_GO_KR_SERVICE_KEY: ${{ secrets.DATA_GO_KR_SERVICE_KEY }}
+        run: python scripts/update_holidays.py
+
+      - name: 변경된 경우에만 커밋
+        shell: bash
+        run: |
+          if git diff --quiet -- data/holidays.json; then
+            echo "공휴일 변경 없음"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/holidays.json
+          git commit -m "공휴일 데이터 자동 업데이트"
+          git push
