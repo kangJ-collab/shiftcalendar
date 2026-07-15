@@ -1,0 +1,35 @@
+{
+  "version": "2026.07.15",
+  "updatedAt": "2026-07-15",
+  "health": [
+    {
+      "from": "2026-01-01",
+      "to": "2026-12-31",
+      "totalRate": 7.19,
+      "employeeRate": 3.595,
+      "longTermCareIncomeRate": 0.9448,
+      "sourceName": "국민건강보험공단",
+      "sourceUrl": "https://edi.nhis.or.kr/portal/images/popup/20251204_pop01longdesc.html"
+    }
+  ],
+  "nps": [
+    {
+      "from": "2025-07-01",
+      "to": "2026-06-30",
+      "employeeRate": 4.75,
+      "minIncome": 400000,
+      "maxIncome": 6370000,
+      "sourceName": "국민연금공단",
+      "sourceUrl": "https://www.nps.or.kr"
+    },
+    {
+      "from": "2026-07-01",
+      "to": "2027-06-30",
+      "employeeRate": 4.75,
+      "minIncome": 410000,
+      "maxIncome": 6590000,
+      "sourceName": "국민연금공단",
+      "sourceUrl": "https://www.nps.or.kr"
+    }
+  ]
+}
