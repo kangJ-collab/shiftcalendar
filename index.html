@@ -265,28 +265,13 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
       </div>
     </div>
 
-    
     <div class="card" style="margin-bottom:8px">
-      <div class="card-title">4. 데이터베이스 양식 자동 생성 및 권한 승인</div>
+      <div class="card-title">4. 데이터베이스 양식 자동 생성</div>
       <div class="small">
-        Apps Script 상단의 함수 선택란에서 <b>setupDatabase</b>를 선택한 뒤 <b>실행</b>합니다.<br><br>
-
-        처음 실행하면 아래처럼 영어 화면으로 <b>Google hasn't verified this app</b>가 표시될 수 있습니다.
-        본인이 직접 만든 스크립트이므로 당황하지 말고 다음 순서대로 진행합니다.<br><br>
-
-        <b>① 왼쪽 아래 Advanced(고급)</b>를 누릅니다.<br>
-        <b>② 아래에 나타나는 Go to 제목 없는 프로젝트 (unsafe)</b>를 누릅니다.<br>
-        프로젝트 이름은 사용자가 정한 이름에 따라 다르게 표시될 수 있습니다.<br>
-        <b>③ 다음 권한 화면에서 Continue(계속)</b>를 누릅니다.<br><br>
-
-        <img src="assets/gas-auth-1.png" alt="Google 미확인 앱 화면" style="width:100%;border:1px solid #ddd;border-radius:8px;margin:6px 0">
-        <img src="assets/gas-auth-2.png" alt="고급 메뉴와 안전하지 않음 링크" style="width:100%;border:1px solid #ddd;border-radius:8px;margin:6px 0">
-        <img src="assets/gas-auth-3.png" alt="권한 계속 버튼" style="width:100%;border:1px solid #ddd;border-radius:8px;margin:6px 0"><br>
-
-        승인 후 다음 시트가 자동 생성됩니다.<br>
-        <b>config / appData / settings / attendance / teamHistory / salaryOverrides / companyHolidays</b><br><br>
-
-        같은 화면이 다시 나오지 않도록 하려면 이후에는 같은 구글 계정으로 작업하세요.
+        Apps Script 상단의 함수 선택란에서 <b>setupDatabase</b>를 선택하고 <b>실행</b>합니다.<br>
+        처음 실행할 때 구글 권한 요청이 나오면 본인 계정으로 승인합니다.<br><br>
+        다음 시트가 자동 생성됩니다.<br>
+        <b>config / appData / settings / attendance / teamHistory / salaryOverrides / companyHolidays</b>
       </div>
     </div>
 
@@ -294,26 +279,17 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
       <div class="card-title">5. 웹 앱으로 배포</div>
       <div class="small">
         Apps Script 오른쪽 위에서<br>
-        <b>배포 → 새 배포 → 유형 선택 → 웹 앱</b> 순서로 들어갑니다.<br><br>
-
+        <b>배포 → 새 배포 → 유형 선택 → 웹 앱</b><br><br>
         실행 사용자: <b>나</b><br>
         액세스 권한: <b>모든 사용자</b><br><br>
-
-        배포를 누르면 여러 항목이 표시될 수 있습니다.
-        여기서 <b>배포 ID를 복사하면 안 됩니다.</b><br><br>
-
-        반드시 <b>웹 앱 URL</b> 항목의 주소를 복사해야 하며,
-        주소 끝은 보통 <b>/exec</b>로 끝납니다.<br><br>
-
-        예시:<br>
-        <code>https://script.google.com/macros/s/......../exec</code>
+        배포를 누르고, 끝이 <b>/exec</b>로 끝나는 웹 앱 URL을 복사합니다.
       </div>
     </div>
 
     <div class="card" style="margin-bottom:8px">
       <div class="card-title">6. 교대달력에 URL 입력</div>
       <div class="small">
-        교대달력 설정창의 <b>GAS 웹 앱 배포 URL</b>에 <b>/exec로 끝나는 웹 앱 URL</b>을 붙여넣습니다.<br>
+        교대달력 설정창의 <b>GAS 웹 앱 배포 URL</b>에 복사한 주소를 붙여넣습니다.<br>
         <b>연결정보 저장 → 연결 테스트</b> 순서로 누릅니다.
       </div>
     </div>
