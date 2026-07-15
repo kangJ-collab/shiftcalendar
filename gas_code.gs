@@ -5,11 +5,6 @@ function setupDatabase() {
   if (!ss) throw new Error('스프레드시트의 확장 프로그램 → Apps Script에서 실행하세요.');
 
   const props = PropertiesService.getScriptProperties();
-  let appKey = props.getProperty('APP_KEY');
-  if (!appKey) {
-    appKey = Utilities.getUuid() + Utilities.getUuid().replace(/-/g, '');
-    props.setProperty('APP_KEY', appKey);
-  }
   props.setProperty('SPREADSHEET_ID', ss.getId());
 
   ensureSheet_(ss, 'config', ['key', 'value', 'description']);
@@ -22,16 +17,16 @@ function setupDatabase() {
 
   const config = ss.getSheetByName('config');
   config.clearContents();
-  config.getRange(1,1,3,3).setValues([
+  config.getRange(1,1,2,3).setValues([
     ['key','value','description'],
-    ['APP_KEY',appKey,'교대달력 설정창에 입력할 인증키'],
     ['SPREADSHEET_ID',ss.getId(),'데이터베이스 식별자']
   ]);
   config.setFrozenRows(1);
   config.autoResizeColumns(1,3);
 
-  SpreadsheetApp.getUi().alert('양식 생성 완료\\nconfig 시트의 APP_KEY를 앱에 입력하세요.');
-  return {ok:true, spreadsheetId:ss.getId(), appKey:appKey};
+  SpreadsheetApp.getUi().alert('양식 생성 완료
+이제 웹 앱으로 배포하고 URL을 앱에 입력하세요.');
+  return {ok:true, spreadsheetId:ss.getId()};
 }
 
 function ensureSheet_(ss, name, headers) {
@@ -46,10 +41,6 @@ function ensureSheet_(ss, name, headers) {
 function jsonOutput_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
-function verify_(key) {
-  const saved = PropertiesService.getScriptProperties().getProperty('APP_KEY');
-  if (!saved || key !== saved) throw new Error('인증키가 올바르지 않습니다.');
-}
 function getDb_() {
   const id = PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID');
   if (!id) throw new Error('setupDatabase를 먼저 실행하세요.');
@@ -58,8 +49,7 @@ function getDb_() {
 function doGet(e) {
   try {
     const action = (e.parameter.action || 'ping').toLowerCase();
-    verify_(e.parameter.key || '');
-    if (action === 'ping') return jsonOutput_({ok:true,message:'연결 성공'});
+        if (action === 'ping') return jsonOutput_({ok:true,message:'연결 성공'});
     if (action === 'load') {
       const sh = getDb_().getSheetByName('appData');
       if (sh.getLastRow() < 2) return jsonOutput_({ok:true,data:null,message:'저장된 백업이 없습니다.'});
@@ -73,8 +63,7 @@ function doGet(e) {
 function doPost(e) {
   try {
     const body = JSON.parse(e.postData.contents || '{}');
-    verify_(body.key || '');
-    if (body.action !== 'save') throw new Error('지원하지 않는 요청');
+        if (body.action !== 'save') throw new Error('지원하지 않는 요청');
     writeAll_(getDb_(), body.data || {});
     return jsonOutput_({ok:true,message:'백업 완료',updatedAt:new Date().toISOString()});
   } catch (err) {
