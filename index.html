@@ -188,11 +188,10 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
     <div class="section-label">구글 스프레드시트 + GAS 백업</div>
     <div class="card">
       <div class="notice info">
-        앱은 로컬스토리지로 바로 사용할 수 있습니다. 데이터 증발에 대비해 원하는 사용자만
-        본인 구글 계정의 비공개 스프레드시트에 백업할 수 있습니다.
+        앱은 로컬스토리지로 바로 사용할 수 있습니다. 데이터 증발에 대비해 원하는 사용자만 본인 구글 계정의 비공개 스프레드시트에 백업할 수 있습니다.<br><b>먼저 사용법 보기를 읽은 뒤 순서대로 진행하세요.</b>
       </div>
       <div class="row" style="flex-wrap:wrap;margin-bottom:10px">
-        <button id="gasOpenSheetBtn" class="btn" style="flex:1">① 새 스프레드시트 열기</button>
+        <button id="gasOpenSheetBtn" class="btn" style="flex:1">① 구글 시트 홈 열기</button>
         <button id="gasCopyCodeBtn" class="btn primary" style="flex:1">② GAS 코드 복사</button>
       </div>
       <button id="gasGuideBtn" class="btn" style="width:100%;margin-bottom:12px">사용법 보기</button>
@@ -227,17 +226,86 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
 </div>
 
 
+
 <div id="gasGuideModal" class="modal hidden">
-  <div class="modal-box" style="max-width:520px;max-height:88vh;overflow-y:auto">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><div style="font-size:17px;font-weight:800">구글 스프레드시트 + GAS 설정</div><button id="gasGuideCloseBtn" style="background:none;border:none;font-size:22px;color:#2266ee">✕</button></div>
-    <div class="notice warn">최초 1회만 아래 순서대로 진행하면 됩니다.</div>
-    <div class="card"><div class="card-title">1. 새 스프레드시트</div><div class="small">‘새 스프레드시트 열기’를 누릅니다.</div></div>
-    <div class="card"><div class="card-title">2. Apps Script</div><div class="small">확장 프로그램 → Apps Script를 엽니다.</div></div>
-    <div class="card"><div class="card-title">3. 코드 붙여넣기</div><div class="small">기존 코드를 지우고 복사한 GAS 코드를 붙여넣어 저장합니다.</div></div>
-    <div class="card"><div class="card-title">4. 양식 자동 생성</div><div class="small">함수 목록에서 <b>setupDatabase</b>를 한 번 실행하고 권한을 승인합니다. config / appData / settings / attendance / teamHistory / salaryOverrides / companyHolidays 시트가 자동 생성됩니다.</div></div>
-    <div class="card"><div class="card-title">5. 웹 앱 배포</div><div class="small">배포 → 새 배포 → 웹 앱<br>실행 사용자: <b>나</b><br>액세스 권한: <b>모든 사용자</b></div></div>
-    <div class="card"><div class="card-title">6. 연결</div><div class="small">웹 앱 URL을 앱에 입력하고 연결 테스트를 누릅니다.</div></div>
-    <button id="gasGuideCopyBtn" class="btn primary" style="width:100%">GAS 코드 복사</button>
+  <div class="modal-box" style="max-width:560px;max-height:88vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div style="font-size:17px;font-weight:800">구글 스프레드시트 + GAS 설정</div>
+      <button id="gasGuideCloseBtn" style="background:none;border:none;font-size:22px;color:#2266ee">✕</button>
+    </div>
+
+    <div class="notice warn">
+      이 설정은 최초 1회만 하면 됩니다. 아이폰에서도 가능하지만 Apps Script 메뉴가 잘 안 보일 수 있으므로
+      처음 설정은 PC 또는 Safari의 데스크탑 웹사이트 모드를 권장합니다.
+    </div>
+
+    <div class="card" style="margin-bottom:8px">
+      <div class="card-title">1. 구글 시트 만들기</div>
+      <div class="small">
+        설정창의 <b>① 구글 시트 홈 열기</b>를 누릅니다.<br>
+        구글 시트 홈에서 <b>빈 스프레드시트</b> 또는 <b>+</b>를 눌러 새 시트를 만듭니다.<br>
+        문서 이름은 예: <b>교대달력 백업</b>으로 지정합니다.
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:8px">
+      <div class="card-title">2. Apps Script 열기</div>
+      <div class="small">
+        방금 만든 스프레드시트 안에서 상단 메뉴의<br>
+        <b>확장 프로그램 → Apps Script</b>를 누릅니다.<br><br>
+        아이폰에서 메뉴가 안 보이면 Safari 주소창의 <b>가가 → 데스크탑 웹 사이트 요청</b>을 사용하거나 PC에서 진행하세요.
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:8px">
+      <div class="card-title">3. GAS 코드 붙여넣기</div>
+      <div class="small">
+        교대달력 설정창의 <b>② GAS 코드 복사</b>를 누릅니다.<br>
+        Apps Script 편집기에 기본으로 들어 있는 코드를 모두 지우고 붙여넣은 뒤 저장합니다.
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:8px">
+      <div class="card-title">4. 데이터베이스 양식 자동 생성</div>
+      <div class="small">
+        Apps Script 상단의 함수 선택란에서 <b>setupDatabase</b>를 선택하고 <b>실행</b>합니다.<br>
+        처음 실행할 때 구글 권한 요청이 나오면 본인 계정으로 승인합니다.<br><br>
+        다음 시트가 자동 생성됩니다.<br>
+        <b>config / appData / settings / attendance / teamHistory / salaryOverrides / companyHolidays</b>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:8px">
+      <div class="card-title">5. 웹 앱으로 배포</div>
+      <div class="small">
+        Apps Script 오른쪽 위에서<br>
+        <b>배포 → 새 배포 → 유형 선택 → 웹 앱</b><br><br>
+        실행 사용자: <b>나</b><br>
+        액세스 권한: <b>모든 사용자</b><br><br>
+        배포를 누르고, 끝이 <b>/exec</b>로 끝나는 웹 앱 URL을 복사합니다.
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:8px">
+      <div class="card-title">6. 교대달력에 URL 입력</div>
+      <div class="small">
+        교대달력 설정창의 <b>GAS 웹 앱 배포 URL</b>에 복사한 주소를 붙여넣습니다.<br>
+        <b>연결정보 저장 → 연결 테스트</b> 순서로 누릅니다.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">7. 백업과 복원</div>
+      <div class="small">
+        연결이 성공하면 <b>지금 백업</b>으로 현재 데이터를 구글 시트에 저장할 수 있습니다.<br>
+        다른 기기에서는 같은 GAS URL을 입력한 뒤 <b>백업 불러오기</b>를 사용합니다.
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:10px">
+      <button id="gasGuideOpenSheetsBtn" class="btn" style="flex:1">구글 시트 홈 열기</button>
+      <button id="gasGuideCopyBtn" class="btn primary" style="flex:1">GAS 코드 복사</button>
+    </div>
   </div>
 </div>
 
@@ -795,13 +863,15 @@ async function restoreFromGas_(){
   }catch(e){renderGasStatus_('복원 실패: '+e.message);alert('복원 실패: '+e.message)}
 }
 
-document.getElementById('gasOpenSheetBtn').onclick=()=>{
-  const url='https://docs.google.com/spreadsheets/u/0/create';
+function openGoogleSheetsHome(){
+  const url='https://sheets.google.com/';
   const w=window.open(url,'_blank');
-  if(!w)location.href=url;
-};
+  if(!w) location.href=url;
+}
+document.getElementById('gasOpenSheetBtn').onclick=openGoogleSheetsHome;
 document.getElementById('gasCopyCodeBtn').onclick=copyGasCode_;
 document.getElementById('gasGuideCopyBtn').onclick=copyGasCode_;
+document.getElementById('gasGuideOpenSheetsBtn').onclick=openGoogleSheetsHome;
 document.getElementById('gasGuideBtn').onclick=()=>document.getElementById('gasGuideModal').classList.remove('hidden');
 document.getElementById('gasGuideCloseBtn').onclick=()=>document.getElementById('gasGuideModal').classList.add('hidden');
 document.getElementById('gasSaveConfigBtn').onclick=saveGasConfig_;
