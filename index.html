@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>교대달력 · 급여예측</title>
+<style>
+:root{
+  --blue-dark:#3a5a9a;--blue-mid:#4a7fd8;--red:#e5352b;--yellow:#f2e79a;
+  --black:#2b2b2b;--gray-bg:#f4f5f7;--line:#e3e5ea;--green:#1a6b4a;
+  --surface:#fff;--text:#222;--muted:#777;--warn:#7a4f00;--warn-bg:#fff4d6;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Malgun Gothic",sans-serif;background:var(--gray-bg);color:var(--text);user-select:none}
+button,input,select,textarea{font-family:inherit}
+input,select,textarea{font-size:16px!important}
+button{cursor:pointer}
+#app{display:flex;flex-direction:column;height:100vh;height:100dvh;width:100vw;overflow:hidden}
+header{background:var(--blue-dark);color:#fff;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;flex:0 0 auto}
+header .company{background:#fff;color:#333;border-radius:6px;padding:8px 10px;width:112px;border:none}
+header .title{font-weight:800;letter-spacing:.5px;font-size:16px}
+header .menu-icon{width:34px;height:26px;display:flex;flex-wrap:wrap;gap:3px;align-content:space-between}
+header .menu-icon span{width:14px;height:11px;background:#fff;border-radius:2px}
+.month-bar{background:var(--blue-mid);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:10px 8px;font-size:20px;font-weight:800;flex:0 0 auto}
+.month-bar button{background:none;border:none;color:#fff;font-size:22px;font-weight:800;padding:0 10px}
+.month-bar .team-badge{font-size:15px;background:rgba(255,255,255,.15);padding:4px 10px;border-radius:6px;font-weight:700}
+#calendarWrap{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;overflow:hidden;touch-action:pan-y}
+.weekday-row{display:grid;grid-template-columns:repeat(7,1fr);flex:0 0 auto;border-bottom:1px solid var(--line);background:#fff}
+.weekday-row div{text-align:center;padding:6px 0;font-weight:700;font-size:13px;color:#444}
+.weekday-row div:first-child{color:var(--red)} .weekday-row div:last-child{color:#2255cc}
+.grid{flex:1 1 auto;display:grid;grid-template-columns:repeat(7,1fr);grid-template-rows:repeat(6,1fr);min-height:0;background:#fff}
+.cell{border-right:1px solid var(--line);border-bottom:1px solid var(--line);display:flex;flex-direction:column;min-height:0;overflow:hidden;position:relative;padding:2px 3px}
+.cell:nth-child(7n){border-right:none}.cell.dim .daynum{color:#c9c9c9}.cell.dim .tag{opacity:.35}
+.tag{align-self:flex-start;font-size:10.5px;font-weight:800;color:#fff;padding:1px 4px;border-radius:3px;margin-bottom:2px;line-height:1.4}
+.daynum{font-size:15px;font-weight:700;margin-top:auto;margin-bottom:auto;text-align:center}
+.cell.today .daynum{background:var(--red);color:#fff;border-radius:50%;width:22px;height:22px;line-height:22px;margin:0 auto}
+.memo{font-size:9px;color:#666;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.table-wrap{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;overflow:hidden;background:#fff}
+.trow{display:grid;flex:1 1 0;min-height:0;border-bottom:1px solid var(--line)}
+.trow.header-row{flex:0 0 34px;background:#f7f8fa;font-weight:700;font-size:12px}
+.tcell{display:flex;align-items:center;justify-content:center;border-right:1px solid var(--line);font-size:12px;font-weight:700;flex-direction:column;overflow:hidden;white-space:nowrap;min-width:0}
+.tcell span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tcell:last-child{border-right:none}.tcell.label{font-weight:800;font-size:12px;background:#fafbfc}
+.badge{color:#fff;font-size:11px;font-weight:800;padding:2px 6px;border-radius:3px}
+nav{flex:0 0 auto;display:flex;align-items:center;background:#fff;border-top:1px solid var(--line);padding:6px 0 max(6px,env(safe-area-inset-bottom));overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity;touch-action:pan-x}
+nav::-webkit-scrollbar{display:none}
+nav button{background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:#999;padding:2px 4px;flex:0 0 20vw;min-width:20vw;max-width:20vw;scroll-snap-align:center;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+nav button.active{color:#2266ee}nav .icon{font-size:18px}
+.hidden{display:none!important}
+.panel{position:fixed;inset:0;z-index:5000;background:var(--gray-bg);display:flex;flex-direction:column}
+.panel-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line);flex:0 0 auto;background:#fff}
+.panel-head button{background:none;border:none;font-size:22px;color:#2266ee}
+.panel-title{font-weight:800;font-size:17px}
+.panel-body{flex:1 1 auto;overflow-y:auto;overflow-x:hidden;touch-action:pan-y;padding:16px}
+.section-label{font-size:13px;color:#888;font-weight:700;margin:6px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+.card-title{font-weight:800;font-size:14px;margin-bottom:10px}
+.form-group{margin-bottom:12px}.form-label{font-size:13px;font-weight:700;margin-bottom:5px;display:block}.form-hint{font-size:11px;color:#999;margin-top:4px}
+.form-input{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fff}
+.row{display:flex;gap:8px}.row>*{min-width:0}
+.btn{padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:#fff;font-weight:700}
+.btn.primary{background:#2266ee;color:#fff;border-color:#2266ee}.btn.green{background:var(--green);color:#fff;border-color:var(--green)}.btn.red{color:var(--red);border-color:var(--red)}
+.stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px}
+.stat{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px}
+.stat .k{font-size:11px;color:#888}.stat .v{font-size:20px;font-weight:800;margin-top:4px}.stat .s{font-size:11px;color:#999;margin-top:2px}
+.data-table{width:100%;border-collapse:collapse}.data-table td{padding:8px 4px;border-bottom:1px solid var(--line);font-size:13px}.data-table td:last-child{text-align:right;font-weight:700}.data-table tr:last-child td{border-bottom:none}
+.notice{padding:10px;border-radius:8px;font-size:12px;margin-bottom:10px}.notice.warn{background:var(--warn-bg);color:var(--warn);border:1px solid #edd28a}.notice.info{background:#eaf1ff;color:#1a4a8b;border:1px solid #bcd0f1}
+.slip-grid{display:grid;grid-template-columns:1fr;gap:12px}.slip-table{width:100%;border-collapse:collapse}.slip-table td{padding:7px;border-bottom:1px solid var(--line);font-size:13px}.slip-table td:last-child{text-align:right}.slip-table tr.total td{font-weight:800;background:#fafafa}
+.type-row,.history-row,.holiday-row,.rule-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}.type-row:last-child,.history-row:last-child,.holiday-row:last-child,.rule-row:last-child{border-bottom:none}
+.pill{padding:2px 7px;border-radius:999px;font-size:11px;font-weight:800}
+.small{font-size:11px;color:#888}.grow{flex:1}
+.modal{position:fixed;inset:0;z-index:6000;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center}
+.modal-box{background:#fff;border-radius:14px;width:88%;max-width:360px;padding:18px}
+hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
+@media(min-width:700px){.stat-grid{grid-template-columns:repeat(4,1fr)}.slip-grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div id="app">
+<header>
+  <input id="companyInput" class="company" placeholder="회사/조 이름">
+  <div class="title">SHIFTCALENDAR</div>
+  <div class="menu-icon" id="settingsBtn"><span></span><span></span><span></span><span></span></div>
+</header>
+
+<div class="month-bar">
+  <button id="prevMonthBtn">‹</button>
+  <span id="monthLabel">2026년 7월</span>
+  <span class="team-badge" id="teamBadge">C조</span>
+  <button id="nextMonthBtn">›</button>
+</div>
+
+<div id="calendarWrap">
+  <div class="weekday-row"><div>일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div>토</div></div>
+  <div class="grid" id="grid"></div>
+</div>
+<div id="allWrap" class="table-wrap hidden"></div>
+<div id="withWrap" class="table-wrap hidden"></div>
+
+<div id="memoModal" class="modal hidden">
+  <div class="modal-box">
+    <div id="memoTitle" style="font-weight:800;font-size:16px;margin-bottom:10px">메모</div>
+    <label class="form-label">근무 상태</label>
+    <select id="memoOverrideSelect" class="form-input" style="margin-bottom:10px"></select>
+    <label class="form-label">메모</label>
+    <textarea id="memoText" rows="3" class="form-input" style="resize:none"></textarea>
+    <div class="row" style="margin-top:12px">
+      <button id="memoDeleteBtn" class="btn red" style="flex:1">삭제</button>
+      <button id="memoCancelBtn" class="btn" style="flex:1">취소</button>
+      <button id="memoSaveBtn" class="btn primary" style="flex:1">저장</button>
+    </div>
+  </div>
+</div>
+
+<div id="settingsPanel" class="panel hidden">
+  <div class="panel-head"><button id="settingsClose">✕</button><div class="panel-title">설정</div><div style="width:22px"></div></div>
+  <div class="panel-body">
+    <div class="section-label">캘린더 설정</div>
+    <div class="card">
+      <div class="form-group"><label class="form-label">회사/그룹 이름</label><input id="settingsCompany" class="form-input"></div>
+      <div class="form-group"><label class="form-label">현재 조</label><div id="teamSelectRow" class="row"></div></div>
+      <div class="form-group"><label class="form-label">조 패턴 기준일</label><input id="settingsRefDate" type="date" class="form-input"><div class="form-hint">이 날짜에 C조가 주간 첫날이 되도록 계산합니다.</div></div>
+    </div>
+
+    <div class="section-label">근무조 변경 이력</div>
+    <div class="card">
+      <div id="teamHistoryList"></div>
+      <div class="row" style="margin-top:10px">
+        <input id="teamChangeDate" type="date" class="form-input" style="flex:1">
+        <select id="teamChangeTeam" class="form-input" style="width:95px"></select>
+        <button id="addTeamHistoryBtn" class="btn primary">추가</button>
+      </div>
+      <div class="form-hint">변경일 전날까지는 기존 조, 변경일부터 새 조 스케줄을 그대로 따라갑니다.</div>
+    </div>
+
+    <div class="section-label">근무 타입 관리</div>
+    <div class="card">
+      <div id="typeManageList"></div>
+      <div class="row" style="margin-top:10px">
+        <input id="newTypeLabel" class="form-input" placeholder="예: 교육">
+        <input id="newTypeColor" type="color" value="#888888" style="width:44px;border:1px solid var(--line);border-radius:8px">
+        <button id="addTypeBtn" class="btn primary">추가</button>
+      </div>
+    </div>
+
+    <div class="section-label">회사·노조 휴일</div>
+    <div class="card">
+      <div id="companyHolidayList"></div>
+      <div class="row" style="margin-top:10px">
+        <input id="holidayName" class="form-input" placeholder="휴일명">
+        <input id="holidayDate" type="date" class="form-input">
+      </div>
+      <div class="row" style="margin-top:8px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input id="holidayAnnual" type="checkbox" checked> 매년 반복</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px"><input id="holidayPay" type="checkbox" checked> 휴일수당 적용</label>
+        <button id="addHolidayBtn" class="btn primary" style="margin-left:auto">추가</button>
+      </div>
+    </div>
+
+    <div class="section-label">비교 대상</div>
+    <div class="card"><div id="withManageList"></div><button id="addWithBtn" class="btn" style="width:100%;margin-top:10px">+ 비교 대상 추가</button></div>
+
+    <div class="section-label">급여 설정</div>
+    <div class="card">
+      <div id="salaryFieldsGrid"></div>
+      <button id="saveSalaryBtn" class="btn green" style="width:100%">급여 설정 저장</button>
+    </div>
+
+    <div class="section-label">기준정보 업데이트</div>
+    <div class="card">
+      <div class="notice info">GitHub Raw JSON 주소를 등록하면 HTML을 다시 배포하지 않고 공휴일과 보험 기준을 갱신할 수 있습니다.</div>
+      <div class="form-group"><label class="form-label">공휴일 JSON 주소</label><input id="holidayDataUrl" class="form-input" value="./data/holidays.json" placeholder="./data/holidays.json"></div>
+      <button id="updateHolidayBtn" class="btn primary" style="width:100%">공휴일 데이터 업데이트</button>
+      <div id="holidayUpdateStatus" class="small" style="margin-top:6px"></div>
+      <hr class="sep">
+      <div class="form-group"><label class="form-label">보험 기준 JSON 주소</label><input id="insuranceDataUrl" class="form-input" value="./data/insurance.json" placeholder="./data/insurance.json"></div>
+      <button id="updateInsuranceBtn" class="btn green" style="width:100%">보험 기준 업데이트</button>
+      <div id="insuranceUpdateStatus" class="small" style="margin-top:6px"></div>
+    </div>
+
+
+    <div class="section-label">구글 스프레드시트 + GAS 백업</div>
+    <div class="card">
+      <div class="notice info">
+        앱은 로컬스토리지로 바로 사용할 수 있습니다. 데이터 증발에 대비해 원하는 사용자만
+        본인 구글 계정의 비공개 스프레드시트에 백업할 수 있습니다.
+      </div>
+      <div class="row" style="flex-wrap:wrap;margin-bottom:10px">
+        <button id="gasOpenSheetBtn" class="btn" style="flex:1">① 새 스프레드시트 열기</button>
+        <button id="gasCopyCodeBtn" class="btn primary" style="flex:1">② GAS 코드 복사</button>
+      </div>
+      <button id="gasGuideBtn" class="btn" style="width:100%;margin-bottom:12px">사용법 보기</button>
+      <div class="form-group"><label class="form-label">GAS 웹 앱 배포 URL</label><input id="gasUrlInput" class="form-input" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off"></div>
+      <div class="form-group"><label class="form-label">앱 인증키</label><input id="gasKeyInput" class="form-input" placeholder="config 시트의 APP_KEY" autocomplete="off"><div class="form-hint">이 기기의 localStorage에만 저장됩니다.</div></div>
+      <div class="row" style="flex-wrap:wrap"><button id="gasSaveConfigBtn" class="btn green" style="flex:1">연결정보 저장</button><button id="gasTestBtn" class="btn" style="flex:1">연결 테스트</button></div>
+      <div class="row" style="margin-top:8px"><button id="gasBackupBtn" class="btn primary" style="flex:1">지금 백업</button><button id="gasRestoreBtn" class="btn" style="flex:1">백업 불러오기</button></div>
+      <div id="gasStatus" class="small" style="margin-top:8px">미설정</div>
+    </div>
+
+    <div class="section-label">데이터</div>
+    <button id="clearMemosBtn" class="btn red" style="width:100%">모든 메모 삭제</button>
+  </div>
+</div>
+
+<div id="dashboardPanel" class="panel hidden">
+  <div class="panel-head"><button id="dashboardClose">✕</button><div class="panel-title">대시보드</div><div style="width:22px"></div></div>
+  <div id="dashboardContent" class="panel-body"></div>
+</div>
+
+<div id="salaryPanel" class="panel hidden">
+  <div class="panel-head">
+    <button id="salaryClose">✕</button>
+    <div class="row" style="align-items:center">
+      <button id="salPrevBtn" style="background:none;border:none;font-size:20px;color:#2266ee">‹</button>
+      <div id="salaryTitle" class="panel-title" style="min-width:120px;text-align:center">2026년 7월</div>
+      <button id="salNextBtn" style="background:none;border:none;font-size:20px;color:#2266ee">›</button>
+    </div>
+    <div style="width:22px"></div>
+  </div>
+  <div id="salaryContent" class="panel-body"></div>
+</div>
+
+
+<div id="gasGuideModal" class="modal hidden">
+  <div class="modal-box" style="max-width:520px;max-height:88vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><div style="font-size:17px;font-weight:800">구글 스프레드시트 + GAS 설정</div><button id="gasGuideCloseBtn" style="background:none;border:none;font-size:22px;color:#2266ee">✕</button></div>
+    <div class="notice warn">최초 1회만 아래 순서대로 진행하면 됩니다.</div>
+    <div class="card"><div class="card-title">1. 새 스프레드시트</div><div class="small">‘새 스프레드시트 열기’를 누릅니다.</div></div>
+    <div class="card"><div class="card-title">2. Apps Script</div><div class="small">확장 프로그램 → Apps Script를 엽니다.</div></div>
+    <div class="card"><div class="card-title">3. 코드 붙여넣기</div><div class="small">기존 코드를 지우고 복사한 GAS 코드를 붙여넣어 저장합니다.</div></div>
+    <div class="card"><div class="card-title">4. 양식 자동 생성</div><div class="small">함수 목록에서 <b>setupDatabase</b>를 한 번 실행하고 권한을 승인합니다. config / appData / settings / attendance / teamHistory / salaryOverrides / companyHolidays 시트가 자동 생성됩니다.</div></div>
+    <div class="card"><div class="card-title">5. 웹 앱 배포</div><div class="small">배포 → 새 배포 → 웹 앱<br>실행 사용자: <b>나</b><br>액세스 권한: <b>모든 사용자</b></div></div>
+    <div class="card"><div class="card-title">6. 연결</div><div class="small">웹 앱 URL과 config 시트의 APP_KEY를 앱에 입력하고 연결 테스트를 누릅니다.</div></div>
+    <button id="gasGuideCopyBtn" class="btn primary" style="width:100%">GAS 코드 복사</button>
+  </div>
+</div>
+
+<nav>
+  <button id="navMy" class="active"><span class="icon">👤</span>My</button>
+  <button id="navAll"><span class="icon">👥</span>All</button>
+  <button id="navWith"><span class="icon">🪪</span>With</button>
+  <button id="navDashboard"><span class="icon">📊</span>대시보드</button>
+  <button id="navSalary"><span class="icon">💰</span>급여명세서</button>
+  <button id="navSetting"><span class="icon">⚙️</span>Setting</button>
+</nav>
+</div>
+
+<script>
+window.addEventListener('error',function(e){
+  let box=document.getElementById('debugOverlay');
+  if(!box){box=document.createElement('div');box.id='debugOverlay';box.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#c0392b;color:#fff;font-size:12px;padding:10px;white-space:pre-wrap;max-height:60vh;overflow:auto';document.body.appendChild(box)}
+  box.textContent='에러 발생\n'+e.message+'\nline '+e.lineno+', col '+e.colno+(e.error&&e.error.stack?'\n'+e.error.stack:'');
+});
+</script>
+
+<script>
+/* 모든 DOM 요소를 명시적으로 연결: iOS Safari에서 id 자동 전역변수에 의존하지 않음 */
+const app=document.getElementById('app');
+const companyInput=document.getElementById('companyInput');
+const settingsBtn=document.getElementById('settingsBtn');
+const prevMonthBtn=document.getElementById('prevMonthBtn');
+const monthLabel=document.getElementById('monthLabel');
+const teamBadge=document.getElementById('teamBadge');
+const nextMonthBtn=document.getElementById('nextMonthBtn');
+const calendarWrap=document.getElementById('calendarWrap');
+const grid=document.getElementById('grid');
+const allWrap=document.getElementById('allWrap');
+const withWrap=document.getElementById('withWrap');
+const memoModal=document.getElementById('memoModal');
+const memoTitle=document.getElementById('memoTitle');
+const memoOverrideSelect=document.getElementById('memoOverrideSelect');
+const memoText=document.getElementById('memoText');
+const memoDeleteBtn=document.getElementById('memoDeleteBtn');
+const memoCancelBtn=document.getElementById('memoCancelBtn');
+const memoSaveBtn=document.getElementById('memoSaveBtn');
+const settingsPanel=document.getElementById('settingsPanel');
+const settingsClose=document.getElementById('settingsClose');
+const settingsCompany=document.getElementById('settingsCompany');
+const teamSelectRow=document.getElementById('teamSelectRow');
+const settingsRefDate=document.getElementById('settingsRefDate');
+const teamHistoryList=document.getElementById('teamHistoryList');
+const teamChangeDate=document.getElementById('teamChangeDate');
+const teamChangeTeam=document.getElementById('teamChangeTeam');
+const addTeamHistoryBtn=document.getElementById('addTeamHistoryBtn');
+const typeManageList=document.getElementById('typeManageList');
+const newTypeLabel=document.getElementById('newTypeLabel');
+const newTypeColor=document.getElementById('newTypeColor');
+const addTypeBtn=document.getElementById('addTypeBtn');
+const companyHolidayList=document.getElementById('companyHolidayList');
+const holidayName=document.getElementById('holidayName');
+const holidayDate=document.getElementById('holidayDate');
+const holidayAnnual=document.getElementById('holidayAnnual');
+const holidayPay=document.getElementById('holidayPay');
+const addHolidayBtn=document.getElementById('addHolidayBtn');
+const withManageList=document.getElementById('withManageList');
+const addWithBtn=document.getElementById('addWithBtn');
+const salaryFieldsGrid=document.getElementById('salaryFieldsGrid');
+const saveSalaryBtn=document.getElementById('saveSalaryBtn');
+const holidayDataUrl=document.getElementById('holidayDataUrl');
+const updateHolidayBtn=document.getElementById('updateHolidayBtn');
+const holidayUpdateStatus=document.getElementById('holidayUpdateStatus');
+const insuranceDataUrl=document.getElementById('insuranceDataUrl');
+const updateInsuranceBtn=document.getElementById('updateInsuranceBtn');
+const insuranceUpdateStatus=document.getElementById('insuranceUpdateStatus');
+const clearMemosBtn=document.getElementById('clearMemosBtn');
+const dashboardPanel=document.getElementById('dashboardPanel');
+const dashboardClose=document.getElementById('dashboardClose');
+const dashboardContent=document.getElementById('dashboardContent');
+const salaryPanel=document.getElementById('salaryPanel');
+const salaryClose=document.getElementById('salaryClose');
+const salPrevBtn=document.getElementById('salPrevBtn');
+const salaryTitle=document.getElementById('salaryTitle');
+const salNextBtn=document.getElementById('salNextBtn');
+const salaryContent=document.getElementById('salaryContent');
+const navMy=document.getElementById('navMy');
+const navAll=document.getElementById('navAll');
+const navWith=document.getElementById('navWith');
+const navDashboard=document.getElementById('navDashboard');
+const navSalary=document.getElementById('navSalary');
+const navSetting=document.getElementById('navSetting');
+
+const store={get(k,d){try{const v=localStorage.getItem(k);return v===null?d:JSON.parse(v)}catch(e){return d}},set(k,v){localStorage.setItem(k,JSON.stringify(v))}};
+const pad2=n=>n<10?'0'+n:''+n;
+const dateKey=d=>`${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+const stripTime=d=>new Date(d.getFullYear(),d.getMonth(),d.getDate());
+const fmt=n=>Math.round(n||0).toLocaleString('ko-KR');
+const fmtW=n=>fmt(n)+'원';
+const today=new Date();
+
+const DEFAULT_HOLIDAY_DATA={
+  schemaVersion:2,
+  version:'waiting-for-api',
+  updatedAt:null,
+  holidays:{},
+  majorDays:[],
+  customHolidays:[
+    {id:'union-foundation',name:'노동조합 창립기념일',month:2,day:3,annual:true,enabled:true,payAsHoliday:true,editable:true},
+    {id:'company-foundation',name:'회사 창립기념일',month:8,day:2,annual:true,enabled:true,payAsHoliday:true,editable:true}
+  ],
+  sourceName:'한국천문연구원 특일 정보 API'
+};
+let HOLIDAY_DATA=store.get('remoteHolidayData',DEFAULT_HOLIDAY_DATA);
+
+const DEFAULT_INSURANCE_DATA={
+  version:'2026.07.15-default',updatedAt:'2026-07-15',
+  health:[
+    {from:'2026-01-01',to:'2026-12-31',totalRate:7.19,employeeRate:3.595,longTermCareIncomeRate:0.9448,sourceName:'국민건강보험공단'}
+  ],
+  nps:[
+    {from:'2025-07-01',to:'2026-06-30',employeeRate:4.75,minIncome:400000,maxIncome:6370000,sourceName:'국민연금공단'},
+    {from:'2026-07-01',to:'2027-06-30',employeeRate:4.75,minIncome:410000,maxIncome:6590000,sourceName:'국민연금공단'}
+  ]
+};
+let INSURANCE_DATA=store.get('remoteInsuranceData',DEFAULT_INSURANCE_DATA);
+
+let COMPANY_HOLIDAYS=store.get(
+  'companyHolidays',
+  Array.isArray(HOLIDAY_DATA.customHolidays)
+    ? HOLIDAY_DATA.customHolidays
+    : DEFAULT_HOLIDAY_DATA.customHolidays
+);
+function companyHolidayFor(date){
+  const key=dateKey(date);
+  return COMPANY_HOLIDAYS.find(h=>h.enabled&&((h.annual&&h.month===date.getMonth()+1&&h.day===date.getDate())||(!h.annual&&h.date===key)))||null;
+}
+function getHoliday(date){return HOLIDAY_DATA.holidays[dateKey(date)]||companyHolidayFor(date)?.name||null}
+function isPayHoliday(date){
+  if(HOLIDAY_DATA.holidays[dateKey(date)])return true;
+  const h=companyHolidayFor(date);return !!(h&&h.payAsHoliday);
+}
+function isMajorDay(date){return (HOLIDAY_DATA.majorDays||[]).includes(dateKey(date))}
+function getDayColor(d){if(getHoliday(d))return '#e5352b';if(d.getDay()===0)return '#e5352b';if(d.getDay()===6)return '#2255cc';return '#222'}
+
+const CYCLE=['주간','주간','휴무','휴무','야간','야간','휴무','휴무'];
+const TEAMS=['A조','B조','C조','D조'];
+const REF_TEAM_INDEX=2;
+let refDate=new Date(store.get('refDate','2026-07-15')+'T00:00:00');
+let myTeamIndex=store.get('myTeamIndex',2);
+let companyName=store.get('companyName','');
+let TEAM_HISTORY=store.get('teamHistory',[{from:'2026-01-01',to:null,teamIndex:myTeamIndex}]);
+
+let SHIFT_STYLE=store.get('shiftStyle',{
+ '주간':{label:'주',bg:'#f2e79a',color:'#3a3a1a'},
+ '야간':{label:'야',bg:'#2b2b2b',color:'#fff'},
+ '휴무':{label:'휴',bg:'#e5352b',color:'#fff'}
+});
+const DEFAULT_TYPE_KEYS=['주간','야간','휴무'];
+let CUSTOM_TYPES=store.get('customTypes',[
+ {key:'연차',label:'연차',bg:'#7a4f00',color:'#fff'},
+ {key:'교육',label:'교',bg:'#2255cc',color:'#fff'},
+ {key:'출장',label:'출',bg:'#1a8a4a',color:'#fff'},
+ {key:'주+반OT',label:'주+',bg:'#c04a00',color:'#fff'},
+ {key:'야+반OT',label:'야+',bg:'#4a2a00',color:'#fff'},
+ {key:'주OT',label:'주OT',bg:'#1a4a8b',color:'#fff'},
+ {key:'야OT',label:'야OT',bg:'#120e2a',color:'#fff'},
+ {key:'일근OT:8',label:'일OT',bg:'#5b21b6',color:'#fff'}
+]);
+const saveTypeState=()=>{store.set('shiftStyle',SHIFT_STYLE);store.set('customTypes',CUSTOM_TYPES)};
+function getTypeStyle(key){
+  if(SHIFT_STYLE[key])return SHIFT_STYLE[key];
+  const c=CUSTOM_TYPES.find(t=>t.key===key);if(c)return c;
+  let hash=0;for(let i=0;i<key.length;i++)hash=(hash*31+key.charCodeAt(i))%360;
+  return {label:key.slice(0,3),bg:`hsl(${hash},55%,55%)`,color:'#fff'};
+}
+const getMemo=d=>store.get('memo-'+dateKey(d),'');
+function setMemo(d,text){if(text&&text.trim())store.set('memo-'+dateKey(d),text.trim());else localStorage.removeItem('memo-'+dateKey(d))}
+const getOverride=d=>store.get('override-'+dateKey(d),null);
+function setOverride(d,key){if(key)store.set('override-'+dateKey(d),key);else localStorage.removeItem('override-'+dateKey(d))}
+
+function getShiftForTeam(date,teamIndex){
+  const diffDays=Math.floor((stripTime(date)-stripTime(refDate))/86400000);
+  const offset=(teamIndex-REF_TEAM_INDEX)*2;
+  let idx=(diffDays+offset)%8;if(idx<0)idx+=8;return CYCLE[idx];
+}
+function getTeamIndexForDate(date){
+  const key=dateKey(date);
+  const rule=[...TEAM_HISTORY].filter(r=>key>=r.from&&(!r.to||key<=r.to)).sort((a,b)=>b.from.localeCompare(a.from))[0];
+  return rule?rule.teamIndex:myTeamIndex;
+}
+function getMyDisplayShift(date){return getOverride(date)||getShiftForTeam(date,getTeamIndexForDate(date))}
+
+let withEntries=store.get('withEntries',[{name:'비교 대상',refDate:'2026-07-15',cycle:['주간','주간','휴무','휴무','야간','야간','휴무','휴무']}]);
+function getShiftCustom(date,refDateStr,cycleArr){const rd=new Date(refDateStr+'T00:00:00');const diff=Math.floor((stripTime(date)-stripTime(rd))/86400000);let idx=diff%cycleArr.length;if(idx<0)idx+=cycleArr.length;return cycleArr[idx]}
+
+const SALARY_DEF={base1:0,base3:0,license:0,meal:0,pensionSup:0,shiftH:8.86,matching:0,pension2:0,foodDed:0,house:0,prevAnnual:0,employ:0.9,incomeTaxRate:8.3};
+let SAL=store.get('salarySettings',{...SALARY_DEF});
+let salOvr=store.get('salOvr',{});
+const autoBonus=s=>Math.round((s.base1+s.base3)*.5);
+const autoUnion=s=>Math.round((s.base1+s.base3)*.018);
+const calcHR=s=>((s.base1+s.base3)*18/12+s.meal+s.license)/179;
+function roundPay(v){let r=Math.round(v);if(Math.floor(r/10)%10===9)r=Math.ceil(r/100)*100;if(Math.floor(r/100)%10===9)r=Math.ceil(r/1000)*1000;return r}
+function findRule(rules,dateStr){return (rules||[]).find(r=>dateStr>=r.from&&(!r.to||dateStr<=r.to))||(rules||[]).slice(-1)[0]}
+function toPayCode(raw){if(raw==='주간')return'주';if(raw==='야간')return'야';if(raw==='휴무')return'휴';return raw}
+function calcHoursForMonth(y,m){
+  const days=new Date(y,m,0).getDate(),h={normal:0,extend:0,weekly:0,weeklyExt:0,holiday:0,holidayExt:0,festBase:0,festExt:0,night:0,shiftOT:SAL.shiftH,workDays:0,annualDays:0};
+  for(let d=1;d<=days;d++){
+    const date=new Date(y,m-1,d),code=toPayCode(getMyDisplayShift(date)),maj=isMajorDay(date),hol=isPayHoliday(date);
+    if(code==='주'){h.workDays++;if(hol){h.holiday+=8;h.holidayExt+=4}else h.normal+=12}
+    else if(code==='야'){h.workDays++;h.night+=8;if(hol){h.holiday+=8;h.holidayExt+=4}else h.normal+=12}
+    else if(code==='주+반OT'){h.workDays++;h.extend+=4;if(hol){h.holiday+=8;h.holidayExt+=4}else h.normal+=12}
+    else if(code==='야+반OT'){h.workDays++;h.night+=8;h.extend+=4;if(hol){h.holiday+=8;h.holidayExt+=4}else h.normal+=12}
+    else if(code==='주OT'){h.workDays++;if(maj){h.festBase+=8;h.festExt+=4}else if(hol){h.holiday+=8;h.holidayExt+=4}else{h.weekly+=8;h.weeklyExt+=4}}
+    else if(code==='야OT'){h.workDays++;h.night+=8;if(maj){h.festBase+=8;h.festExt+=4}else if(hol){h.holiday+=8;h.holidayExt+=4}else{h.weekly+=8;h.weeklyExt+=4}}
+    else if(code==='연차'){h.annualDays++}
+    else if(code&&code.startsWith('일근OT:')){const hrs=parseFloat(code.split(':')[1])||0;h.workDays++;if(hrs<=8)h.weekly+=hrs;else{h.weekly+=8;h.weeklyExt+=hrs-8}}
+  }
+  return h;
+}
+function calcSalary(y,m){
+  const hr=calcHR(SAL),h=calcHoursForMonth(y,m),pay={};
+  pay['기본급1']=SAL.base1;pay['기본급3']=SAL.base3;pay['면허수당']=SAL.license;pay['고정상여']=autoBonus(SAL);
+  pay['연장수당']=roundPay(hr*1.5*h.extend);pay['주휴수당']=roundPay(hr*1.5*h.weekly);pay['주휴연장수당']=roundPay(hr*2*h.weeklyExt);
+  pay['휴일수당']=roundPay(hr*1.5*h.holiday);pay['휴일연장수당']=roundPay(hr*2*h.holidayExt);
+  pay['명절기본수당']=roundPay(hr*2*h.festBase);pay['명절연장수당']=roundPay(hr*2.5*h.festExt);
+  pay['심야수당']=roundPay(hr*.5*h.night);pay['교대조수당']=roundPay(hr*1.5*SAL.shiftH);
+  const extra={'중식비(기지급)':SAL.meal,'개인연금2(회사분·기지급)':SAL.pensionSup};
+  const totalPay=Object.values(pay).reduce((a,b)=>a+b,0),totalExtra=Object.values(extra).reduce((a,b)=>a+b,0);
+  return {hr:Math.round(hr),h,pay,extra,totalPay,totalExtra,totalA:totalPay+totalExtra};
+}
+function calcDeductions(totalA,salY,salM){
+  const key=`${salY}-${salM}`,ovr=salOvr[key]||{},dateStr=`${salY}-${pad2(salM)}-21`;
+  const healthRule=findRule(INSURANCE_DATA.health,dateStr)||{employeeRate:3.595,totalRate:7.19,longTermCareIncomeRate:.9448};
+  const npsRule=findRule(INSURANCE_DATA.nps,dateStr)||{employeeRate:4.75,minIncome:410000,maxIncome:6590000};
+  const prevMonthly=SAL.prevAnnual/12,npsBase=Math.min(Math.max(prevMonthly,npsRule.minIncome),npsRule.maxIncome);
+  const healthRaw=Math.round(prevMonthly*healthRule.employeeRate/100);
+  const ltcareRaw=Math.round(healthRaw*(healthRule.longTermCareIncomeRate/healthRule.totalRate));
+  const healthVal=ovr.healthIns??healthRaw+ltcareRaw,npsVal=ovr.nps??Math.round(npsBase*npsRule.employeeRate/100);
+  const employVal=ovr.employ??Math.round(totalA*SAL.employ/100),incomeTax=ovr.incomeTax??Math.round(totalA*SAL.incomeTaxRate/100),localTax=Math.round(incomeTax*.1);
+  const ded={'건강보험(장기요양 포함)':healthVal,'국민연금':npsVal,'고용보험':employVal,'소득세':incomeTax,'지방소득세':localTax,'노조비':autoUnion(SAL),'매칭그랜트':SAL.matching,'사택료':ovr.house??SAL.house,'개인연금2(사원분)':SAL.pension2,'식비공제':SAL.foodDed};
+  const pre=Object.values(ded).reduce((a,b)=>a+b,0),net0=totalA-pre;ded['우수리']=Math.round(net0-Math.floor(net0/100)*100);
+  const totalDed=Object.values(ded).reduce((a,b)=>a+b,0);
+  return {ded,totalDed,netPay:totalA-totalDed,healthRule,npsRule,prevMonthly:Math.round(prevMonthly),npsBase:Math.round(npsBase),healthRaw,ltcareRaw};
+}
+
+let viewYear=store.get('viewYear',today.getFullYear()),viewMonth=store.get('viewMonth',today.getMonth()),currentTab='My';
+function buildCalendarCells(y,m){const first=new Date(y,m,1),off=first.getDay(),prevDays=new Date(y,m,0).getDate(),cells=[];for(let i=off-1;i>=0;i--)cells.push({date:new Date(y,m-1,prevDays-i),dim:true});for(let d=1;d<=new Date(y,m+1,0).getDate();d++)cells.push({date:new Date(y,m,d),dim:false});while(cells.length<42){const last=cells[cells.length-1].date,next=new Date(last);next.setDate(next.getDate()+1);cells.push({date:next,dim:next.getMonth()!==m})}return cells}
+function renderMonthLabel(){monthLabel.textContent=`${viewYear}년 ${viewMonth+1}월`;teamBadge.textContent=TEAMS[getTeamIndexForDate(new Date(viewYear,viewMonth,1))]}
+function renderCalendar(){
+  renderMonthLabel();grid.innerHTML='';
+  buildCalendarCells(viewYear,viewMonth).forEach(c=>{
+    const div=document.createElement('div'),isToday=c.date.toDateString()===today.toDateString();div.className='cell'+(c.dim?' dim':'')+(isToday?' today':'');
+    const shift=getMyDisplayShift(c.date),style=getTypeStyle(shift),holiday=getHoliday(c.date),memo=getMemo(c.date),dayColor=c.dim?'#c9c9c9':getDayColor(c.date);
+    div.innerHTML=`<span class="tag" style="background:${style.bg};color:${style.color}">${style.label}</span>${holiday?`<span style="font-size:9px;color:${c.dim?'#d8a4a1':'#e5352b'};font-weight:700;line-height:1.2">${holiday}</span>`:''}<span class="daynum" style="color:${isToday?'#fff':dayColor}">${c.date.getDate()}</span>${memo?`<span class="memo">${memo}</span>`:''}`;
+    div.onclick=()=>openMemoModal(c.date);grid.appendChild(div)
+  })
+}
+function renderBlocks(wrap,rows){
+  wrap.innerHTML='';const days=new Date(viewYear,viewMonth+1,0).getDate(),week=['일','월','화','수','목','금','토'],blocks=[[1,Math.min(10,days)]];if(days>10)blocks.push([11,Math.min(20,days)]);if(days>20)blocks.push([21,days]);
+  blocks.forEach(([s,e])=>{const b=document.createElement('div');b.style.cssText='flex:1 1 0;display:flex;flex-direction:column;min-height:0';
+    const mkRow=(label,fn)=>{const r=document.createElement('div');r.className='trow header-row';r.style.gridTemplateColumns=`60px repeat(${e-s+1},1fr)`;r.innerHTML=`<div class="tcell label">${label}</div>`+Array.from({length:e-s+1},(_,i)=>fn(s+i)).join('');b.appendChild(r)};
+    mkRow('DAY',d=>{const dt=new Date(viewYear,viewMonth,d),h=getHoliday(dt);return `<div class="tcell" style="color:${getDayColor(dt)}">${d}${h?`<span style="font-size:8px;color:#e5352b">${h}</span>`:''}</div>`});
+    mkRow('DATE',d=>{const dt=new Date(viewYear,viewMonth,d);return `<div class="tcell" style="color:${getDayColor(dt)}">${week[dt.getDay()]}</div>`});
+    rows.forEach(rowDef=>{const r=document.createElement('div');r.className='trow';r.style.gridTemplateColumns=`60px repeat(${e-s+1},1fr)`;let html=`<div class="tcell label">${rowDef.label}</div>`;for(let d=s;d<=e;d++){const dt=new Date(viewYear,viewMonth,d),shift=rowDef.get(dt),st=getTypeStyle(shift);html+=`<div class="tcell"><span class="badge" style="background:${st.bg};color:${st.color}">${st.label}</span></div>`}r.innerHTML=html;b.appendChild(r)});wrap.appendChild(b)})
+}
+function renderAll(){renderBlocks(allWrap,TEAMS.map((t,i)=>({label:t,get:d=>i===getTeamIndexForDate(d)?getMyDisplayShift(d):getShiftForTeam(d,i)})))}
+function renderWith(){renderBlocks(withWrap,[{label:'Me',get:d=>getMyDisplayShift(d)},...withEntries.map(en=>({label:en.name,get:d=>getShiftCustom(d,en.refDate,en.cycle)}))])}
+function renderCurrent(){if(currentTab==='My')renderCalendar();else if(currentTab==='All')renderAll();else renderWith();renderMonthLabel()}
+function switchTab(tab){currentTab=tab;calendarWrap.classList.toggle('hidden',tab!=='My');allWrap.classList.toggle('hidden',tab!=='All');withWrap.classList.toggle('hidden',tab!=='With');navMy.classList.toggle('active',tab==='My');navAll.classList.toggle('active',tab==='All');navWith.classList.toggle('active',tab==='With');renderCurrent()}
+
+let memoTargetDate=null;
+function populateOverrideSelect(){memoOverrideSelect.innerHTML='<option value="">기본 패턴 유지</option>'+DEFAULT_TYPE_KEYS.map(k=>`<option value="${k}">${k}</option>`).join('')+CUSTOM_TYPES.map(t=>`<option value="${t.key}">${t.key}</option>`).join('')}
+function openMemoModal(date){memoTargetDate=date;memoTitle.textContent=`${date.getMonth()+1}월 ${date.getDate()}일`;populateOverrideSelect();memoOverrideSelect.value=getOverride(date)||'';memoText.value=getMemo(date);memoModal.classList.remove('hidden')}
+function closeMemoModal(){memoModal.classList.add('hidden');memoTargetDate=null}
+
+function openSettings(){
+  settingsPanel.classList.remove('hidden');settingsCompany.value=companyName;settingsRefDate.value=dateKey(refDate);holidayDataUrl.value=store.get('holidayDataUrl','./data/holidays.json');insuranceDataUrl.value=store.get('insuranceDataUrl','./data/insurance.json');
+  renderTeamSelect();renderTeamHistory();renderTypes();renderCompanyHolidays();renderWithManageList();renderSalaryFields();renderUpdateStatus()
+}
+function renderTeamSelect(){teamSelectRow.innerHTML='';TEAMS.forEach((t,i)=>{const b=document.createElement('button');b.className='btn'+(i===myTeamIndex?' primary':'');b.style.flex='1';b.textContent=t;b.onclick=()=>{myTeamIndex=i;store.set('myTeamIndex',i);renderTeamSelect();renderCurrent()};teamSelectRow.appendChild(b)});teamChangeTeam.innerHTML=TEAMS.map((t,i)=>`<option value="${i}">${t}</option>`).join('')}
+function normalizeHistory(){
+  TEAM_HISTORY.sort((a,b)=>a.from.localeCompare(b.from));
+  TEAM_HISTORY.forEach((r,i)=>{if(i<TEAM_HISTORY.length-1){const d=new Date(TEAM_HISTORY[i+1].from+'T00:00:00');d.setDate(d.getDate()-1);r.to=dateKey(d)}else r.to=null})
+}
+function renderTeamHistory(){normalizeHistory();teamHistoryList.innerHTML=TEAM_HISTORY.map((r,i)=>`<div class="history-row"><div class="grow"><b>${TEAMS[r.teamIndex]}</b><div class="small">${r.from} ~ ${r.to||'현재'}</div></div><button class="btn red" onclick="deleteTeamHistory(${i})">삭제</button></div>`).join('')}
+window.deleteTeamHistory=i=>{if(TEAM_HISTORY.length<=1)return;TEAM_HISTORY.splice(i,1);normalizeHistory();store.set('teamHistory',TEAM_HISTORY);renderTeamHistory();renderCurrent()}
+function renderTypes(){typeManageList.innerHTML='';DEFAULT_TYPE_KEYS.forEach(k=>{const v=SHIFT_STYLE[k],r=document.createElement('div');r.className='type-row';r.innerHTML=`<span class="pill" style="background:${v.bg};color:${v.color}">${v.label}</span><div class="grow"><b>${k}</b><div class="small">패턴 고정</div></div><input type="color" value="${v.bg}">`;r.querySelector('input').oninput=e=>{SHIFT_STYLE[k].bg=e.target.value;saveTypeState();renderCurrent()};typeManageList.appendChild(r)});CUSTOM_TYPES.forEach((t,i)=>{const r=document.createElement('div');r.className='type-row';r.innerHTML=`<span class="pill" style="background:${t.bg};color:${t.color}">${t.label}</span><div class="grow"><b>${t.key}</b></div><input type="color" value="${t.bg}"><button class="btn red">삭제</button>`;r.querySelector('input').oninput=e=>{CUSTOM_TYPES[i].bg=e.target.value;saveTypeState();renderCurrent()};r.querySelector('button').onclick=()=>{CUSTOM_TYPES.splice(i,1);saveTypeState();renderTypes();renderCurrent()};typeManageList.appendChild(r)})}
+function renderCompanyHolidays(){companyHolidayList.innerHTML=COMPANY_HOLIDAYS.map((h,i)=>`<div class="holiday-row"><div class="grow"><b>${h.name}</b><div class="small">${h.annual?`${pad2(h.month)}-${pad2(h.day)} 매년 반복`:h.date} · ${h.payAsHoliday?'휴일수당 적용':'표시만'} · ${h.enabled?'사용':'중지'}</div></div><button class="btn" onclick="toggleHoliday(${i})">${h.enabled?'중지':'사용'}</button><button class="btn red" onclick="deleteHoliday(${i})">삭제</button></div>`).join('')}
+window.toggleHoliday=i=>{COMPANY_HOLIDAYS[i].enabled=!COMPANY_HOLIDAYS[i].enabled;store.set('companyHolidays',COMPANY_HOLIDAYS);renderCompanyHolidays();renderCurrent()}
+window.deleteHoliday=i=>{COMPANY_HOLIDAYS.splice(i,1);store.set('companyHolidays',COMPANY_HOLIDAYS);renderCompanyHolidays();renderCurrent()}
+function renderWithManageList(){withManageList.innerHTML='';withEntries.forEach((en,i)=>{const b=document.createElement('div');b.className='card';b.style.margin='0 0 8px';b.innerHTML=`<div class="row"><input class="form-input n" value="${en.name}"><button class="btn red d">삭제</button></div><input class="form-input r" type="date" value="${en.refDate}" style="margin-top:8px"><input class="form-input c" value="${en.cycle.join(',')}" style="margin-top:8px">`;const commit=()=>{withEntries[i]={name:b.querySelector('.n').value||'비교 대상',refDate:b.querySelector('.r').value||dateKey(refDate),cycle:b.querySelector('.c').value.split(',').map(s=>s.trim()).filter(Boolean).map(s=>s==='주'?'주간':s==='야'?'야간':s==='휴'?'휴무':s)};store.set('withEntries',withEntries);renderCurrent()};b.querySelectorAll('input').forEach(x=>x.onchange=commit);b.querySelector('.d').onclick=()=>{withEntries.splice(i,1);store.set('withEntries',withEntries);renderWithManageList();renderCurrent()};withManageList.appendChild(b)})}
+const salaryFields=[['base1','기본급1'],['base3','기본급3'],['license','면허수당'],['meal','중식비(기지급)'],['pensionSup','개인연금2 회사분'],['shiftH','교대조수당 기준시간'],['matching','매칭그랜트'],['pension2','개인연금2 사원분'],['foodDed','식비공제'],['house','사택료'],['prevAnnual','전년도 소득총액'],['employ','고용보험율(%)'],['incomeTaxRate','예상 소득세율(%)']];
+function renderSalaryFields(){salaryFieldsGrid.innerHTML=salaryFields.map(([k,l])=>`<div class="form-group"><label class="form-label">${l}</label><input id="sal-${k}" type="number" step="0.01" class="form-input" value="${SAL[k]}"></div>`).join('')}
+function renderUpdateStatus(){holidayUpdateStatus.textContent=`현재 공휴일 버전: ${HOLIDAY_DATA.version||'-'} / ${HOLIDAY_DATA.updatedAt||'-'}`;insuranceUpdateStatus.textContent=`현재 보험 버전: ${INSURANCE_DATA.version||'-'} / ${INSURANCE_DATA.updatedAt||'-'}`}
+async function updateRemote(kind){
+  const url=(kind==='holiday'?holidayDataUrl:insuranceDataUrl).value.trim();if(!url)return alert('JSON 주소를 입력하세요.');
+  try{const res=await fetch(url+(url.includes('?')?'&':'?')+'t='+Date.now(),{cache:'no-store'});if(!res.ok)throw new Error('HTTP '+res.status);const data=await res.json();
+    if(kind==='holiday'){
+      if(!data.version||!data.holidays||!Array.isArray(data.majorDays))throw new Error('공휴일 JSON 형식 오류');
+      HOLIDAY_DATA=data;
+      store.set('remoteHolidayData',data);
+      store.set('holidayDataUrl',url);
+      if(Array.isArray(data.customHolidays)){
+        const existingIds=new Set(COMPANY_HOLIDAYS.map(h=>h.id));
+        data.customHolidays.forEach(h=>{if(!existingIds.has(h.id))COMPANY_HOLIDAYS.push(h)});
+        store.set('companyHolidays',COMPANY_HOLIDAYS);
+      }
+    }
+    else{if(!data.version||!Array.isArray(data.health)||!Array.isArray(data.nps))throw new Error('보험 JSON 형식 오류');INSURANCE_DATA=data;store.set('remoteInsuranceData',data);store.set('insuranceDataUrl',url)}
+    renderUpdateStatus();renderCurrent();alert('업데이트 완료')
+  }catch(e){alert('업데이트 실패: '+e.message+'\n기존 데이터를 계속 사용합니다.')}
+}
+
+function renderDashboard(){
+  const y=viewYear,m=viewMonth+1,sal=calcSalary(y,m);let py=y,pm=m-1;if(pm<1){pm=12;py--}const prev=calcSalary(py,pm);
+  let payY=y,payM=m+1;if(payM>12){payM=1;payY++}
+  const ded=calcDeductions(sal.totalA,payY,payM),prevDed=calcDeductions(prev.totalA,y,m);
+  dashboardContent.innerHTML=`<div class="notice info">${y}년 ${m}월 근태 → ${payY}년 ${payM}월 21일 예상 지급</div>
+  <div class="stat-grid">
+    <div class="stat"><div class="k">이번달 예상 실수령</div><div class="v">${fmt(prevDed.netPay)}</div><div class="s">원</div></div>
+    <div class="stat"><div class="k">다음달 예상 실수령</div><div class="v">${fmt(ded.netPay)}</div><div class="s">원</div></div>
+    <div class="stat"><div class="k">통상시급</div><div class="v">${fmt(sal.hr)}</div><div class="s">원</div></div>
+    <div class="stat"><div class="k">실제 출근일수</div><div class="v">${sal.h.workDays}</div><div class="s">연차 ${sal.h.annualDays}일</div></div>
+  </div>
+  <div class="card"><div class="card-title">근무시간</div><table class="data-table">
+    <tr><td>정상근무</td><td>${sal.h.normal}h</td></tr><tr><td>심야</td><td>${sal.h.night}h</td></tr><tr><td>연장</td><td>${sal.h.extend}h</td></tr>
+    <tr><td>주휴/주휴연장</td><td>${sal.h.weekly}/${sal.h.weeklyExt}h</td></tr><tr><td>휴일/휴일연장</td><td>${sal.h.holiday}/${sal.h.holidayExt}h</td></tr>
+    <tr><td>명절 기본/연장</td><td>${sal.h.festBase}/${sal.h.festExt}h</td></tr></table></div>
+  <div class="card"><div class="card-title">수당 예상액</div><table class="data-table">${Object.entries(sal.pay).filter(([k,v])=>v>0&&!['기본급1','기본급3','면허수당','고정상여'].includes(k)).map(([k,v])=>`<tr><td>${k}</td><td>${fmtW(v)}</td></tr>`).join('')}</table></div>`
+}
+let salaryViewYear=today.getFullYear(),salaryViewMonth=today.getMonth()+1;
+function renderSalary(){
+  let by=salaryViewYear,bm=salaryViewMonth-1;if(bm<1){bm=12;by--}
+  const sal=calcSalary(by,bm),ded=calcDeductions(sal.totalA,salaryViewYear,salaryViewMonth);
+  salaryTitle.textContent=`${salaryViewYear}년 ${salaryViewMonth}월`;
+  salaryContent.innerHTML=`<div class="notice warn">근태 반영월: ${by}년 ${bm}월 · 지급일: ${salaryViewYear}년 ${salaryViewMonth}월 21일<br>소득세는 예측값이며 실제 급여명세서와 다를 수 있습니다.</div>
+  <div class="stat-grid"><div class="stat"><div class="k">통상시급</div><div class="v">${fmt(sal.hr)}</div><div class="s">원</div></div><div class="stat"><div class="k">근무일수</div><div class="v">${sal.h.workDays}</div><div class="s">연차 ${sal.h.annualDays}일</div></div><div class="stat"><div class="k">지급총액</div><div class="v">${fmt(sal.totalA)}</div><div class="s">원</div></div><div class="stat"><div class="k">실수령액</div><div class="v">${fmt(ded.netPay)}</div><div class="s">원</div></div></div>
+  <div class="slip-grid">
+    <div class="card"><div class="card-title">지급내역</div><table class="slip-table">${Object.entries(sal.pay).map(([k,v])=>`<tr><td>${k}</td><td>${v?fmtW(v):'-'}</td></tr>`).join('')}<tr><td colspan="2" style="font-size:11px;color:#888">기지급내역</td></tr>${Object.entries(sal.extra).map(([k,v])=>`<tr><td>${k}</td><td>${fmtW(v)}</td></tr>`).join('')}<tr class="total"><td>지급합계</td><td>${fmtW(sal.totalA)}</td></tr></table></div>
+    <div class="card"><div class="card-title">공제내역</div><table class="slip-table">${Object.entries(ded.ded).map(([k,v])=>`<tr><td>${k}</td><td>${fmtW(v)}</td></tr>`).join('')}<tr class="total"><td>공제합계</td><td>${fmtW(ded.totalDed)}</td></tr></table></div>
+  </div>
+  <div class="card"><div class="card-title">보험 적용 기준</div><table class="data-table"><tr><td>건강보험 근로자율</td><td>${ded.healthRule.employeeRate}%</td></tr><tr><td>장기요양 소득대비율</td><td>${ded.healthRule.longTermCareIncomeRate}%</td></tr><tr><td>국민연금 근로자율</td><td>${ded.npsRule.employeeRate}%</td></tr><tr><td>국민연금 기준소득 하한/상한</td><td>${fmt(ded.npsRule.minIncome)} / ${fmt(ded.npsRule.maxIncome)}</td></tr><tr><td>국민연금 적용 기준소득</td><td>${fmtW(ded.npsBase)}</td></tr></table></div>
+  <button class="btn primary" style="width:100%" onclick="window.print()">인쇄 / PDF 저장</button>`
+}
+
+function changeMonth(delta){viewMonth+=delta;if(viewMonth<0){viewMonth=11;viewYear--}if(viewMonth>11){viewMonth=0;viewYear++}store.set('viewYear',viewYear);store.set('viewMonth',viewMonth);renderCurrent()}
+(function attachSwipe(){let sx=0,sy=0,tracking=false;app.addEventListener('pointerdown',e=>{if(!settingsPanel.classList.contains('hidden')||!memoModal.classList.contains('hidden')||!dashboardPanel.classList.contains('hidden')||!salaryPanel.classList.contains('hidden'))return;tracking=true;sx=e.clientX;sy=e.clientY});app.addEventListener('pointerup',e=>{if(!tracking)return;tracking=false;const dx=e.clientX-sx,dy=e.clientY-sy;if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy))changeMonth(dx>0?-1:1)})})();
+
+navMy.onclick=()=>switchTab('My');
+autoLoadHolidayData();navAll.onclick=()=>switchTab('All');navWith.onclick=()=>switchTab('With');
+navDashboard.onclick=()=>{dashboardPanel.classList.remove('hidden');renderDashboard();navDashboard.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'})};
+navSalary.onclick=()=>{salaryPanel.classList.remove('hidden');renderSalary();navSalary.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'})};
+navSetting.onclick=openSettings;settingsBtn.onclick=openSettings;
+settingsClose.onclick=()=>settingsPanel.classList.add('hidden');dashboardClose.onclick=()=>dashboardPanel.classList.add('hidden');salaryClose.onclick=()=>salaryPanel.classList.add('hidden');
+prevMonthBtn.onclick=()=>changeMonth(-1);nextMonthBtn.onclick=()=>changeMonth(1);
+memoCancelBtn.onclick=closeMemoModal;memoSaveBtn.onclick=()=>{if(!memoTargetDate)return;setMemo(memoTargetDate,memoText.value);setOverride(memoTargetDate,memoOverrideSelect.value);closeMemoModal();renderCurrent()};memoDeleteBtn.onclick=()=>{if(!memoTargetDate)return;setMemo(memoTargetDate,'');setOverride(memoTargetDate,'');closeMemoModal();renderCurrent()};
+companyInput.value=companyName;companyInput.oninput=e=>{companyName=e.target.value;store.set('companyName',companyName)};settingsCompany.oninput=e=>{companyName=e.target.value;companyInput.value=companyName;store.set('companyName',companyName)};
+settingsRefDate.onchange=e=>{if(!e.target.value)return;refDate=new Date(e.target.value+'T00:00:00');store.set('refDate',e.target.value);renderCurrent()};
+addTeamHistoryBtn.onclick=()=>{if(!teamChangeDate.value)return alert('변경일을 입력하세요.');TEAM_HISTORY=TEAM_HISTORY.filter(r=>r.from!==teamChangeDate.value);TEAM_HISTORY.push({from:teamChangeDate.value,to:null,teamIndex:+teamChangeTeam.value});normalizeHistory();store.set('teamHistory',TEAM_HISTORY);myTeamIndex=+teamChangeTeam.value;store.set('myTeamIndex',myTeamIndex);renderTeamHistory();renderTeamSelect();renderCurrent()};
+addTypeBtn.onclick=()=>{const n=newTypeLabel.value.trim();if(!n)return;CUSTOM_TYPES.push({key:n,label:n.slice(0,3),bg:newTypeColor.value,color:'#fff'});saveTypeState();newTypeLabel.value='';renderTypes()};
+addHolidayBtn.onclick=()=>{const n=holidayName.value.trim(),d=holidayDate.value;if(!n||!d)return alert('휴일명과 날짜를 입력하세요.');const dt=new Date(d+'T00:00:00');COMPANY_HOLIDAYS.push({id:'custom-'+Date.now(),name:n,month:dt.getMonth()+1,day:dt.getDate(),date:d,enabled:true,payAsHoliday:holidayPay.checked,annual:holidayAnnual.checked});store.set('companyHolidays',COMPANY_HOLIDAYS);holidayName.value='';renderCompanyHolidays();renderCurrent()};
+addWithBtn.onclick=()=>{withEntries.push({name:'새 비교 대상',refDate:dateKey(refDate),cycle:[...CYCLE]});store.set('withEntries',withEntries);renderWithManageList()};
+saveSalaryBtn.onclick=()=>{salaryFields.forEach(([k])=>{SAL[k]=parseFloat(document.getElementById('sal-'+k).value)||0});store.set('salarySettings',SAL);alert('급여 설정 저장 완료')};
+updateHolidayBtn.onclick=()=>updateRemote('holiday');updateInsuranceBtn.onclick=()=>updateRemote('insurance');
+clearMemosBtn.onclick=()=>{Object.keys(localStorage).filter(k=>k.startsWith('memo-')).forEach(k=>localStorage.removeItem(k));renderCurrent();alert('메모 삭제 완료')};
+salPrevBtn.onclick=()=>{salaryViewMonth--;if(salaryViewMonth<1){salaryViewMonth=12;salaryViewYear--}renderSalary()};salNextBtn.onclick=()=>{salaryViewMonth++;if(salaryViewMonth>12){salaryViewMonth=1;salaryViewYear++}renderSalary()};
+
+
+/* ===== 선택형 Google Spreadsheet + GAS 백업 ===== */
+const GAS_CONFIG_KEY='shiftcalendarGasConfig';
+const GAS_SERVER_CODE=String.raw`const DB_NAME = '교대달력 급여 데이터베이스';
+
+function setupDatabase() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss) throw new Error('스프레드시트의 확장 프로그램 → Apps Script에서 실행하세요.');
+
+  const props = PropertiesService.getScriptProperties();
+  let appKey = props.getProperty('APP_KEY');
+  if (!appKey) {
+    appKey = Utilities.getUuid() + Utilities.getUuid().replace(/-/g, '');
+    props.setProperty('APP_KEY', appKey);
+  }
+  props.setProperty('SPREADSHEET_ID', ss.getId());
+
+  ensureSheet_(ss, 'config', ['key', 'value', 'description']);
+  ensureSheet_(ss, 'appData', ['id', 'json', 'updatedAt']);
+  ensureSheet_(ss, 'settings', ['key', 'value']);
+  ensureSheet_(ss, 'attendance', ['date', 'override', 'memo']);
+  ensureSheet_(ss, 'teamHistory', ['from', 'to', 'teamIndex']);
+  ensureSheet_(ss, 'salaryOverrides', ['salaryMonth', 'field', 'value']);
+  ensureSheet_(ss, 'companyHolidays', ['id', 'name', 'month', 'day', 'date', 'annual', 'enabled', 'payAsHoliday']);
+
+  const config = ss.getSheetByName('config');
+  config.clearContents();
+  config.getRange(1,1,3,3).setValues([
+    ['key','value','description'],
+    ['APP_KEY',appKey,'교대달력 설정창에 입력할 인증키'],
+    ['SPREADSHEET_ID',ss.getId(),'데이터베이스 식별자']
+  ]);
+  config.setFrozenRows(1);
+  config.autoResizeColumns(1,3);
+
+  SpreadsheetApp.getUi().alert('양식 생성 완료\\\\nconfig 시트의 APP_KEY를 앱에 입력하세요.');
+  return {ok:true, spreadsheetId:ss.getId(), appKey:appKey};
+}
+
+function ensureSheet_(ss, name, headers) {
+  let sh = ss.getSheetByName(name);
+  if (!sh) sh = ss.insertSheet(name);
+  sh.clearContents();
+  sh.getRange(1,1,1,headers.length).setValues([headers]);
+  sh.setFrozenRows(1);
+  sh.autoResizeColumns(1,headers.length);
+}
+
+function jsonOutput_(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+function verify_(key) {
+  const saved = PropertiesService.getScriptProperties().getProperty('APP_KEY');
+  if (!saved || key !== saved) throw new Error('인증키가 올바르지 않습니다.');
+}
+function getDb_() {
+  const id = PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID');
+  if (!id) throw new Error('setupDatabase를 먼저 실행하세요.');
+  return SpreadsheetApp.openById(id);
+}
+function doGet(e) {
+  try {
+    const action = (e.parameter.action || 'ping').toLowerCase();
+    verify_(e.parameter.key || '');
+    if (action === 'ping') return jsonOutput_({ok:true,message:'연결 성공'});
+    if (action === 'load') {
+      const sh = getDb_().getSheetByName('appData');
+      if (sh.getLastRow() < 2) return jsonOutput_({ok:true,data:null,message:'저장된 백업이 없습니다.'});
+      return jsonOutput_({ok:true,data:JSON.parse(sh.getRange(2,2).getValue()),updatedAt:sh.getRange(2,3).getValue()});
+    }
+    return jsonOutput_({ok:false,error:'지원하지 않는 요청'});
+  } catch (err) {
+    return jsonOutput_({ok:false,error:err.message});
+  }
+}
+function doPost(e) {
+  try {
+    const body = JSON.parse(e.postData.contents || '{}');
+    verify_(body.key || '');
+    if (body.action !== 'save') throw new Error('지원하지 않는 요청');
+    writeAll_(getDb_(), body.data || {});
+    return jsonOutput_({ok:true,message:'백업 완료',updatedAt:new Date().toISOString()});
+  } catch (err) {
+    return jsonOutput_({ok:false,error:err.message});
+  }
+}
+function writeAll_(ss, data) {
+  const updatedAt = new Date().toISOString();
+  const appData = ss.getSheetByName('appData');
+  appData.clearContents();
+  appData.getRange(1,1,2,3).setValues([['id','json','updatedAt'],['latest',JSON.stringify(data),updatedAt]]);
+  appData.setFrozenRows(1);
+
+  writeKeyValue_(ss.getSheetByName('settings'), data.salarySettings || {});
+
+  const attendance = ss.getSheetByName('attendance');
+  const attRows = [['date','override','memo']];
+  const keys = {};
+  Object.keys(data.localStorage || {}).forEach(function(k) {
+    if (k.indexOf('override-') === 0) keys[k.slice(9)] = true;
+    if (k.indexOf('memo-') === 0) keys[k.slice(5)] = true;
+  });
+  Object.keys(keys).sort().forEach(function(date) {
+    attRows.push([date,parseStored_(data.localStorage['override-'+date]),parseStored_(data.localStorage['memo-'+date])]);
+  });
+  attendance.clearContents();
+  attendance.getRange(1,1,attRows.length,3).setValues(attRows);
+  attendance.setFrozenRows(1);
+
+  writeRows_(ss.getSheetByName('teamHistory'),['from','to','teamIndex'],data.teamHistory||[],['from','to','teamIndex']);
+
+  const salRows = [['salaryMonth','field','value']];
+  Object.keys(data.salaryOverrides || {}).sort().forEach(function(month) {
+    Object.keys(data.salaryOverrides[month] || {}).forEach(function(field) {
+      salRows.push([month,field,data.salaryOverrides[month][field]]);
+    });
+  });
+  const sal = ss.getSheetByName('salaryOverrides');
+  sal.clearContents();
+  sal.getRange(1,1,salRows.length,3).setValues(salRows);
+  sal.setFrozenRows(1);
+
+  writeRows_(ss.getSheetByName('companyHolidays'),
+    ['id','name','month','day','date','annual','enabled','payAsHoliday'],
+    data.companyHolidays||[],
+    ['id','name','month','day','date','annual','enabled','payAsHoliday']);
+}
+function parseStored_(v) {
+  if (v === undefined || v === null || v === '') return '';
+  try { return JSON.parse(v); } catch (_) { return v; }
+}
+function writeKeyValue_(sheet,obj) {
+  const rows=[['key','value']];
+  Object.keys(obj).forEach(function(k){rows.push([k,obj[k]]);});
+  sheet.clearContents();
+  sheet.getRange(1,1,rows.length,2).setValues(rows);
+  sheet.setFrozenRows(1);
+}
+function writeRows_(sheet,headers,list,fields) {
+  const rows=[headers];
+  (list||[]).forEach(function(item){rows.push(fields.map(function(f){return item[f] == null ? '' : item[f];}));});
+  sheet.clearContents();
+  sheet.getRange(1,1,rows.length,headers.length).setValues(rows);
+  sheet.setFrozenRows(1);
+}`;
+
+function gasEls_(){return {url:document.getElementById('gasUrlInput'),key:document.getElementById('gasKeyInput'),status:document.getElementById('gasStatus')}}
+function getGasConfig_(){return store.get(GAS_CONFIG_KEY,{url:'',key:''})}
+function renderGasStatus_(msg){const e=gasEls_(),c=getGasConfig_();if(e.status)e.status.textContent=msg||(c.url&&c.key?'연결정보 설정됨':'미설정 · 로컬스토리지만 사용 중')}
+function loadGasConfigUI_(){const c=getGasConfig_(),e=gasEls_();if(e.url)e.url.value=c.url||'';if(e.key)e.key.value=c.key||'';renderGasStatus_()}
+function saveGasConfig_(){
+  const e=gasEls_(),c={url:e.url.value.trim(),key:e.key.value.trim()};
+  if(c.url&&!c.url.startsWith('https://script.google.com/')){alert('Apps Script 웹 앱 URL을 입력하세요.');return false}
+  store.set(GAS_CONFIG_KEY,c);renderGasStatus_('연결정보 저장됨');return true
+}
+async function copyGasCode_(){
+  try{await navigator.clipboard.writeText(GAS_SERVER_CODE)}catch(_){
+    const t=document.createElement('textarea');t.value=GAS_SERVER_CODE;document.body.appendChild(t);t.select();document.execCommand('copy');t.remove()
+  }
+  alert('GAS 코드가 복사되었습니다.')
+}
+function collectBackupData_(){
+  const local={};
+  for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k!==GAS_CONFIG_KEY)local[k]=localStorage.getItem(k)}
+  return {schemaVersion:1,exportedAt:new Date().toISOString(),localStorage:local,salarySettings:SAL,teamHistory:TEAM_HISTORY,salaryOverrides:salOvr,companyHolidays:COMPANY_HOLIDAYS}
+}
+async function gasGet_(action){
+  const c=getGasConfig_();if(!c.url||!c.key)throw new Error('URL과 인증키를 먼저 저장하세요.');
+  const u=new URL(c.url);u.searchParams.set('action',action);u.searchParams.set('key',c.key);u.searchParams.set('_',Date.now());
+  const r=await fetch(u.toString(),{cache:'no-store'}),d=await r.json();if(!d.ok)throw new Error(d.error||'요청 실패');return d
+}
+async function testGasConnection_(){
+  try{if(!saveGasConfig_())return;renderGasStatus_('연결 테스트 중...');const d=await gasGet_('ping');renderGasStatus_(d.message||'연결 성공');alert('GAS 연결 성공')}
+  catch(e){renderGasStatus_('연결 실패: '+e.message);alert('연결 실패: '+e.message)}
+}
+async function backupToGas_(){
+  try{
+    if(!saveGasConfig_())return;const c=getGasConfig_();renderGasStatus_('백업 중...');
+    const r=await fetch(c.url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'save',key:c.key,data:collectBackupData_()})});
+    const d=await r.json();if(!d.ok)throw new Error(d.error||'백업 실패');renderGasStatus_('백업 완료: '+new Date().toLocaleString('ko-KR'));alert('구글 스프레드시트 백업 완료')
+  }catch(e){renderGasStatus_('백업 실패: '+e.message);alert('백업 실패: '+e.message)}
+}
+async function restoreFromGas_(){
+  try{
+    if(!confirm('구글 백업으로 현재 데이터를 덮어쓸까요?'))return;if(!saveGasConfig_())return;
+    renderGasStatus_('불러오는 중...');const r=await gasGet_('load');if(!r.data)throw new Error(r.message||'백업 없음');
+    const keep=getGasConfig_();Object.entries(r.data.localStorage||{}).forEach(([k,v])=>localStorage.setItem(k,v));store.set(GAS_CONFIG_KEY,keep);
+    alert('복원 완료. 앱을 다시 불러옵니다.');location.reload()
+  }catch(e){renderGasStatus_('복원 실패: '+e.message);alert('복원 실패: '+e.message)}
+}
+
+document.getElementById('gasOpenSheetBtn').onclick=()=>window.open('https://sheets.new','_blank');
+document.getElementById('gasCopyCodeBtn').onclick=copyGasCode_;
+document.getElementById('gasGuideCopyBtn').onclick=copyGasCode_;
+document.getElementById('gasGuideBtn').onclick=()=>document.getElementById('gasGuideModal').classList.remove('hidden');
+document.getElementById('gasGuideCloseBtn').onclick=()=>document.getElementById('gasGuideModal').classList.add('hidden');
+document.getElementById('gasSaveConfigBtn').onclick=saveGasConfig_;
+document.getElementById('gasTestBtn').onclick=testGasConnection_;
+document.getElementById('gasBackupBtn').onclick=backupToGas_;
+document.getElementById('gasRestoreBtn').onclick=restoreFromGas_;
+document.getElementById('gasGuideModal').onclick=e=>{if(e.target.id==='gasGuideModal')e.currentTarget.classList.add('hidden')};
+
+const originalOpenSettings_=openSettings;
+openSettings=function(){originalOpenSettings_();loadGasConfigUI_()};
+loadGasConfigUI_();
+
+
+async function autoLoadHolidayData(){
+  const url=store.get('holidayDataUrl','./data/holidays.json');
+  try{
+    const res=await fetch(url+(url.includes('?')?'&':'?')+'t='+Date.now(),{cache:'no-store'});
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    const data=await res.json();
+    if(!data.version||!data.holidays||!Array.isArray(data.majorDays))throw new Error('공휴일 JSON 형식 오류');
+
+    const previousVersion=HOLIDAY_DATA.version;
+    HOLIDAY_DATA=data;
+    store.set('remoteHolidayData',data);
+
+    if(Array.isArray(data.customHolidays)){
+      const existingIds=new Set(COMPANY_HOLIDAYS.map(h=>h.id));
+      data.customHolidays.forEach(h=>{
+        if(!existingIds.has(h.id))COMPANY_HOLIDAYS.push(h);
+      });
+      store.set('companyHolidays',COMPANY_HOLIDAYS);
+    }
+
+    if(previousVersion!==data.version)renderCurrent();
+  }catch(err){
+    console.warn('공휴일 자동 불러오기 실패. 저장된 캐시를 사용합니다.',err);
+  }
+}
+
+switchTab('My');
+</script>
+</body>
+</html>
