@@ -8,17 +8,16 @@
 :root{
   --blue-dark:#3a5a9a;--blue-mid:#4a7fd8;--red:#e5352b;--yellow:#f2e79a;
   --black:#2b2b2b;--gray-bg:#f4f5f7;--line:#e3e5ea;--green:#1a6b4a;
-  --surface:#fff;--text:#222;--muted:#777;--warn:#7a4f00;--warn-bg:#fff4d6;
+  --surface:#fff;--text:#222;--muted:#777;--warn:#7a4f00;--warn-bg:#fff4d6;--nav-h:66px;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0;height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Malgun Gothic",sans-serif;background:var(--gray-bg);color:var(--text);user-select:none}
 button,input,select,textarea{font-family:inherit}
 input,select,textarea{font-size:16px!important}
 button{cursor:pointer}
-#app{display:flex;flex-direction:column;height:100vh;height:100dvh;width:100vw;overflow:hidden}
-header{background:var(--blue-dark);color:#fff;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;flex:0 0 auto}
-header .company{background:#fff;color:#333;border-radius:6px;padding:8px 10px;width:112px;border:none}
-header .title{font-weight:800;letter-spacing:.5px;font-size:16px}
+#app{display:flex;flex-direction:column;height:100vh;height:100dvh;width:100vw;overflow:hidden;padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom))}
+header{background:var(--blue-dark);color:#fff;padding:10px 12px;display:grid;grid-template-columns:38px 1fr 38px;align-items:center;flex:0 0 auto;position:relative;z-index:20}
+header .title{font-weight:800;letter-spacing:.5px;font-size:18px;text-align:center}
 .month-bar{background:var(--blue-mid);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:10px 8px;font-size:20px;font-weight:800;flex:0 0 auto}
 .month-bar button{background:none;border:none;color:#fff;font-size:22px;font-weight:800;padding:0 10px}
 .month-bar .team-badge{font-size:15px;background:rgba(255,255,255,.15);padding:4px 10px;border-radius:6px;font-weight:700}
@@ -40,16 +39,25 @@ header .title{font-weight:800;letter-spacing:.5px;font-size:16px}
 .tcell span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tcell:last-child{border-right:none}.tcell.label{font-weight:800;font-size:12px;background:#fafbfc}
 .badge{color:#fff;font-size:11px;font-weight:800;padding:2px 6px;border-radius:3px}
-nav{position:relative;z-index:7000;flex:0 0 auto;display:flex;align-items:center;background:#fff;border-top:1px solid var(--line);padding:6px 0 max(6px,env(safe-area-inset-bottom));overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity;touch-action:pan-x}
+nav{
+  position:fixed;left:0;right:0;bottom:0;z-index:9000;
+  height:calc(var(--nav-h) + env(safe-area-inset-bottom));
+  display:flex;align-items:flex-start;background:#fff;
+  border-top:1px solid var(--line);
+  padding:6px 0 max(6px,env(safe-area-inset-bottom));
+  overflow-x:auto;overflow-y:hidden;
+  -webkit-overflow-scrolling:touch;
+  scroll-snap-type:x proximity;touch-action:pan-x;
+}
 nav::-webkit-scrollbar{display:none}
 nav button{background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:#999;padding:2px 4px;flex:0 0 20vw;min-width:20vw;max-width:20vw;scroll-snap-align:center;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 nav button.active{color:#2266ee}nav .icon{font-size:18px}
 .hidden{display:none!important}
-.panel{position:fixed;top:0;left:0;right:0;bottom:calc(58px + env(safe-area-inset-bottom));z-index:5000;background:var(--gray-bg);display:flex;flex-direction:column}
-.panel-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line);flex:0 0 auto;background:#fff}
+.panel{position:fixed;top:0;left:0;right:0;bottom:calc(var(--nav-h) + env(safe-area-inset-bottom));z-index:5000;background:var(--gray-bg);display:flex;flex-direction:column;overflow:hidden}
+.panel-head{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line);flex:0 0 auto;background:#fff}
 .panel-head button{background:none;border:none;font-size:22px;color:#2266ee}
 .panel-title{font-weight:800;font-size:17px}
-.panel-body{flex:1 1 auto;overflow-y:auto;overflow-x:hidden;touch-action:pan-y;padding:16px}
+.panel-body{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;touch-action:pan-y;padding:16px 16px 24px}
 .section-label{font-size:13px;color:#888;font-weight:700;margin:6px 0}
 .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
 .card-title{font-weight:800;font-size:14px;margin-bottom:10px}
@@ -67,7 +75,7 @@ nav button.active{color:#2266ee}nav .icon{font-size:18px}
 .type-row,.history-row,.holiday-row,.rule-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}.type-row:last-child,.history-row:last-child,.holiday-row:last-child,.rule-row:last-child{border-bottom:none}
 .pill{padding:2px 7px;border-radius:999px;font-size:11px;font-weight:800}
 .small{font-size:11px;color:#888}.grow{flex:1}
-.modal{position:fixed;inset:0;z-index:6000;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center}
+.modal{position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center}
 .modal-box{background:#fff;border-radius:14px;width:88%;max-width:360px;padding:18px}
 hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
 @media(min-width:700px){.stat-grid{grid-template-columns:repeat(4,1fr)}.slip-grid{grid-template-columns:1fr 1fr}}
@@ -76,8 +84,8 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
 <body>
 <div id="app">
 <header>
-  <input id="companyInput" class="company" placeholder="회사/조 이름">
-  <div class="title">SHIFTCALENDAR</div>
+  <div style="width:38px"></div>
+  <div class="title">교대달력</div>
   <button id="settingsBtn" aria-label="설정" style="background:none;border:none;color:#fff;font-size:24px;padding:4px 6px">⚙️</button>
 </header>
 
@@ -115,7 +123,7 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
   <div class="panel-body">
     <div class="section-label">캘린더 설정</div>
     <div class="card">
-      <div class="form-group"><label class="form-label">회사/그룹 이름</label><input id="settingsCompany" class="form-input"></div>
+      <div class="form-group"><label class="form-label">회사/조 이름</label><input id="settingsCompany" class="form-input" placeholder="예: 롯데MCC C조"></div>
       <div class="form-group"><label class="form-label">현재 조</label><div id="teamSelectRow" class="row"></div></div>
       <div class="form-group"><label class="form-label">조 패턴 기준일</label><input id="settingsRefDate" type="date" class="form-input"><div class="form-hint">이 날짜에 C조가 주간 첫날이 되도록 계산합니다.</div></div>
     </div>
@@ -472,7 +480,7 @@ function calcDeductions(totalA,salY,salM){
 
 let viewYear=store.get('viewYear',today.getFullYear()),viewMonth=store.get('viewMonth',today.getMonth()),currentTab='My';
 function buildCalendarCells(y,m){const first=new Date(y,m,1),off=first.getDay(),prevDays=new Date(y,m,0).getDate(),cells=[];for(let i=off-1;i>=0;i--)cells.push({date:new Date(y,m-1,prevDays-i),dim:true});for(let d=1;d<=new Date(y,m+1,0).getDate();d++)cells.push({date:new Date(y,m,d),dim:false});while(cells.length<42){const last=cells[cells.length-1].date,next=new Date(last);next.setDate(next.getDate()+1);cells.push({date:next,dim:next.getMonth()!==m})}return cells}
-function renderMonthLabel(){monthLabel.textContent=`${viewYear}년 ${viewMonth+1}월`;teamBadge.textContent=TEAMS[getTeamIndexForDate(new Date(viewYear,viewMonth,15))]}
+function renderMonthLabel(){monthLabel.textContent=`${viewYear}년 ${viewMonth+1}월`;teamBadge.textContent=(companyName&&companyName.trim())?companyName.trim():TEAMS[getTeamIndexForDate(new Date(viewYear,viewMonth,15))]}
 function renderCalendar(){
   renderMonthLabel();grid.innerHTML='';
   buildCalendarCells(viewYear,viewMonth).forEach(c=>{
@@ -590,13 +598,13 @@ navDashboard.onclick=()=>{closeAllPanels();dashboardPanel.classList.remove('hidd
 navSalary.onclick=()=>{closeAllPanels();salaryPanel.classList.remove('hidden');renderSalary();activateNav(navSalary)};
 navSetting.onclick=()=>{closeAllPanels();openSettings();activateNav(navSetting)};
 settingsBtn.onclick=()=>{closeAllPanels();openSettings();activateNav(navSetting)};
-settingsClose.onclick=()=>{settingsPanel.classList.add('hidden');activateNav(navMy)};
-dashboardClose.onclick=()=>{dashboardPanel.classList.add('hidden');activateNav(navMy)};
-salaryClose.onclick=()=>{salaryPanel.classList.add('hidden');activateNav(navMy)};
+settingsClose.onclick=()=>{settingsPanel.classList.add('hidden');switchTab('My');activateNav(navMy)};
+dashboardClose.onclick=()=>{dashboardPanel.classList.add('hidden');switchTab('My');activateNav(navMy)};
+salaryClose.onclick=()=>{salaryPanel.classList.add('hidden');switchTab('My');activateNav(navMy)};
 prevMonthBtn.onclick=()=>changeMonth(-1);nextMonthBtn.onclick=()=>changeMonth(1);
 memoCancelBtn.onclick=closeMemoModal;
 memoModal.addEventListener('click',e=>{if(e.target===memoModal)closeMemoModal()});memoSaveBtn.onclick=()=>{if(!memoTargetDate)return;setMemo(memoTargetDate,memoText.value);setOverride(memoTargetDate,memoOverrideSelect.value);closeMemoModal();renderCurrent()};memoDeleteBtn.onclick=()=>{if(!memoTargetDate)return;setMemo(memoTargetDate,'');setOverride(memoTargetDate,'');closeMemoModal();renderCurrent()};
-companyInput.value=companyName;companyInput.oninput=e=>{companyName=e.target.value;store.set('companyName',companyName)};settingsCompany.oninput=e=>{companyName=e.target.value;companyInput.value=companyName;store.set('companyName',companyName)};
+settingsCompany.oninput=e=>{companyName=e.target.value;store.set('companyName',companyName);renderMonthLabel()};
 settingsRefDate.onchange=e=>{if(!e.target.value)return;refDate=new Date(e.target.value+'T00:00:00');store.set('refDate',e.target.value);renderCurrent()};
 addTeamHistoryBtn.onclick=()=>{if(!teamChangeDate.value)return alert('변경일을 입력하세요.');TEAM_HISTORY=TEAM_HISTORY.filter(r=>r.from!==teamChangeDate.value);TEAM_HISTORY.push({from:teamChangeDate.value,to:null,teamIndex:+teamChangeTeam.value});normalizeHistory();store.set('teamHistory',TEAM_HISTORY);myTeamIndex=+teamChangeTeam.value;store.set('myTeamIndex',myTeamIndex);renderTeamHistory();renderTeamSelect();renderCurrent()};
 addTypeBtn.onclick=()=>{const n=newTypeLabel.value.trim();if(!n)return;CUSTOM_TYPES.push({key:n,label:n.slice(0,3),bg:newTypeColor.value,color:'#fff'});saveTypeState();newTypeLabel.value='';renderTypes()};
