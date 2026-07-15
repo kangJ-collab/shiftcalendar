@@ -1,1 +1,33 @@
-
+{
+  "schemaVersion": 2,
+  "version": "waiting-for-api",
+  "updatedAt": null,
+  "generatedBy": "GitHub Actions + 한국천문연구원 특일 정보 API",
+  "sourceName": "한국천문연구원 특일 정보 API",
+  "sourceUrl": "https://www.data.go.kr/data/15012690/openapi.do",
+  "years": [],
+  "holidays": {},
+  "majorDays": [],
+  "customHolidays": [
+    {
+      "id": "union-foundation",
+      "name": "노동조합 창립기념일",
+      "month": 2,
+      "day": 3,
+      "annual": true,
+      "enabled": true,
+      "payAsHoliday": true,
+      "editable": true
+    },
+    {
+      "id": "company-foundation",
+      "name": "회사 창립기념일",
+      "month": 8,
+      "day": 2,
+      "annual": true,
+      "enabled": true,
+      "payAsHoliday": true,
+      "editable": true
+    }
+  ]
+}
