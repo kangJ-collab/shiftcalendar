@@ -24,8 +24,7 @@ function setupDatabase() {
   config.setFrozenRows(1);
   config.autoResizeColumns(1,3);
 
-  SpreadsheetApp.getUi().alert('양식 생성 완료
-이제 웹 앱으로 배포하고 URL을 앱에 입력하세요.');
+  SpreadsheetApp.getUi().alert('양식 생성 완료\n이제 웹 앱으로 배포하고 URL을 앱에 입력하세요.');
   return {ok:true, spreadsheetId:ss.getId()};
 }
 
