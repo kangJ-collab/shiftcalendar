@@ -16,11 +16,42 @@ button,input,select,textarea{font-family:inherit}
 input,select,textarea{font-size:16px!important}
 button{cursor:pointer}
 #app{display:flex;flex-direction:column;height:100vh;height:100dvh;width:100vw;overflow:hidden;padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom))}
-header{background:var(--blue-dark);color:#fff;padding:10px 12px;display:grid;grid-template-columns:38px 1fr 38px;align-items:center;flex:0 0 auto;position:relative;z-index:20}
-header .title{font-weight:800;letter-spacing:.5px;font-size:18px;text-align:center}
-.month-bar{background:var(--blue-mid);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:10px 8px;font-size:20px;font-weight:800;flex:0 0 auto}
-.month-bar button{background:none;border:none;color:#fff;font-size:22px;font-weight:800;padding:0 10px}
-.month-bar .team-badge{font-size:15px;background:rgba(255,255,255,.15);padding:4px 10px;border-radius:6px;font-weight:700}
+.main-header{
+  background:#fff;color:#111;padding:18px 16px 14px;
+  display:flex;align-items:center;justify-content:space-between;
+  flex:0 0 auto;position:relative;z-index:20;
+  border-bottom:1px solid #eceef2;
+}
+.header-month{
+  font-size:34px;line-height:1;font-weight:850;letter-spacing:.5px;
+  white-space:nowrap;
+}
+.header-actions{display:flex;align-items:center;gap:4px}
+.header-icon-btn{
+  width:42px;height:42px;display:flex;align-items:center;justify-content:center;
+  background:transparent;border:0;border-radius:12px;padding:8px;color:#404246;
+}
+.header-icon-btn:active{background:#f0f1f3}
+.header-icon-btn svg{
+  width:27px;height:27px;fill:none;stroke:currentColor;
+  stroke-width:2;stroke-linecap:round;stroke-linejoin:round;
+}
+.header-icon-btn svg circle{fill:currentColor;stroke:none}
+.month-bar{
+  background:#f7f8fa;color:#222;display:grid;
+  grid-template-columns:54px minmax(0,1fr) 54px;
+  align-items:center;padding:7px 8px;
+  flex:0 0 auto;border-bottom:1px solid var(--line);
+}
+.month-bar button{
+  background:none;border:none;color:#444;font-size:28px;
+  font-weight:700;padding:0 10px;
+}
+.month-bar .team-badge{
+  justify-self:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;font-size:14px;background:#fff;
+  border:1px solid #e1e3e7;padding:5px 12px;border-radius:999px;font-weight:750;
+}
 #calendarWrap{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;overflow:hidden;touch-action:pan-y}
 .weekday-row{display:grid;grid-template-columns:repeat(7,1fr);flex:0 0 auto;border-bottom:1px solid var(--line);background:#fff}
 .weekday-row div{text-align:center;padding:6px 0;font-weight:700;font-size:13px;color:#444}
@@ -78,22 +109,36 @@ nav button.active{color:#2266ee}nav .icon{font-size:18px}
 .modal{position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center}
 .modal-box{background:#fff;border-radius:14px;width:88%;max-width:360px;padding:18px}
 hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
+@media(max-width:390px){.header-month{font-size:30px}.header-icon-btn{width:38px;height:38px;padding:7px}}
 @media(min-width:700px){.stat-grid{grid-template-columns:repeat(4,1fr)}.slip-grid{grid-template-columns:1fr 1fr}}
 </style>
 </head>
 <body>
 <div id="app">
-<header>
-  <div style="width:38px"></div>
-  <div class="title">교대달력</div>
-  <button id="settingsBtn" aria-label="설정" style="background:none;border:none;color:#fff;font-size:24px;padding:4px 6px">⚙️</button>
+<header class="main-header">
+  <div id="headerMonthLabel" class="header-month" aria-live="polite"></div>
+  <div class="header-actions">
+    <button id="shareBtn" class="header-icon-btn" aria-label="현재 교대달력 주소 공유">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="18" cy="5" r="2.4"></circle>
+        <circle cx="6" cy="12" r="2.4"></circle>
+        <circle cx="18" cy="19" r="2.4"></circle>
+        <path d="M8.1 10.9l7.7-4.5M8.1 13.1l7.7 4.5"></path>
+      </svg>
+    </button>
+    <button id="settingsBtn" class="header-icon-btn" aria-label="설정 열기">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 8.4a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 0 0 0-7.2z"></path>
+        <path d="M19.2 13.3a7.7 7.7 0 0 0 0-2.6l2-1.5-2-3.4-2.4 1a8.5 8.5 0 0 0-2.2-1.3L14.3 3h-4.1L9.8 5.5a8.5 8.5 0 0 0-2.2 1.3l-2.4-1-2 3.4 2 1.5a7.7 7.7 0 0 0 0 2.6l-2 1.5 2 3.4 2.4-1a8.5 8.5 0 0 0 2.2 1.3l.4 2.5h4.1l.4-2.5a8.5 8.5 0 0 0 2.2-1.3l2.4 1 2-3.4-2.1-1.5z"></path>
+      </svg>
+    </button>
+  </div>
 </header>
 
 <div class="month-bar">
-  <button id="prevMonthBtn">‹</button>
-  <span id="monthLabel">2026년 7월</span>
-  <span class="team-badge" id="teamBadge">C조</span>
-  <button id="nextMonthBtn">›</button>
+  <button id="prevMonthBtn" aria-label="이전 달">‹</button>
+  <span class="team-badge" id="teamBadge"></span>
+  <button id="nextMonthBtn" aria-label="다음 달">›</button>
 </div>
 
 <div id="calendarWrap">
@@ -123,7 +168,7 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
   <div class="panel-body">
     <div class="section-label">캘린더 설정</div>
     <div class="card">
-      <div class="form-group"><label class="form-label">회사/조 이름</label><input id="settingsCompany" class="form-input" placeholder="예: 롯데MCC C조"></div>
+      <div class="form-group"><label class="form-label">회사/조 이름</label><input id="settingsCompany" class="form-input" placeholder="예: 회사 / 조"></div>
       <div class="form-group"><label class="form-label">현재 조</label><div id="teamSelectRow" class="row"></div></div>
       <div class="form-group"><label class="form-label">조 패턴 기준일</label><input id="settingsRefDate" type="date" class="form-input"><div class="form-hint">이 날짜에 C조가 주간 첫날이 되도록 계산합니다.</div></div>
     </div>
@@ -185,6 +230,31 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
     </div>
 
 
+
+    <div class="section-label">기기 JSON 백업</div>
+    <div class="card">
+      <div class="notice info">
+        지원되는 안드로이드 브라우저에서는 백업 파일을 한 번 연결한 뒤
+        같은 JSON 파일에 계속 덮어쓸 수 있습니다.
+        다른 브라우저에서는 새 JSON 파일 내보내기와 불러오기를 사용할 수 있습니다.
+      </div>
+
+      <div id="deviceFileSystemButtons">
+        <div class="row" style="flex-wrap:wrap">
+          <button id="deviceBackupConnectBtn" class="btn green" style="flex:1">백업 파일 연결/생성</button>
+          <button id="deviceBackupSaveBtn" class="btn primary" style="flex:1">연결 파일에 저장</button>
+        </div>
+      </div>
+
+      <div class="row" style="flex-wrap:wrap;margin-top:8px">
+        <button id="deviceBackupExportBtn" class="btn" style="flex:1">새 JSON 내보내기</button>
+        <button id="deviceBackupImportBtn" class="btn" style="flex:1">JSON 파일 불러오기</button>
+      </div>
+
+      <input id="deviceBackupFileInput" type="file" accept=".json,application/json" class="hidden">
+      <div id="deviceBackupStatus" class="small" style="margin-top:8px">백업 파일 확인 중</div>
+    </div>
+
     <div class="section-label">구글 스프레드시트 + GAS 백업</div>
     <div class="card">
       <div class="notice info">
@@ -196,7 +266,6 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
       </div>
       <button id="gasGuideBtn" class="btn" style="width:100%;margin-bottom:12px">사용법 보기</button>
       <div class="form-group"><label class="form-label">GAS 웹 앱 배포 URL</label><input id="gasUrlInput" class="form-input" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off"></div>
-      </div>
       <div class="row" style="flex-wrap:wrap"><button id="gasSaveConfigBtn" class="btn green" style="flex:1">연결정보 저장</button><button id="gasTestBtn" class="btn" style="flex:1">연결 테스트</button></div>
       <div class="row" style="margin-top:8px"><button id="gasBackupBtn" class="btn primary" style="flex:1">지금 백업</button><button id="gasRestoreBtn" class="btn" style="flex:1">백업 불러오기</button></div>
       <div id="gasStatus" class="small" style="margin-top:8px">미설정</div>
@@ -217,7 +286,7 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
     <button id="salaryClose">✕</button>
     <div class="row" style="align-items:center">
       <button id="salPrevBtn" style="background:none;border:none;font-size:20px;color:#2266ee">‹</button>
-      <div id="salaryTitle" class="panel-title" style="min-width:120px;text-align:center">2026년 7월</div>
+      <div id="salaryTitle" class="panel-title" style="min-width:120px;text-align:center"></div>
       <button id="salNextBtn" style="background:none;border:none;font-size:20px;color:#2266ee">›</button>
     </div>
     <div style="width:22px"></div>
@@ -265,7 +334,7 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
       </div>
     </div>
 
-    
+   
     <div class="card" style="margin-bottom:8px">
       <div class="card-title">4. 데이터베이스 양식 자동 생성 및 권한 승인</div>
       <div class="small">
@@ -334,11 +403,11 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
 </div>
 
 <nav>
-  <button id="navMy" class="active"><span class="icon">👤</span>My</button>
-  <button id="navAll"><span class="icon">👥</span>All</button>
-  <button id="navWith"><span class="icon">🪪</span>With</button>
-  <button id="navDashboard"><span class="icon">📊</span>대시보드</button>
-  <button id="navSalary"><span class="icon">💰</span>급여명세서</button>
+  <button id="navMy" class="active"><span class="icon"></span>My</button>
+  <button id="navAll"><span class="icon"></span>All</button>
+  <button id="navWith"><span class="icon"></span>With</button>
+  <button id="navDashboard"><span class="icon"></span>대시보드</button>
+  <button id="navSalary"><span class="icon"></span>급여명세서</button>
   <button id="navSetting"><span class="icon">⚙️</span>Setting</button>
 </nav>
 </div>
@@ -424,6 +493,7 @@ const stripTime=d=>new Date(d.getFullYear(),d.getMonth(),d.getDate());
 const fmt=n=>Math.round(n||0).toLocaleString('ko-KR');
 const fmtW=n=>fmt(n)+'원';
 const today=new Date();
+const headerMonthLabel=document.getElementById('headerMonthLabel');
 
 const DEFAULT_HOLIDAY_DATA={
   schemaVersion:2,
@@ -472,10 +542,10 @@ function getDayColor(d){if(getHoliday(d))return '#e5352b';if(d.getDay()===0)retu
 const CYCLE=['주간','주간','휴무','휴무','야간','야간','휴무','휴무'];
 const TEAMS=['A조','B조','C조','D조'];
 const REF_TEAM_INDEX=2;
-let refDate=new Date(store.get('refDate','2026-07-15')+'T00:00:00');
+let refDate=new Date(store.get('refDate',dateKey(today))+'T00:00:00');
 let myTeamIndex=store.get('myTeamIndex',2);
 let companyName=store.get('companyName','');
-let TEAM_HISTORY=store.get('teamHistory',[{from:'2026-01-01',to:null,teamIndex:myTeamIndex}]);
+let TEAM_HISTORY=store.get('teamHistory',[{from:`${today.getFullYear()}-01-01`,to:null,teamIndex:myTeamIndex}]);
 
 let SHIFT_STYLE=store.get('shiftStyle',{
  '주간':{label:'주',bg:'#f2e79a',color:'#3a3a1a'},
@@ -517,7 +587,7 @@ function getTeamIndexForDate(date){
 }
 function getMyDisplayShift(date){return getOverride(date)||getShiftForTeam(date,getTeamIndexForDate(date))}
 
-let withEntries=store.get('withEntries',[{name:'비교 대상',refDate:'2026-07-15',cycle:['주간','주간','휴무','휴무','야간','야간','휴무','휴무']}]);
+let withEntries=store.get('withEntries',[{name:'비교 대상',refDate:dateKey(today),cycle:['주간','주간','휴무','휴무','야간','야간','휴무','휴무']}]);
 function getShiftCustom(date,refDateStr,cycleArr){const rd=new Date(refDateStr+'T00:00:00');const diff=Math.floor((stripTime(date)-stripTime(rd))/86400000);let idx=diff%cycleArr.length;if(idx<0)idx+=cycleArr.length;return cycleArr[idx]}
 
 const SALARY_DEF={base1:0,base3:0,license:0,meal:0,pensionSup:0,shiftH:8.86,matching:0,pension2:0,foodDed:0,house:0,prevAnnual:0,employ:0.9,incomeTaxRate:8.3};
@@ -572,14 +642,19 @@ function calcDeductions(totalA,salY,salM){
 
 let viewYear=store.get('viewYear',today.getFullYear()),viewMonth=store.get('viewMonth',today.getMonth()),currentTab='My';
 function buildCalendarCells(y,m){const first=new Date(y,m,1),off=first.getDay(),prevDays=new Date(y,m,0).getDate(),cells=[];for(let i=off-1;i>=0;i--)cells.push({date:new Date(y,m-1,prevDays-i),dim:true});for(let d=1;d<=new Date(y,m+1,0).getDate();d++)cells.push({date:new Date(y,m,d),dim:false});while(cells.length<42){const last=cells[cells.length-1].date,next=new Date(last);next.setDate(next.getDate()+1);cells.push({date:next,dim:next.getMonth()!==m})}return cells}
-function renderMonthLabel(){monthLabel.textContent=`${viewYear}년 ${viewMonth+1}월`;teamBadge.textContent=(companyName&&companyName.trim())?companyName.trim():TEAMS[getTeamIndexForDate(new Date(viewYear,viewMonth,15))]}
+function renderMonthLabel(){
+  headerMonthLabel.textContent=`${viewYear}. ${pad2(viewMonth+1)}`;
+  teamBadge.textContent=(companyName&&companyName.trim())
+    ? companyName.trim()
+    : TEAMS[getTeamIndexForDate(new Date(viewYear,viewMonth,15))];
+}
 function renderCalendar(){
   renderMonthLabel();grid.innerHTML='';
   buildCalendarCells(viewYear,viewMonth).forEach(c=>{
     const div=document.createElement('div'),isToday=c.date.toDateString()===today.toDateString();div.className='cell'+(c.dim?' dim':'')+(isToday?' today':'');
     const shift=getMyDisplayShift(c.date),style=getTypeStyle(shift),holiday=getHoliday(c.date),memo=getMemo(c.date),dayColor=c.dim?'#c9c9c9':getDayColor(c.date);
     div.innerHTML=`<span class="tag" style="background:${style.bg};color:${style.color}">${style.label}</span>${holiday?`<span style="font-size:9px;color:${c.dim?'#d8a4a1':'#e5352b'};font-weight:700;line-height:1.2">${holiday}</span>`:''}<span class="daynum" style="color:${isToday?'#fff':dayColor}">${c.date.getDate()}</span>${memo?`<span class="memo">${memo}</span>`:''}`;
-    div.onclick=()=>openMemoModal(c.date);grid.appendChild(div)
+    div.=>openMemoModal(c.date);grid.appendChild(div)
   })
 }
 function renderBlocks(wrap,rows){
@@ -604,18 +679,18 @@ function openSettings(){
   settingsPanel.classList.remove('hidden');settingsCompany.value=companyName;settingsRefDate.value=dateKey(refDate);holidayDataUrl.value=store.get('holidayDataUrl','./data/holidays.json');insuranceDataUrl.value=store.get('insuranceDataUrl','./data/insurance.json');
   renderTeamSelect();renderTeamHistory();renderTypes();renderCompanyHolidays();renderWithManageList();renderSalaryFields();renderUpdateStatus()
 }
-function renderTeamSelect(){teamSelectRow.innerHTML='';TEAMS.forEach((t,i)=>{const b=document.createElement('button');b.className='btn'+(i===myTeamIndex?' primary':'');b.style.flex='1';b.textContent=t;b.onclick=()=>{myTeamIndex=i;store.set('myTeamIndex',i);renderTeamSelect();renderCurrent()};teamSelectRow.appendChild(b)});teamChangeTeam.innerHTML=TEAMS.map((t,i)=>`<option value="${i}">${t}</option>`).join('')}
+function renderTeamSelect(){teamSelectRow.innerHTML='';TEAMS.forEach((t,i)=>{const b=document.createElement('button');b.className='btn'+(i===myTeamIndex?' primary':'');b.style.flex='1';b.textContent=t;b.=>{myTeamIndex=i;store.set('myTeamIndex',i);renderTeamSelect();renderCurrent()};teamSelectRow.appendChild(b)});teamChangeTeam.innerHTML=TEAMS.map((t,i)=>`<option value="${i}">${t}</option>`).join('')}
 function normalizeHistory(){
   TEAM_HISTORY.sort((a,b)=>a.from.localeCompare(b.from));
   TEAM_HISTORY.forEach((r,i)=>{if(i<TEAM_HISTORY.length-1){const d=new Date(TEAM_HISTORY[i+1].from+'T00:00:00');d.setDate(d.getDate()-1);r.to=dateKey(d)}else r.to=null})
 }
-function renderTeamHistory(){normalizeHistory();teamHistoryList.innerHTML=TEAM_HISTORY.map((r,i)=>`<div class="history-row"><div class="grow"><b>${TEAMS[r.teamIndex]}</b><div class="small">${r.from} ~ ${r.to||'현재'}</div></div><button class="btn red" onclick="deleteTeamHistory(${i})">삭제</button></div>`).join('')}
+function renderTeamHistory(){normalizeHistory();teamHistoryList.innerHTML=TEAM_HISTORY.map((r,i)=>`<div class="history-row"><div class="grow"><b>${TEAMS[r.teamIndex]}</b><div class="small">${r.from} ~ ${r.to||'현재'}</div></div><button class="btn red" >삭제</button></div>`).join('')}
 window.deleteTeamHistory=i=>{if(TEAM_HISTORY.length<=1)return;TEAM_HISTORY.splice(i,1);normalizeHistory();store.set('teamHistory',TEAM_HISTORY);renderTeamHistory();renderCurrent()}
-function renderTypes(){typeManageList.innerHTML='';DEFAULT_TYPE_KEYS.forEach(k=>{const v=SHIFT_STYLE[k],r=document.createElement('div');r.className='type-row';r.innerHTML=`<span class="pill" style="background:${v.bg};color:${v.color}">${v.label}</span><div class="grow"><b>${k}</b><div class="small">패턴 고정</div></div><input type="color" value="${v.bg}">`;r.querySelector('input').oninput=e=>{SHIFT_STYLE[k].bg=e.target.value;saveTypeState();renderCurrent()};typeManageList.appendChild(r)});CUSTOM_TYPES.forEach((t,i)=>{const r=document.createElement('div');r.className='type-row';r.innerHTML=`<span class="pill" style="background:${t.bg};color:${t.color}">${t.label}</span><div class="grow"><b>${t.key}</b></div><input type="color" value="${t.bg}"><button class="btn red">삭제</button>`;r.querySelector('input').oninput=e=>{CUSTOM_TYPES[i].bg=e.target.value;saveTypeState();renderCurrent()};r.querySelector('button').onclick=()=>{CUSTOM_TYPES.splice(i,1);saveTypeState();renderTypes();renderCurrent()};typeManageList.appendChild(r)})}
-function renderCompanyHolidays(){companyHolidayList.innerHTML=COMPANY_HOLIDAYS.map((h,i)=>`<div class="holiday-row"><div class="grow"><b>${h.name}</b><div class="small">${h.annual?`${pad2(h.month)}-${pad2(h.day)} 매년 반복`:h.date} · ${h.payAsHoliday?'휴일수당 적용':'표시만'} · ${h.enabled?'사용':'중지'}</div></div><button class="btn" onclick="toggleHoliday(${i})">${h.enabled?'중지':'사용'}</button><button class="btn red" onclick="deleteHoliday(${i})">삭제</button></div>`).join('')}
+function renderTypes(){typeManageList.innerHTML='';DEFAULT_TYPE_KEYS.forEach(k=>{const v=SHIFT_STYLE[k],r=document.createElement('div');r.className='type-row';r.innerHTML=`<span class="pill" style="background:${v.bg};color:${v.color}">${v.label}</span><div class="grow"><b>${k}</b><div class="small">패턴 고정</div></div><input type="color" value="${v.bg}">`;r.querySelector('input').renderCurrent()};typeManageList.appendChild(r)});CUSTOM_TYPES.forEach((t,i)=>{const r=document.createElement('div');r.className='type-row';r.innerHTML=`<span class="pill" style="background:${t.bg};color:${t.color}">${t.label}</span><div class="grow"><b>${t.key}</b></div><input type="color" value="${t.bg}"><button class="btn red">삭제</button>`;r.querySelector('input').renderCurrent()};r.querySelector('button').=>{CUSTOM_TYPES.splice(i,1);saveTypeState();renderTypes();renderCurrent()};typeManageList.appendChild(r)})}
+function renderCompanyHolidays(){companyHolidayList.innerHTML=COMPANY_HOLIDAYS.map((h,i)=>`<div class="holiday-row"><div class="grow"><b>${h.name}</b><div class="small">${h.annual?`${pad2(h.month)}-${pad2(h.day)} 매년 반복`:h.date} · ${h.payAsHoliday?'휴일수당 적용':'표시만'} · ${h.enabled?'사용':'중지'}</div></div><button class="btn" >${h.enabled?'중지':'사용'}</button><button class="btn red" >삭제</button></div>`).join('')}
 window.toggleHoliday=i=>{COMPANY_HOLIDAYS[i].enabled=!COMPANY_HOLIDAYS[i].enabled;store.set('companyHolidays',COMPANY_HOLIDAYS);renderCompanyHolidays();renderCurrent()}
 window.deleteHoliday=i=>{COMPANY_HOLIDAYS.splice(i,1);store.set('companyHolidays',COMPANY_HOLIDAYS);renderCompanyHolidays();renderCurrent()}
-function renderWithManageList(){withManageList.innerHTML='';withEntries.forEach((en,i)=>{const b=document.createElement('div');b.className='card';b.style.margin='0 0 8px';b.innerHTML=`<div class="row"><input class="form-input n" value="${en.name}"><button class="btn red d">삭제</button></div><input class="form-input r" type="date" value="${en.refDate}" style="margin-top:8px"><input class="form-input c" value="${en.cycle.join(',')}" style="margin-top:8px">`;const commit=()=>{withEntries[i]={name:b.querySelector('.n').value||'비교 대상',refDate:b.querySelector('.r').value||dateKey(refDate),cycle:b.querySelector('.c').value.split(',').map(s=>s.trim()).filter(Boolean).map(s=>s==='주'?'주간':s==='야'?'야간':s==='휴'?'휴무':s)};store.set('withEntries',withEntries);renderCurrent()};b.querySelectorAll('input').forEach(x=>x.onchange=commit);b.querySelector('.d').onclick=()=>{withEntries.splice(i,1);store.set('withEntries',withEntries);renderWithManageList();renderCurrent()};withManageList.appendChild(b)})}
+function renderWithManageList(){withManageList.innerHTML='';withEntries.forEach((en,i)=>{const b=document.createElement('div');b.className='card';b.style.margin='0 0 8px';b.innerHTML=`<div class="row"><input class="form-input n" value="${en.name}"><button class="btn red d">삭제</button></div><input class="form-input r" type="date" value="${en.refDate}" style="margin-top:8px"><input class="form-input c" value="${en.cycle.join(',')}" style="margin-top:8px">`;const commit=()=>{withEntries[i]={name:b.querySelector('.n').value||'비교 대상',refDate:b.querySelector('.r').value||dateKey(refDate),cycle:b.querySelector('.c').value.split(',').map(s=>s.trim()).filter(Boolean).map(s=>s==='주'?'주간':s==='야'?'야간':s==='휴'?'휴무':s)};store.set('withEntries',withEntries);renderCurrent()};b.querySelectorAll('input').forEach(x=>x..=>{withEntries.splice(i,1);store.set('withEntries',withEntries);renderWithManageList();renderCurrent()};withManageList.appendChild(b)})}
 const salaryFields=[['base1','기본급1'],['base3','기본급3'],['license','면허수당'],['meal','중식비(기지급)'],['pensionSup','개인연금2 회사분'],['shiftH','교대조수당 기준시간'],['matching','매칭그랜트'],['pension2','개인연금2 사원분'],['foodDed','식비공제'],['house','사택료'],['prevAnnual','전년도 소득총액'],['employ','고용보험율(%)'],['incomeTaxRate','예상 소득세율(%)']];
 function renderSalaryFields(){salaryFieldsGrid.innerHTML=salaryFields.map(([k,l])=>`<div class="form-group"><label class="form-label">${l}</label><input id="sal-${k}" type="number" step="0.01" class="form-input" value="${SAL[k]}"></div>`).join('')}
 function renderUpdateStatus(){holidayUpdateStatus.textContent=`현재 공휴일 버전: ${HOLIDAY_DATA.version||'-'} / ${HOLIDAY_DATA.updatedAt||'-'}`;insuranceUpdateStatus.textContent=`현재 보험 버전: ${INSURANCE_DATA.version||'-'} / ${INSURANCE_DATA.updatedAt||'-'}`}
@@ -667,7 +742,7 @@ function renderSalary(){
     <div class="card"><div class="card-title">공제내역</div><table class="slip-table">${Object.entries(ded.ded).map(([k,v])=>`<tr><td>${k}</td><td>${fmtW(v)}</td></tr>`).join('')}<tr class="total"><td>공제합계</td><td>${fmtW(ded.totalDed)}</td></tr></table></div>
   </div>
   <div class="card"><div class="card-title">보험 적용 기준</div><table class="data-table"><tr><td>건강보험 근로자율</td><td>${ded.healthRule.employeeRate}%</td></tr><tr><td>장기요양 소득대비율</td><td>${ded.healthRule.longTermCareIncomeRate}%</td></tr><tr><td>국민연금 근로자율</td><td>${ded.npsRule.employeeRate}%</td></tr><tr><td>국민연금 기준소득 하한/상한</td><td>${fmt(ded.npsRule.minIncome)} / ${fmt(ded.npsRule.maxIncome)}</td></tr><tr><td>국민연금 적용 기준소득</td><td>${fmtW(ded.npsBase)}</td></tr></table></div>
-  <button class="btn primary" style="width:100%" onclick="window.print()">인쇄 / PDF 저장</button>`
+  <button class="btn primary" style="width:100%" >인쇄 / PDF 저장</button>`
 }
 
 function changeMonth(delta){viewMonth+=delta;if(viewMonth<0){viewMonth=11;viewYear--}if(viewMonth>11){viewMonth=0;viewYear++}store.set('viewYear',viewYear);store.set('viewMonth',viewMonth);renderCurrent()}
@@ -683,29 +758,28 @@ function activateNav(btn){
   btn.classList.add('active');
   btn.scrollIntoView({behavior:'smooth',inline:'center',block:'nearest'});
 }
-navMy.onclick=()=>{closeAllPanels();switchTab('My');activateNav(navMy)};
-navAll.onclick=()=>{closeAllPanels();switchTab('All');activateNav(navAll)};
-navWith.onclick=()=>{closeAllPanels();switchTab('With');activateNav(navWith)};
-navDashboard.onclick=()=>{closeAllPanels();dashboardPanel.classList.remove('hidden');renderDashboard();activateNav(navDashboard)};
-navSalary.onclick=()=>{closeAllPanels();salaryPanel.classList.remove('hidden');renderSalary();activateNav(navSalary)};
-navSetting.onclick=()=>{closeAllPanels();openSettings();activateNav(navSetting)};
-settingsBtn.onclick=()=>{closeAllPanels();openSettings();activateNav(navSetting)};
-settingsClose.onclick=()=>{settingsPanel.classList.add('hidden');switchTab('My');activateNav(navMy)};
-dashboardClose.onclick=()=>{dashboardPanel.classList.add('hidden');switchTab('My');activateNav(navMy)};
-salaryClose.onclick=()=>{salaryPanel.classList.add('hidden');switchTab('My');activateNav(navMy)};
-prevMonthBtn.onclick=()=>changeMonth(-1);nextMonthBtn.onclick=()=>changeMonth(1);
-memoCancelBtn.onclick=closeMemoModal;
-memoModal.addEventListener('click',e=>{if(e.target===memoModal)closeMemoModal()});memoSaveBtn.onclick=()=>{if(!memoTargetDate)return;setMemo(memoTargetDate,memoText.value);setOverride(memoTargetDate,memoOverrideSelect.value);closeMemoModal();renderCurrent()};memoDeleteBtn.onclick=()=>{if(!memoTargetDate)return;setMemo(memoTargetDate,'');setOverride(memoTargetDate,'');closeMemoModal();renderCurrent()};
-settingsCompany.oninput=e=>{companyName=e.target.value;store.set('companyName',companyName);renderMonthLabel()};
-settingsRefDate.onchange=e=>{if(!e.target.value)return;refDate=new Date(e.target.value+'T00:00:00');store.set('refDate',e.target.value);renderCurrent()};
-addTeamHistoryBtn.onclick=()=>{if(!teamChangeDate.value)return alert('변경일을 입력하세요.');TEAM_HISTORY=TEAM_HISTORY.filter(r=>r.from!==teamChangeDate.value);TEAM_HISTORY.push({from:teamChangeDate.value,to:null,teamIndex:+teamChangeTeam.value});normalizeHistory();store.set('teamHistory',TEAM_HISTORY);myTeamIndex=+teamChangeTeam.value;store.set('myTeamIndex',myTeamIndex);renderTeamHistory();renderTeamSelect();renderCurrent()};
-addTypeBtn.onclick=()=>{const n=newTypeLabel.value.trim();if(!n)return;CUSTOM_TYPES.push({key:n,label:n.slice(0,3),bg:newTypeColor.value,color:'#fff'});saveTypeState();newTypeLabel.value='';renderTypes()};
-addHolidayBtn.onclick=()=>{const n=holidayName.value.trim(),d=holidayDate.value;if(!n||!d)return alert('휴일명과 날짜를 입력하세요.');const dt=new Date(d+'T00:00:00');COMPANY_HOLIDAYS.push({id:'custom-'+Date.now(),name:n,month:dt.getMonth()+1,day:dt.getDate(),date:d,enabled:true,payAsHoliday:holidayPay.checked,annual:holidayAnnual.checked});store.set('companyHolidays',COMPANY_HOLIDAYS);holidayName.value='';renderCompanyHolidays();renderCurrent()};
-addWithBtn.onclick=()=>{withEntries.push({name:'새 비교 대상',refDate:dateKey(refDate),cycle:[...CYCLE]});store.set('withEntries',withEntries);renderWithManageList()};
-saveSalaryBtn.onclick=()=>{salaryFields.forEach(([k])=>{SAL[k]=parseFloat(document.getElementById('sal-'+k).value)||0});store.set('salarySettings',SAL);alert('급여 설정 저장 완료')};
-updateHolidayBtn.onclick=()=>updateRemote('holiday');updateInsuranceBtn.onclick=()=>updateRemote('insurance');
-clearMemosBtn.onclick=()=>{Object.keys(localStorage).filter(k=>k.startsWith('memo-')).forEach(k=>localStorage.removeItem(k));renderCurrent();alert('메모 삭제 완료')};
-salPrevBtn.onclick=()=>{salaryViewMonth--;if(salaryViewMonth<1){salaryViewMonth=12;salaryViewYear--}renderSalary()};salNextBtn.onclick=()=>{salaryViewMonth++;if(salaryViewMonth>12){salaryViewMonth=1;salaryViewYear++}renderSalary()};
+navMy.=>{closeAllPanels();switchTab('My');activateNav(navMy)};
+navAll.=>{closeAllPanels();switchTab('All');activateNav(navAll)};
+navWith.=>{closeAllPanels();switchTab('With');activateNav(navWith)};
+navDashboard.=>{closeAllPanels();dashboardPanel.classList.remove('hidden');renderDashboard();activateNav(navDashboard)};
+navSalary.=>{closeAllPanels();salaryPanel.classList.remove('hidden');renderSalary();activateNav(navSalary)};
+navSetting.=>{closeAllPanels();openSettings();activateNav(navSetting)};
+settingsBtn.=>{closeAllPanels();openSettings();activateNav(navSetting)};
+settingsClose.=>{settingsPanel.classList.add('hidden');switchTab('My');activateNav(navMy)};
+dashboardClose.=>{dashboardPanel.classList.add('hidden');switchTab('My');activateNav(navMy)};
+salaryClose.=>{salaryPanel.classList.add('hidden');switchTab('My');activateNav(navMy)};
+prevMonthBtn.=>changeMonth(-1);nextMonthBtn.=>changeMonth(1);
+memoCancelBtn.closeMemoModal()});memoSaveBtn.=>{if(!memoTargetDate)return;setMemo(memoTargetDate,memoText.value);setOverride(memoTargetDate,memoOverrideSelect.value);closeMemoModal();renderCurrent()};memoDeleteBtn.=>{if(!memoTargetDate)return;setMemo(memoTargetDate,'');setOverride(memoTargetDate,'');closeMemoModal();renderCurrent()};
+settingsCompany.renderMonthLabel()};
+settingsRefDate.return;refDate=new Date(e.target.value+'T00:00:00');store.set('refDate',e.target.value);renderCurrent()};
+addTeamHistoryBtn.=>{if(!teamChangeDate.value)return alert('변경일을 입력하세요.');TEAM_HISTORY=TEAM_HISTORY.filter(r=>r.from!==teamChangeDate.value);TEAM_HISTORY.push({from:teamChangeDate.value,to:null,teamIndex:+teamChangeTeam.value});normalizeHistory();store.set('teamHistory',TEAM_HISTORY);myTeamIndex=+teamChangeTeam.value;store.set('myTeamIndex',myTeamIndex);renderTeamHistory();renderTeamSelect();renderCurrent()};
+addTypeBtn.=>{const n=newTypeLabel.value.trim();if(!n)return;CUSTOM_TYPES.push({key:n,label:n.slice(0,3),bg:newTypeColor.value,color:'#fff'});saveTypeState();newTypeLabel.value='';renderTypes()};
+addHolidayBtn.=>{const n=holidayName.value.trim(),d=holidayDate.value;if(!n||!d)return alert('휴일명과 날짜를 입력하세요.');const dt=new Date(d+'T00:00:00');COMPANY_HOLIDAYS.push({id:'custom-'+Date.now(),name:n,month:dt.getMonth()+1,day:dt.getDate(),date:d,enabled:true,payAsHoliday:holidayPay.checked,annual:holidayAnnual.checked});store.set('companyHolidays',COMPANY_HOLIDAYS);holidayName.value='';renderCompanyHolidays();renderCurrent()};
+addWithBtn.=>{withEntries.push({name:'새 비교 대상',refDate:dateKey(refDate),cycle:[...CYCLE]});store.set('withEntries',withEntries);renderWithManageList()};
+saveSalaryBtn.=>{salaryFields.forEach(([k])=>{SAL[k]=parseFloat(document.getElementById('sal-'+k).value)||0});store.set('salarySettings',SAL);alert('급여 설정 저장 완료')};
+updateHolidayBtn.=>updateRemote('holiday');updateInsuranceBtn.=>updateRemote('insurance');
+clearMemosBtn.=>{Object.keys(localStorage).filter(k=>k.startsWith('memo-')).forEach(k=>localStorage.removeItem(k));renderCurrent();alert('메모 삭제 완료')};
+salPrevBtn.=>{salaryViewMonth--;if(salaryViewMonth<1){salaryViewMonth=12;salaryViewYear--}renderSalary()};salNextBtn.=>{salaryViewMonth++;if(salaryViewMonth>12){salaryViewMonth=1;salaryViewYear++}renderSalary()};
 
 
 /* ===== 선택형 Google Spreadsheet + GAS 백업 ===== */
@@ -891,17 +965,232 @@ function openGoogleSheetsHome(){
   const w=window.open(url,'_blank');
   if(!w) location.href=url;
 }
-document.getElementById('gasOpenSheetBtn').onclick=openGoogleSheetsHome;
-document.getElementById('gasCopyCodeBtn').onclick=copyGasCode_;
-document.getElementById('gasGuideCopyBtn').onclick=copyGasCode_;
-document.getElementById('gasGuideOpenSheetsBtn').onclick=openGoogleSheetsHome;
-document.getElementById('gasGuideBtn').onclick=()=>document.getElementById('gasGuideModal').classList.remove('hidden');
-document.getElementById('gasGuideCloseBtn').onclick=()=>document.getElementById('gasGuideModal').classList.add('hidden');
-document.getElementById('gasSaveConfigBtn').onclick=saveGasConfig_;
-document.getElementById('gasTestBtn').onclick=testGasConnection_;
-document.getElementById('gasBackupBtn').onclick=backupToGas_;
-document.getElementById('gasRestoreBtn').onclick=restoreFromGas_;
-document.getElementById('gasGuideModal').onclick=e=>{if(e.target.id==='gasGuideModal')e.currentTarget.classList.add('hidden')};
+document.getElementById('gasOpenSheetBtn').....=>document.getElementById('gasGuideModal').classList.remove('hidden');
+document.getElementById('gasGuideCloseBtn').=>document.getElementById('gasGuideModal').classList.add('hidden');
+document.getElementById('gasSaveConfigBtn').....e.currentTarget.classList.add('hidden')};
+
+
+// 현재 페이지 URL 공유
+async function shareCurrentPage_(){
+  const url=`${location.origin}${location.pathname}`;
+  try{
+    if(navigator.share){
+      await navigator.share({title:'교대달력',text:'교대달력',url});
+      return;
+    }
+    if(navigator.clipboard&&window.isSecureContext){
+      await navigator.clipboard.writeText(url);
+      alert('교대달력 주소를 복사했습니다.');
+      return;
+    }
+    const temp=document.createElement('textarea');
+    temp.value=url;
+    temp.style.position='fixed';
+    temp.style.opacity='0';
+    document.body.appendChild(temp);
+    temp.select();
+    document.execCommand('copy');
+    temp.remove();
+    alert('교대달력 주소를 복사했습니다.');
+  }catch(error){
+    if(error&&error.name!=='AbortError') alert('주소 공유에 실패했습니다.');
+  }
+}
+document.getElementById('shareBtn').{
+  return new Promise((resolve,reject)=>{
+    const request=indexedDB.open(DEVICE_BACKUP_DB,1);
+    request.onupgradeneeded=()=>{
+      const db=request.result;
+      if(!db.objectStoreNames.contains(DEVICE_BACKUP_STORE)){
+        db.createObjectStore(DEVICE_BACKUP_STORE);
+      }
+    };
+    request.onsuccess=()=>resolve(request.result);
+    request.=>reject(request.error);
+  });
+}
+
+async function deviceHandleGet_(){
+  const db=await openDeviceBackupDb_();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(DEVICE_BACKUP_STORE,'readonly');
+    const request=tx.objectStore(DEVICE_BACKUP_STORE).get(DEVICE_BACKUP_KEY);
+    request.onsuccess=()=>resolve(request.result||null);
+    request.=>reject(request.error);
+    tx.oncomplete=()=>db.close();
+  });
+}
+
+async function deviceHandleSet_(handle){
+  const db=await openDeviceBackupDb_();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction(DEVICE_BACKUP_STORE,'readwrite');
+    tx.objectStore(DEVICE_BACKUP_STORE).put(handle,DEVICE_BACKUP_KEY);
+    tx.oncomplete=()=>{db.close();resolve()};
+    tx.=>{db.close();reject(tx.error)};
+  });
+}
+
+function deviceBackupPayload_(){
+  return {
+    app:'교대달력',
+    formatVersion:1,
+    exportedAt:new Date().toISOString(),
+    data:collectBackupData_()
+  };
+}
+
+function deviceBackupJson_(){
+  return JSON.stringify(deviceBackupPayload_(),null,2);
+}
+
+function setDeviceBackupStatus_(text){
+  document.getElementById('deviceBackupStatus').textContent=text;
+}
+
+async function requestDeviceHandlePermission_(handle){
+  const option={mode:'readwrite'};
+  if(handle.queryPermission&&await handle.queryPermission(option)==='granted') return true;
+  if(handle.requestPermission&&await handle.requestPermission(option)==='granted') return true;
+  return false;
+}
+
+async function writeDeviceBackupHandle_(handle){
+  if(!await requestDeviceHandlePermission_(handle)){
+    throw new Error('파일 저장 권한이 승인되지 않았습니다.');
+  }
+  const writable=await handle.createWritable();
+  await writable.write(deviceBackupJson_());
+  await writable.close();
+  localStorage.setItem('deviceBackupLastSavedAt',new Date().toISOString());
+  setDeviceBackupStatus_(`저장 완료: ${handle.name} · ${new Date().toLocaleString('ko-KR')}`);
+}
+
+async function connectDeviceBackupFile_(){
+  if(!('showSaveFilePicker' in window)){
+    await exportDeviceBackup_();
+    return;
+  }
+  try{
+    const handle=await window.showSaveFilePicker({
+      suggestedName:'교대달력_BACKUP.json',
+      types:[{
+        description:'JSON 백업 파일',
+        accept:{'application/json':['.json']}
+      }]
+    });
+    deviceBackupHandle_=handle;
+    await deviceHandleSet_(handle);
+    await writeDeviceBackupHandle_(handle);
+  }catch(error){
+    if(error&&error.name!=='AbortError'){
+      setDeviceBackupStatus_('파일 연결 실패: '+error.message);
+      alert('백업 파일 연결에 실패했습니다.');
+    }
+  }
+}
+
+async function saveConnectedDeviceBackup_(){
+  try{
+    if(!deviceBackupHandle_) deviceBackupHandle_=await deviceHandleGet_();
+    if(!deviceBackupHandle_){
+      await connectDeviceBackupFile_();
+      return;
+    }
+    await writeDeviceBackupHandle_(deviceBackupHandle_);
+  }catch(error){
+    setDeviceBackupStatus_('저장 실패: '+error.message);
+    alert('연결된 백업 파일 저장에 실패했습니다.');
+  }
+}
+
+async function exportDeviceBackup_(){
+  const stamp=new Date();
+  const filename=`교대달력_BACKUP_${stamp.getFullYear()}-${pad2(stamp.getMonth()+1)}-${pad2(stamp.getDate())}_${pad2(stamp.getHours())}${pad2(stamp.getMinutes())}.json`;
+  const blob=new Blob([deviceBackupJson_()],{type:'application/json'});
+  const file=new File([blob],filename,{type:'application/json'});
+
+  try{
+    if(navigator.canShare&&navigator.canShare({files:[file]})&&navigator.share){
+      await navigator.share({title:'교대달력 백업',files:[file]});
+    }else{
+      const link=document.createElement('a');
+      const objectUrl=URL.createObjectURL(blob);
+      link.href=objectUrl;
+      link.download=filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(()=>URL.revokeObjectURL(objectUrl),1000);
+    }
+    localStorage.setItem('deviceBackupLastSavedAt',new Date().toISOString());
+    setDeviceBackupStatus_(`새 JSON 생성 완료 · ${new Date().toLocaleString('ko-KR')}`);
+  }catch(error){
+    if(error&&error.name!=='AbortError'){
+      setDeviceBackupStatus_('내보내기 실패: '+error.message);
+      alert('JSON 백업 파일 생성에 실패했습니다.');
+    }
+  }
+}
+
+function normalizeDeviceBackup_(parsed){
+  if(parsed&&parsed.data&&parsed.data.localStorage) return parsed.data;
+  if(parsed&&parsed.localStorage) return parsed;
+  throw new Error('교대달력 백업 파일 형식이 아닙니다.');
+}
+
+async function restoreDeviceBackupFile_(file){
+  const parsed=JSON.parse(await file.text());
+  const backup=normalizeDeviceBackup_(parsed);
+  const exportedAt=parsed.exportedAt||backup.exportedAt;
+  const when=exportedAt
+    ? new Date(exportedAt).toLocaleString('ko-KR')
+    : '날짜 정보 없음';
+
+  if(!confirm(`백업 파일을 불러오면 현재 기기 데이터를 덮어씁니다.\n백업 일시: ${when}\n계속할까요?`)) return;
+
+  const gasConfig=getGasConfig_();
+  localStorage.clear();
+  Object.entries(backup.localStorage||{}).forEach(([key,value])=>{
+    localStorage.setItem(key,value);
+  });
+  if(gasConfig&&gasConfig.url) store.set(GAS_CONFIG_KEY,gasConfig);
+
+  alert('백업 파일을 불러왔습니다. 앱을 다시 시작합니다.');
+  location.reload();
+}
+
+async function initDeviceBackupUi_(){
+  const fsButtons=document.getElementById('deviceFileSystemButtons');
+  if('showSaveFilePicker' in window){
+    fsButtons.classList.remove('hidden');
+    try{
+      deviceBackupHandle_=await deviceHandleGet_();
+      setDeviceBackupStatus_(
+        deviceBackupHandle_
+          ? `연결된 파일: ${deviceBackupHandle_.name}`
+          : '연결된 백업 파일 없음'
+      );
+    }catch(_){
+      setDeviceBackupStatus_('연결된 백업 파일 없음');
+    }
+  }else{
+    fsButtons.classList.add('hidden');
+    setDeviceBackupStatus_('새 JSON 내보내기와 불러오기 사용');
+  }
+}
+
+document.getElementById('deviceBackupConnectBtn')....=>{
+  document.getElementById('deviceBackupFileInput').click();
+};
+document.getElementById('deviceBackupFileInput').return;
+  try{
+    await restoreDeviceBackupFile_(file);
+  }catch(error){
+    alert('백업 파일을 읽을 수 없습니다: '+error.message);
+  }
+};
+initDeviceBackupUi_();
 
 const originalOpenSettings_=openSettings;
 openSettings=function(){originalOpenSettings_();loadGasConfigUI_()};
