@@ -596,10 +596,34 @@ function setMemo(d,text){if(text&&text.trim())store.set('memo-'+dateKey(d),text.
 const getOverride=d=>store.get('override-'+dateKey(d),null);
 function setOverride(d,key){if(key)store.set('override-'+dateKey(d),key);else localStorage.removeItem('override-'+dateKey(d))}
 
-function getShiftForTeam(date,teamIndex){
-  const diffDays=Math.floor((stripTime(date)-stripTime(refDate))/86400000);
-  const offset=(teamIndex-REF_TEAM_INDEX)*2;
-  let idx=(diffDays+offset)%8;if(idx<0)idx+=8;return CYCLE[idx];
+function getShiftForTeam(date, teamIndex) {
+  const diffDays = Math.floor(
+    (stripTime(date) - stripTime(refDate)) / 86400000
+  );
+
+  /*
+    실제 근무 순환 방향
+
+    A조 → B조 → C조 → D조 → A조
+
+    다음 조가 같은 근무를 2일 뒤에 이어받는다.
+
+    예:
+    C조 주간
+    → 2일 뒤 D조 주간
+    → 2일 뒤 A조 주간
+    → 2일 뒤 B조 주간
+  */
+  const teamDistance = teamIndex - REF_TEAM_INDEX;
+  const offset = -(teamDistance * 2);
+
+  let index = (diffDays + offset) % CYCLE.length;
+
+  if (index < 0) {
+    index += CYCLE.length;
+  }
+
+  return CYCLE[index];
 }
 function getTeamIndexForDate(date){
   const key=dateKey(date);
