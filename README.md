@@ -50,3 +50,42 @@ GitHub Actions가 한국천문연구원 특일 정보 API에서 매주 공휴일
 ## GAS 백업
 
 설정 → 구글 스프레드시트 + GAS 백업 → 사용법 보기를 따릅니다.
+
+# 교대달력 PWA
+
+## 저장소 구조
+
+```text
+index.html
+manifest.webmanifest
+service-worker.js
+gas_code.gs
+icons/
+assets/
+data/
+scripts/
+.github/workflows/
+```
+
+ZIP을 풀어 GitHub 저장소 루트에 같은 구조로 업로드합니다.
+
+## 설치
+
+- iPhone Safari: 공유 → 홈 화면에 추가
+- Android Chrome: 앱 설치 또는 홈 화면에 추가
+- 설정 화면의 `홈 화면에 앱 설치` 버튼도 사용할 수 있습니다.
+
+## 공휴일 자동 갱신
+
+Repository secret:
+
+```text
+DATA_GO_KR_SERVICE_KEY
+```
+
+Actions의 `공휴일 자동 업데이트`가 `data/holidays.json`을 갱신합니다.
+
+## 서비스워커 캐시 변경
+
+앱 구조가 크게 변경될 때는 `service-worker.js`의 `CACHE_VERSION`을
+`shiftcalendar-pwa-v2`처럼 변경합니다.
