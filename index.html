@@ -102,11 +102,116 @@ nav button.active{color:#2266ee}nav .icon{font-size:18px}
 .panel-title{font-weight:800;font-size:17px}
 .panel-body{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;touch-action:pan-y;padding:16px 16px 24px}
 .section-label{font-size:13px;color:#888;font-weight:700;margin:6px 0}
-.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px;min-width:0;overflow:hidden}
 .card-title{font-weight:800;font-size:14px;margin-bottom:10px}
 .form-group{margin-bottom:12px}.form-label{font-size:13px;font-weight:700;margin-bottom:5px;display:block}.form-hint{font-size:11px;color:#999;margin-top:4px}
-.form-input{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fff}
-.row{display:flex;gap:8px}.row>*{min-width:0}
+.form-input{
+  display:block;
+  width:100%;
+  min-width:0;
+  max-width:100%;
+  padding:10px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  background:#fff;
+}
+
+input[type="date"].form-input{
+  display:block;
+  width:100%;
+  min-width:0;
+  max-width:100%;
+  height:46px;
+  overflow:hidden;
+  -webkit-appearance:none;
+  appearance:none;
+}
+
+input[type="date"].form-input::-webkit-date-and-time-value{
+  min-width:0;
+  text-align:left;
+}
+
+input[type="date"].form-input::-webkit-calendar-picker-indicator{
+  margin:0;
+  padding:0;
+}
+
+.row{display:flex;gap:8px}
+.row>*{min-width:0}
+
+.fixed-basis{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:12px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:#f8f9fb;
+}
+
+.fixed-basis .label{
+  font-size:12px;
+  color:#777;
+}
+
+.fixed-basis .value{
+  font-size:14px;
+  font-weight:800;
+  text-align:right;
+}
+
+.team-change-form{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 112px;
+  gap:10px;
+  align-items:end;
+  margin-top:12px;
+}
+
+.team-change-form>*{
+  min-width:0;
+}
+
+.team-change-submit{
+  grid-column:1/-1;
+  width:100%;
+}
+
+.change-preview{
+  margin-top:10px;
+  padding:10px 12px;
+  border-radius:8px;
+  background:#eef4ff;
+  color:#174d9b;
+  font-size:12px;
+  line-height:1.5;
+}
+
+.change-preview.warn{
+  background:#fff4d6;
+  color:#7a4f00;
+}
+
+@media(max-width:390px){
+  .team-change-form{
+    grid-template-columns:minmax(0,1fr);
+  }
+
+  .team-change-submit{
+    grid-column:auto;
+  }
+
+  .fixed-basis{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+
+  .fixed-basis .value{
+    text-align:left;
+  }
+}
 .btn{padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:#fff;font-weight:700}
 .btn.primary{background:#2266ee;color:#fff;border-color:#2266ee}.btn.green{background:var(--green);color:#fff;border-color:var(--green)}.btn.red{color:var(--red);border-color:var(--red)}
 .stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px}
@@ -189,51 +294,59 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
       <div id="pwaInstallStatus" class="small" style="margin-top:8px">설치 상태 확인 중</div>
     </div>
 
-    <div class="section-label">캘린더 설정</div>
+    <div class="section-label">내 근무조</div>
     <div class="card">
       <div class="form-group">
-        <label class="form-label">오늘 기준 현재 조</label>
+        <label class="form-label">현재 적용 중인 조</label>
         <div id="currentTeamBadge" class="btn primary" style="width:100%;pointer-events:none"></div>
-        <div class="form-hint">기본 조와 실제 근무조 변경 이력을 기준으로 자동 계산됩니다.</div>
       </div>
 
       <div class="form-group">
-        <label class="form-label">변경 이력 이전 기본 조</label>
+        <label class="form-label">처음 조</label>
         <div id="teamSelectRow" class="row"></div>
         <div class="form-hint">
-          아직 변경 이력이 없으면 이 조가 전체 기간에 적용됩니다.
-          변경 이력이 있으면 첫 변경일 전까지 적용됩니다.
+          조가 바뀐 적이 없다면 현재 조를 선택하세요.
+          조가 바뀐 적이 있다면 가장 처음 변경되기 전 조를 선택하세요.
         </div>
       </div>
 
-      <div class="form-group">
-        <label class="form-label">조 패턴 기준일</label>
-        <input id="settingsRefDate" type="date" class="form-input" readonly>
-        <div class="form-hint">2026-07-15에 C조가 주간 첫날인 회사 기준으로 고정됩니다.</div>
+      <input id="settingsRefDate" type="hidden">
+
+      <div class="fixed-basis">
+        <div>
+          <div class="label">근무표 계산 기준</div>
+          <div class="form-hint" style="margin-top:3px">사용자가 수정할 필요 없는 앱 내부 기준입니다.</div>
+        </div>
+        <div id="settingsRefDateText" class="value"></div>
       </div>
     </div>
 
-    <div class="section-label">근무조 변경 이력</div>
+    <div class="section-label">조 변경 기록</div>
     <div class="card">
       <div id="teamHistoryList"></div>
 
-      <div class="row" style="margin-top:10px;align-items:flex-end">
-        <div style="flex:1">
-          <label class="form-label" for="teamChangeDate">기존 조 마지막 날짜</label>
+      <div class="team-change-form">
+        <div>
+          <label class="form-label" for="teamChangeDate">현재 조를 언제까지 사용하나요?</label>
           <input id="teamChangeDate" type="date" class="form-input">
         </div>
 
-        <div style="width:105px">
-          <label class="form-label" for="teamChangeTeam">다음 조</label>
+        <div>
+          <label class="form-label" for="teamChangeTeam">다음 날부터</label>
           <select id="teamChangeTeam" class="form-input"></select>
         </div>
 
-        <button id="addTeamHistoryBtn" class="btn primary">추가</button>
+        <button id="addTeamHistoryBtn" class="btn primary team-change-submit">
+          조 변경 저장
+        </button>
+      </div>
+
+      <div id="teamChangePreview" class="change-preview">
+        날짜와 다음 조를 선택하면 적용 결과를 보여줍니다.
       </div>
 
       <div class="form-hint">
-        입력한 날짜까지 기존 조가 적용되고, 다음 날부터 선택한 새 조가 적용됩니다.
-        달력과 급여 계산도 날짜별로 자동 분리됩니다.
+        선택한 날짜까지는 현재 조로 계산하고, 그다음 날부터 새 조로 달력과 급여를 계산합니다.
       </div>
     </div>
 
@@ -494,6 +607,8 @@ const memoSaveBtn=document.getElementById('memoSaveBtn');
 const settingsPanel=document.getElementById('settingsPanel');
 const settingsClose=document.getElementById('settingsClose');
 const currentTeamBadge=document.getElementById('currentTeamBadge');
+const settingsRefDateText=document.getElementById('settingsRefDateText');
+const teamChangePreview=document.getElementById('teamChangePreview');
 const teamSelectRow=document.getElementById('teamSelectRow');
 const settingsRefDate=document.getElementById('settingsRefDate');
 const teamHistoryList=document.getElementById('teamHistoryList');
@@ -887,6 +1002,12 @@ function openSettings(){
 
   settingsRefDate.value=DEFAULT_REF_DATE;
 
+  const basisDate=new Date(DEFAULT_REF_DATE+'T00:00:00');
+  settingsRefDateText.textContent=
+    basisDate.getFullYear()+'. '+
+    (basisDate.getMonth()+1)+'. '+
+    basisDate.getDate()+'. · C조 주간 시작';
+
   holidayDataUrl.value=store.get(
     'holidayDataUrl',
     './data/holidays.json'
@@ -904,6 +1025,7 @@ function openSettings(){
   renderWithManageList();
   renderSalaryFields();
   renderUpdateStatus();
+  renderTeamChangePreview_();
 }
 
 function renderTeamSelect(){
@@ -1034,14 +1156,14 @@ function renderTeamHistory(){
   baseDetail.className='grow';
 
   const baseTitle=document.createElement('b');
-  baseTitle.textContent='기본 조 · '+TEAMS[baseTeamIndex];
+  baseTitle.textContent='처음 조: '+TEAMS[baseTeamIndex];
 
   const basePeriod=document.createElement('div');
   basePeriod.className='small';
 
   basePeriod.textContent=TEAM_HISTORY.length
-    ? TEAM_HISTORY[0].from+' 이전'
-    : '변경 이력 없음 · 전체 기간 적용';
+    ? TEAM_HISTORY[0].from+' 전까지'
+    : '아직 조 변경 기록이 없습니다.';
 
   baseDetail.appendChild(baseTitle);
   baseDetail.appendChild(basePeriod);
@@ -1061,7 +1183,8 @@ function renderTeamHistory(){
     const period=document.createElement('div');
     period.className='small';
     period.textContent=
-      record.from+' ~ '+(record.to||'이후');
+      record.from+'부터'+
+      (record.to?' '+record.to+'까지':' 계속 적용');
 
     detail.appendChild(teamName);
     detail.appendChild(period);
@@ -1183,8 +1306,44 @@ salaryClose.onclick=()=>{salaryPanel.classList.add('hidden');switchTab('My');act
 prevMonthBtn.onclick=()=>changeMonth(-1);nextMonthBtn.onclick=()=>changeMonth(1);
 memoCancelBtn.onclick=closeMemoModal;
 memoModal.addEventListener('click',e=>{if(e.target===memoModal)closeMemoModal()});memoSaveBtn.onclick=()=>{if(!memoTargetDate)return;setMemo(memoTargetDate,memoText.value);setOverride(memoTargetDate,memoOverrideSelect.value);closeMemoModal();renderCurrent()};memoDeleteBtn.onclick=()=>{if(!memoTargetDate)return;setMemo(memoTargetDate,'');setOverride(memoTargetDate,'');closeMemoModal();renderCurrent()};
+function formatMonthDay_(date){
+  return (date.getMonth()+1)+'월 '+date.getDate()+'일';
+}
+
+function renderTeamChangePreview_(){
+  if(!teamChangeDate.value){
+    teamChangePreview.classList.remove('warn');
+    teamChangePreview.textContent=
+      '날짜와 다음 조를 선택하면 적용 결과를 보여줍니다.';
+    return;
+  }
+
+  const lastDate=new Date(
+    teamChangeDate.value+'T00:00:00'
+  );
+
+  const nextDate=new Date(lastDate);
+  nextDate.setDate(nextDate.getDate()+1);
+
+  const currentIndex=getTeamIndexForDate(lastDate);
+  const nextIndex=Number(teamChangeTeam.value);
+
+  if(nextIndex===currentIndex){
+    teamChangePreview.classList.add('warn');
+    teamChangePreview.textContent=
+      '현재 조와 같은 조가 선택되었습니다. 다른 조를 선택하세요.';
+    return;
+  }
+
+  teamChangePreview.classList.remove('warn');
+  teamChangePreview.textContent=
+    formatMonthDay_(lastDate)+'까지 '+TEAMS[currentIndex]+
+    ' · '+formatMonthDay_(nextDate)+'부터 '+TEAMS[nextIndex];
+}
+
 teamChangeDate.onchange=()=>{
   if(!teamChangeDate.value){
+    renderTeamChangePreview_();
     return;
   }
 
@@ -1197,7 +1356,11 @@ teamChangeDate.onchange=()=>{
   teamChangeTeam.value=String(
     (currentIndex+1)%TEAMS.length
   );
+
+  renderTeamChangePreview_();
 };
+
+teamChangeTeam.onchange=renderTeamChangePreview_;
 
 addTeamHistoryBtn.onclick=()=>{
   if(!teamChangeDate.value){
@@ -1260,6 +1423,9 @@ addTeamHistoryBtn.onclick=()=>{
   renderTeamHistory();
   renderTeamSelect();
   renderCurrent();
+
+  teamChangeDate.value='';
+  renderTeamChangePreview_();
 
   alert(
     currentTeamLastDate+'까지 '+
@@ -1894,4 +2060,3 @@ switchTab('My');
 autoLoadReferenceData();
 </script>
 </body>
-</html>
