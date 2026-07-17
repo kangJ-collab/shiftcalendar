@@ -72,7 +72,48 @@ button{cursor:pointer}
 .cell:nth-child(7n){border-right:none}.cell.dim .daynum{color:#c9c9c9}.cell.dim .tag{opacity:.35}
 .tag{align-self:flex-start;font-size:10.5px;font-weight:800;color:#fff;padding:1px 4px;border-radius:3px;margin-bottom:2px;line-height:1.4}
 .daynum{font-size:15px;font-weight:700;margin-top:auto;margin-bottom:auto;text-align:center}
-.cell.today .daynum{background:var(--red);color:#fff;border-radius:50%;width:22px;height:22px;line-height:22px;margin:0 auto}
+/* 오늘 표시: 요일·공휴일 색상은 유지하고 위치만 강조 */
+.cell.today{
+  background:rgba(59,130,246,.09);
+  box-shadow:
+    inset 2px 0 0 #243b6b,
+    inset -2px 0 0 #243b6b;
+}
+
+.cell.today .daynum{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:25px;
+  height:25px;
+  margin:0 auto;
+  background:#fff;
+  border:2px solid #243b6b;
+  border-radius:50%;
+  line-height:1;
+}
+
+/* All·With 모드의 오늘 세로 열 */
+.tcell.today-col{
+  background:rgba(59,130,246,.09);
+  box-shadow:
+    inset 1px 0 0 #243b6b,
+    inset -1px 0 0 #243b6b;
+}
+
+.today-number-ring{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:24px;
+  height:24px;
+  padding:0 4px;
+  background:#fff;
+  border:2px solid #243b6b;
+  border-radius:999px;
+  color:inherit;
+  line-height:1;
+}
 .memo{font-size:9px;color:#666;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .table-wrap{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;overflow:hidden;background:#fff}
 .trow{display:grid;flex:1 1 0;min-height:0;border-bottom:1px solid var(--line)}
@@ -960,7 +1001,7 @@ function renderCalendar(){
 
     const dayNum=document.createElement('span');
     dayNum.className='daynum';
-    dayNum.style.color=isToday?'#fff':dayColor;
+    dayNum.style.color=dayColor;
     dayNum.textContent=String(c.date.getDate());
     div.appendChild(dayNum);
 
@@ -979,12 +1020,110 @@ function renderCalendar(){
   });
 }
 function renderBlocks(wrap,rows){
-  wrap.innerHTML='';const days=new Date(viewYear,viewMonth+1,0).getDate(),week=['일','월','화','수','목','금','토'],blocks=[[1,Math.min(10,days)]];if(days>10)blocks.push([11,Math.min(20,days)]);if(days>20)blocks.push([21,days]);
-  blocks.forEach(([s,e])=>{const b=document.createElement('div');b.style.cssText='flex:1 1 0;display:flex;flex-direction:column;min-height:0';
-    const mkRow=(label,fn)=>{const r=document.createElement('div');r.className='trow header-row';r.style.gridTemplateColumns=`60px repeat(${e-s+1},1fr)`;r.innerHTML=`<div class="tcell label">${label}</div>`+Array.from({length:e-s+1},(_,i)=>fn(s+i)).join('');b.appendChild(r)};
-    mkRow('DAY',d=>{const dt=new Date(viewYear,viewMonth,d),h=getHoliday(dt);return `<div class="tcell" style="color:${getDayColor(dt)}">${d}${h?`<span style="font-size:8px;color:#e5352b">${h}</span>`:''}</div>`});
-    mkRow('DATE',d=>{const dt=new Date(viewYear,viewMonth,d);return `<div class="tcell" style="color:${getDayColor(dt)}">${week[dt.getDay()]}</div>`});
-    rows.forEach(rowDef=>{const r=document.createElement('div');r.className='trow';r.style.gridTemplateColumns=`60px repeat(${e-s+1},1fr)`;let html=`<div class="tcell label">${rowDef.label}</div>`;for(let d=s;d<=e;d++){const dt=new Date(viewYear,viewMonth,d),shift=rowDef.get(dt),st=getTypeStyle(shift);html+=`<div class="tcell"><span class="badge" style="background:${st.bg};color:${st.color}">${st.label}</span></div>`}r.innerHTML=html;b.appendChild(r)});wrap.appendChild(b)})
+  wrap.innerHTML='';
+
+  const days=new Date(viewYear,viewMonth+1,0).getDate();
+  const week=['일','월','화','수','목','금','토'];
+  const blocks=[[1,Math.min(10,days)]];
+
+  if(days>10){
+    blocks.push([11,Math.min(20,days)]);
+  }
+
+  if(days>20){
+    blocks.push([21,days]);
+  }
+
+  const isTodayDate=d=>
+    viewYear===today.getFullYear() &&
+    viewMonth===today.getMonth() &&
+    d===today.getDate();
+
+  blocks.forEach(([s,e])=>{
+    const block=document.createElement('div');
+
+    block.style.cssText=
+      'flex:1 1 0;display:flex;flex-direction:column;min-height:0';
+
+    const makeHeaderRow=(label,cellMaker)=>{
+      const row=document.createElement('div');
+
+      row.className='trow header-row';
+      row.style.gridTemplateColumns=
+        `60px repeat(${e-s+1},1fr)`;
+
+      let rowHtml=
+        `<div class="tcell label">${label}</div>`;
+
+      for(let day=s;day<=e;day++){
+        rowHtml+=cellMaker(day);
+      }
+
+      row.innerHTML=rowHtml;
+      block.appendChild(row);
+    };
+
+    makeHeaderRow('DAY',day=>{
+      const date=new Date(viewYear,viewMonth,day);
+      const holiday=getHoliday(date);
+      const todayClass=isTodayDate(day)?' today-col':'';
+      const numberHtml=isTodayDate(day)
+        ? `<span class="today-number-ring">${day}</span>`
+        : String(day);
+
+      return (
+        `<div class="tcell${todayClass}" `+
+        `style="color:${getDayColor(date)}">`+
+        numberHtml+
+        (
+          holiday
+            ? `<span style="font-size:8px;color:#e5352b">${holiday}</span>`
+            : ''
+        )+
+        `</div>`
+      );
+    });
+
+    makeHeaderRow('DATE',day=>{
+      const date=new Date(viewYear,viewMonth,day);
+      const todayClass=isTodayDate(day)?' today-col':'';
+
+      return (
+        `<div class="tcell${todayClass}" `+
+        `style="color:${getDayColor(date)}">`+
+        `${week[date.getDay()]}</div>`
+      );
+    });
+
+    rows.forEach(rowDefinition=>{
+      const row=document.createElement('div');
+
+      row.className='trow';
+      row.style.gridTemplateColumns=
+        `60px repeat(${e-s+1},1fr)`;
+
+      let rowHtml=
+        `<div class="tcell label">${rowDefinition.label}</div>`;
+
+      for(let day=s;day<=e;day++){
+        const date=new Date(viewYear,viewMonth,day);
+        const shift=rowDefinition.get(date);
+        const style=getTypeStyle(shift);
+        const todayClass=isTodayDate(day)?' today-col':'';
+
+        rowHtml+=
+          `<div class="tcell${todayClass}">`+
+          `<span class="badge" `+
+          `style="background:${style.bg};color:${style.color}">`+
+          `${style.label}</span></div>`;
+      }
+
+      row.innerHTML=rowHtml;
+      block.appendChild(row);
+    });
+
+    wrap.appendChild(block);
+  });
 }
 function renderAll(){renderBlocks(allWrap,TEAMS.map((t,i)=>({label:t,get:d=>i===getTeamIndexForDate(d)?getMyDisplayShift(d):getShiftForTeam(d,i)})))}
 function renderWith(){renderBlocks(withWrap,[{label:'Me',get:d=>getMyDisplayShift(d)},...withEntries.map(en=>({label:en.name,get:d=>getShiftCustom(d,en.refDate,en.cycle)}))])}
@@ -2059,3 +2198,4 @@ switchTab('My');
 autoLoadReferenceData();
 </script>
 </body>
+</html>
