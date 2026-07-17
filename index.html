@@ -1,3 +1,4 @@
+html
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -190,20 +191,50 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
 
     <div class="section-label">캘린더 설정</div>
     <div class="card">
-      <div class="form-group"><label class="form-label">회사/조 이름</label><input id="settingsCompany" class="form-input" placeholder="예: "></div>
-      <div class="form-group"><label class="form-label">현재 조</label><div id="teamSelectRow" class="row"></div></div>
-      <div class="form-group"><label class="form-label">조 패턴 기준일</label><input id="settingsRefDate" type="date" class="form-input"><div class="form-hint">이 날짜에 C조가 주간 첫날이 되도록 계산합니다.</div></div>
+      <div class="form-group">
+        <label class="form-label">오늘 기준 현재 조</label>
+        <div id="currentTeamBadge" class="btn primary" style="width:100%;pointer-events:none"></div>
+        <div class="form-hint">기본 조와 실제 근무조 변경 이력을 기준으로 자동 계산됩니다.</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">변경 이력 이전 기본 조</label>
+        <div id="teamSelectRow" class="row"></div>
+        <div class="form-hint">
+          아직 변경 이력이 없으면 이 조가 전체 기간에 적용됩니다.
+          변경 이력이 있으면 첫 변경일 전까지 적용됩니다.
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">조 패턴 기준일</label>
+        <input id="settingsRefDate" type="date" class="form-input" readonly>
+        <div class="form-hint">2026-07-15에 C조가 주간 첫날인 회사 기준으로 고정됩니다.</div>
+      </div>
     </div>
 
     <div class="section-label">근무조 변경 이력</div>
     <div class="card">
       <div id="teamHistoryList"></div>
-      <div class="row" style="margin-top:10px">
-        <input id="teamChangeDate" type="date" class="form-input" style="flex:1">
-        <select id="teamChangeTeam" class="form-input" style="width:95px"></select>
+
+      <div class="row" style="margin-top:10px;align-items:flex-end">
+        <div style="flex:1">
+          <label class="form-label" for="teamChangeDate">기존 조 마지막 날짜</label>
+          <input id="teamChangeDate" type="date" class="form-input">
+        </div>
+
+        <div style="width:105px">
+          <label class="form-label" for="teamChangeTeam">다음 조</label>
+          <select id="teamChangeTeam" class="form-input"></select>
+        </div>
+
         <button id="addTeamHistoryBtn" class="btn primary">추가</button>
       </div>
-      <div class="form-hint">변경일 전날까지는 기존 조, 변경일부터 새 조 스케줄을 그대로 따라갑니다.</div>
+
+      <div class="form-hint">
+        입력한 날짜까지 기존 조가 적용되고, 다음 날부터 선택한 새 조가 적용됩니다.
+        달력과 급여 계산도 날짜별로 자동 분리됩니다.
+      </div>
     </div>
 
     <div class="section-label">근무 타입 관리</div>
@@ -445,7 +476,6 @@ window.addEventListener('error',function(e){
 <script>
 /* 모든 DOM 요소를 명시적으로 연결: iOS Safari에서 id 자동 전역변수에 의존하지 않음 */
 const app=document.getElementById('app');
-const companyInput=document.getElementById('companyInput');
 const settingsBtn=document.getElementById('settingsBtn');
 const prevMonthBtn=document.getElementById('prevMonthBtn');
 const teamBadge=document.getElementById('teamBadge');
@@ -463,7 +493,7 @@ const memoCancelBtn=document.getElementById('memoCancelBtn');
 const memoSaveBtn=document.getElementById('memoSaveBtn');
 const settingsPanel=document.getElementById('settingsPanel');
 const settingsClose=document.getElementById('settingsClose');
-const settingsCompany=document.getElementById('settingsCompany');
+const currentTeamBadge=document.getElementById('currentTeamBadge');
 const teamSelectRow=document.getElementById('teamSelectRow');
 const settingsRefDate=document.getElementById('settingsRefDate');
 const teamHistoryList=document.getElementById('teamHistoryList');
@@ -562,11 +592,72 @@ function getDayColor(d){if(getHoliday(d))return '#e5352b';if(d.getDay()===0)retu
 
 const CYCLE=['주간','주간','휴무','휴무','야간','야간','휴무','휴무'];
 const TEAMS=['A조','B조','C조','D조'];
+
+// 2026-07-15에 C조가 주간 첫날인 실제 교대 패턴 계산 기준
 const REF_TEAM_INDEX=2;
-let refDate=new Date(store.get('refDate',dateKey(today))+'T00:00:00');
-let myTeamIndex=store.get('myTeamIndex',2);
-let companyName=store.get('companyName','');
-let TEAM_HISTORY=store.get('teamHistory',[{from:`${today.getFullYear()}-01-01`,to:null,teamIndex:myTeamIndex}]);
+const DEFAULT_REF_DATE='2026-07-15';
+
+// 신규 사용자의 기본 조.
+// 실제 변경 이력 날짜는 사용자가 입력하기 전까지 만들지 않는다.
+const DEFAULT_TEAM_INDEX=2;
+const TEAM_HISTORY_SCHEMA_VERSION=4;
+
+let refDate=new Date(DEFAULT_REF_DATE+'T00:00:00');
+
+let baseTeamIndex=Number(
+  store.get(
+    'baseTeamIndex',
+    store.get('myTeamIndex',DEFAULT_TEAM_INDEX)
+  )
+);
+
+if(
+  !Number.isInteger(baseTeamIndex) ||
+  baseTeamIndex<0 ||
+  baseTeamIndex>=TEAMS.length
+){
+  baseTeamIndex=DEFAULT_TEAM_INDEX;
+}
+
+let myTeamIndex=baseTeamIndex;
+
+const storedTeamHistory=store.get('teamHistory',null);
+const storedTeamHistoryVersion=Number(
+  store.get('teamHistorySchemaVersion',1)
+);
+
+let TEAM_HISTORY=Array.isArray(storedTeamHistory)
+  ? storedTeamHistory
+  : [];
+
+// 구버전은 최초 실행 시 날짜가 들어간 단일 이력을 자동 생성했다.
+// 새 구조에서는 그 날짜를 실제 변경 이력으로 취급하지 않고,
+// 당시 조만 기본 조로 보존한다.
+// 사용자가 변경 이력을 추가한 경우에는 기록이 여러 건이므로 그대로 유지된다.
+if(
+  storedTeamHistoryVersion<TEAM_HISTORY_SCHEMA_VERSION &&
+  TEAM_HISTORY.length===1
+){
+  const legacyTeamIndex=Number(TEAM_HISTORY[0].teamIndex);
+
+  if(
+    Number.isInteger(legacyTeamIndex) &&
+    legacyTeamIndex>=0 &&
+    legacyTeamIndex<TEAMS.length
+  ){
+    baseTeamIndex=legacyTeamIndex;
+  }
+
+  TEAM_HISTORY=[];
+}
+
+store.set('baseTeamIndex',baseTeamIndex);
+
+// 기준일은 회사 고정값으로 유지
+store.set('refDate',DEFAULT_REF_DATE);
+
+// 과거 회사명 저장값 제거
+localStorage.removeItem('companyName');
 
 let SHIFT_STYLE=store.get('shiftStyle',{
  '주간':{label:'주',bg:'#f2e79a',color:'#3a3a1a'},
@@ -596,47 +687,69 @@ function setMemo(d,text){if(text&&text.trim())store.set('memo-'+dateKey(d),text.
 const getOverride=d=>store.get('override-'+dateKey(d),null);
 function setOverride(d,key){if(key)store.set('override-'+dateKey(d),key);else localStorage.removeItem('override-'+dateKey(d))}
 
-function getShiftForTeam(date, teamIndex) {
-  const diffDays = Math.floor(
-    (stripTime(date) - stripTime(refDate)) / 86400000
-  );
+function getShiftForTeam(date,teamIndex){
+  const diffDays=Math.floor((stripTime(date)-stripTime(refDate))/86400000);
 
-  /*
-    실제 근무 순환 방향
+  // 실제 근무 순환: A조 → B조 → C조 → D조 → A조
+  // 다음 조가 같은 근무를 2일 뒤에 이어받도록 패턴을 반대 방향으로 이동한다.
+  // 예: C조 주간 이후 D조가 주간을 이어받음.
+  const teamDistance=teamIndex-REF_TEAM_INDEX;
+  const offset=-(teamDistance*2);
 
-    A조 → B조 → C조 → D조 → A조
-
-    다음 조가 같은 근무를 2일 뒤에 이어받는다.
-
-    예:
-    C조 주간
-    → 2일 뒤 D조 주간
-    → 2일 뒤 A조 주간
-    → 2일 뒤 B조 주간
-  */
-  const teamDistance = teamIndex - REF_TEAM_INDEX;
-  const offset = -(teamDistance * 2);
-
-  let index = (diffDays + offset) % CYCLE.length;
-
-  if (index < 0) {
-    index += CYCLE.length;
-  }
-
-  return CYCLE[index];
+  let idx=(diffDays+offset)%CYCLE.length;
+  if(idx<0)idx+=CYCLE.length;
+  return CYCLE[idx];
 }
 function getTeamIndexForDate(date){
   const key=dateKey(date);
-  const rule=[...TEAM_HISTORY].filter(r=>key>=r.from&&(!r.to||key<=r.to)).sort((a,b)=>b.from.localeCompare(a.from))[0];
-  return rule?rule.teamIndex:myTeamIndex;
+
+  const rules=[...TEAM_HISTORY].sort(
+    (a,b)=>String(a.from).localeCompare(String(b.from))
+  );
+
+  let teamIndex=baseTeamIndex;
+
+  for(const rule of rules){
+    if(key>=rule.from){
+      teamIndex=Number(rule.teamIndex);
+    }else{
+      break;
+    }
+  }
+
+  return teamIndex;
 }
 function getMyDisplayShift(date){return getOverride(date)||getShiftForTeam(date,getTeamIndexForDate(date))}
 
 let withEntries=store.get('withEntries',[{name:'비교 대상',refDate:dateKey(today),cycle:['주간','주간','휴무','휴무','야간','야간','휴무','휴무']}]);
 function getShiftCustom(date,refDateStr,cycleArr){const rd=new Date(refDateStr+'T00:00:00');const diff=Math.floor((stripTime(date)-stripTime(rd))/86400000);let idx=diff%cycleArr.length;if(idx<0)idx+=cycleArr.length;return cycleArr[idx]}
 
-const SALARY_DEF={base1:0,base3:0,license:0,meal:0,pensionSup:0,shiftH:8.86,matching:0,pension2:0,foodDed:0,house:0,prevAnnual:0,employ:0.9,incomeTaxRate:8.3};
-let SAL=store.get('salarySettings',{...SALARY_DEF});
+const SALARY_DEF={
+  base1:0,
+  base3:0,
+  license:0,
+
+  // 회사 기본값: 신규 사용자의 입력 부담을 줄이기 위한 초기값
+  meal:150000,
+  pensionSup:90000,
+  shiftH:8.86,
+  matching:0,
+  pension2:90000,
+  foodDed:75000,
+
+  house:0,
+  prevAnnual:0,
+  employ:0.9,
+  incomeTaxRate:8.3
+};
+
+const storedSalarySettings=store.get('salarySettings',null);
+let SAL={
+  ...SALARY_DEF,
+  ...(storedSalarySettings&&typeof storedSalarySettings==='object'
+    ? storedSalarySettings
+    : {})
+};
 let salOvr=store.get('salOvr',{});
 const autoBonus=s=>Math.round((s.base1+s.base3)*.5);
 const autoUnion=s=>Math.round((s.base1+s.base3)*.018);
@@ -655,7 +768,7 @@ function calcHoursForMonth(y,m){
     else if(code==='주OT'){h.workDays++;if(maj){h.festBase+=8;h.festExt+=4}else if(hol){h.holiday+=8;h.holidayExt+=4}else{h.weekly+=8;h.weeklyExt+=4}}
     else if(code==='야OT'){h.workDays++;h.night+=8;if(maj){h.festBase+=8;h.festExt+=4}else if(hol){h.holiday+=8;h.holidayExt+=4}else{h.weekly+=8;h.weeklyExt+=4}}
     else if(code==='연차'){h.annualDays++}
-    else if(code&&code.startsWith('일근OT:')){const hrs=parseFloat(code.split(':')[1])||0;h.workDays++;if(hrs<=8)h.weekly+=8;else{h.weekly+=8;h.weeklyExt+=hrs-8}}
+    else if(code&&code.startsWith('일근OT:')){const hrs=parseFloat(code.split(':')[1])||0;h.workDays++;if(hrs<=8)h.weekly+=hrs;else{h.weekly+=8;h.weeklyExt+=hrs-8}}
   }
   return h;
 }
@@ -689,9 +802,12 @@ let viewYear=store.get('viewYear',today.getFullYear()),viewMonth=store.get('view
 function buildCalendarCells(y,m){const first=new Date(y,m,1),off=first.getDay(),prevDays=new Date(y,m,0).getDate(),cells=[];for(let i=off-1;i>=0;i--)cells.push({date:new Date(y,m-1,prevDays-i),dim:true});for(let d=1;d<=new Date(y,m+1,0).getDate();d++)cells.push({date:new Date(y,m,d),dim:false});while(cells.length<42){const last=cells[cells.length-1].date,next=new Date(last);next.setDate(next.getDate()+1);cells.push({date:next,dim:next.getMonth()!==m})}return cells}
 function renderMonthLabel(){
   headerMonthLabel.textContent=`${viewYear}. ${pad2(viewMonth+1)}`;
-  teamBadge.textContent=(companyName&&companyName.trim())
-    ? companyName.trim()
-    : TEAMS[getTeamIndexForDate(new Date(viewYear,viewMonth,15))];
+
+  teamBadge.textContent=TEAMS[
+    getTeamIndexForDate(
+      new Date(viewYear,viewMonth,15)
+    )
+  ];
 }
 function renderCalendar(){
   renderMonthLabel();
@@ -767,16 +883,221 @@ function openMemoModal(date){memoTargetDate=date;memoTitle.textContent=`${date.g
 function closeMemoModal(){memoModal.classList.add('hidden');memoTargetDate=null}
 
 function openSettings(){
-  settingsPanel.classList.remove('hidden');settingsCompany.value=companyName;settingsRefDate.value=dateKey(refDate);holidayDataUrl.value=store.get('holidayDataUrl','./data/holidays.json');insuranceDataUrl.value=store.get('insuranceDataUrl','./data/insurance.json');
-  renderTeamSelect();renderTeamHistory();renderTypes();renderCompanyHolidays();renderWithManageList();renderSalaryFields();renderUpdateStatus()
+  settingsPanel.classList.remove('hidden');
+
+  settingsRefDate.value=DEFAULT_REF_DATE;
+
+  holidayDataUrl.value=store.get(
+    'holidayDataUrl',
+    './data/holidays.json'
+  );
+
+  insuranceDataUrl.value=store.get(
+    'insuranceDataUrl',
+    './data/insurance.json'
+  );
+
+  renderTeamSelect();
+  renderTeamHistory();
+  renderTypes();
+  renderCompanyHolidays();
+  renderWithManageList();
+  renderSalaryFields();
+  renderUpdateStatus();
 }
-function renderTeamSelect(){teamSelectRow.innerHTML='';TEAMS.forEach((t,i)=>{const b=document.createElement('button');b.className='btn'+(i===myTeamIndex?' primary':'');b.style.flex='1';b.textContent=t;b.onclick=()=>{myTeamIndex=i;store.set('myTeamIndex',i);renderTeamSelect();renderCurrent()};teamSelectRow.appendChild(b)});teamChangeTeam.innerHTML=TEAMS.map((t,i)=>`<option value="${i}">${t}</option>`).join('')}
+
+function renderTeamSelect(){
+  const currentIndex=getTeamIndexForDate(today);
+
+  myTeamIndex=currentIndex;
+  store.set('myTeamIndex',currentIndex);
+
+  currentTeamBadge.textContent=TEAMS[currentIndex];
+
+  teamSelectRow.innerHTML='';
+
+  TEAMS.forEach((team,index)=>{
+    const button=document.createElement('button');
+
+    button.type='button';
+    button.className=
+      'btn'+(index===baseTeamIndex?' primary':'');
+    button.style.flex='1';
+    button.textContent=team;
+
+    button.onclick=()=>{
+      baseTeamIndex=index;
+
+      store.set(
+        'baseTeamIndex',
+        baseTeamIndex
+      );
+
+      syncCurrentTeamIndex();
+      renderTeamSelect();
+      renderTeamHistory();
+      renderCurrent();
+    };
+
+    teamSelectRow.appendChild(button);
+  });
+
+  teamChangeTeam.innerHTML='';
+
+  TEAMS.forEach((team,index)=>{
+    const option=document.createElement('option');
+
+    option.value=String(index);
+    option.textContent=team;
+
+    teamChangeTeam.appendChild(option);
+  });
+
+  teamChangeTeam.value=String(
+    (currentIndex+1)%TEAMS.length
+  );
+}
+
 function normalizeHistory(){
-  TEAM_HISTORY.sort((a,b)=>a.from.localeCompare(b.from));
-  TEAM_HISTORY.forEach((r,i)=>{if(i<TEAM_HISTORY.length-1){const d=new Date(TEAM_HISTORY[i+1].from+'T00:00:00');d.setDate(d.getDate()-1);r.to=dateKey(d)}else r.to=null})
+  const uniqueByFrom=new Map();
+
+  (Array.isArray(TEAM_HISTORY)?TEAM_HISTORY:[]).forEach(record=>{
+    const from=String(record&&record.from||'');
+    const teamIndex=Number(record&&record.teamIndex);
+
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(from)){
+      return;
+    }
+
+    if(
+      !Number.isInteger(teamIndex) ||
+      teamIndex<0 ||
+      teamIndex>=TEAMS.length
+    ){
+      return;
+    }
+
+    uniqueByFrom.set(from,{
+      from,
+      to:null,
+      teamIndex
+    });
+  });
+
+  TEAM_HISTORY=[...uniqueByFrom.values()].sort(
+    (a,b)=>a.from.localeCompare(b.from)
+  );
+
+  TEAM_HISTORY.forEach((record,index)=>{
+    if(index<TEAM_HISTORY.length-1){
+      const endDate=new Date(
+        TEAM_HISTORY[index+1].from+'T00:00:00'
+      );
+
+      endDate.setDate(
+        endDate.getDate()-1
+      );
+
+      record.to=dateKey(endDate);
+    }else{
+      record.to=null;
+    }
+  });
+
+  store.set('baseTeamIndex',baseTeamIndex);
+  store.set('teamHistory',TEAM_HISTORY);
+  store.set(
+    'teamHistorySchemaVersion',
+    TEAM_HISTORY_SCHEMA_VERSION
+  );
 }
-function renderTeamHistory(){normalizeHistory();teamHistoryList.innerHTML=TEAM_HISTORY.map((r,i)=>`<div class="history-row"><div class="grow"><b>${TEAMS[r.teamIndex]}</b><div class="small">${r.from} ~ ${r.to||'현재'}</div></div><button class="btn red" onclick="deleteTeamHistory(${i})">삭제</button></div>`).join('')}
-window.deleteTeamHistory=i=>{if(TEAM_HISTORY.length<=1)return;TEAM_HISTORY.splice(i,1);normalizeHistory();store.set('teamHistory',TEAM_HISTORY);renderTeamHistory();renderCurrent()}
+
+function syncCurrentTeamIndex(){
+  myTeamIndex=getTeamIndexForDate(today);
+
+  store.set(
+    'myTeamIndex',
+    myTeamIndex
+  );
+}
+
+function renderTeamHistory(){
+  normalizeHistory();
+  syncCurrentTeamIndex();
+
+  teamHistoryList.innerHTML='';
+
+  const baseRow=document.createElement('div');
+  baseRow.className='history-row';
+
+  const baseDetail=document.createElement('div');
+  baseDetail.className='grow';
+
+  const baseTitle=document.createElement('b');
+  baseTitle.textContent='기본 조 · '+TEAMS[baseTeamIndex];
+
+  const basePeriod=document.createElement('div');
+  basePeriod.className='small';
+
+  basePeriod.textContent=TEAM_HISTORY.length
+    ? TEAM_HISTORY[0].from+' 이전'
+    : '변경 이력 없음 · 전체 기간 적용';
+
+  baseDetail.appendChild(baseTitle);
+  baseDetail.appendChild(basePeriod);
+  baseRow.appendChild(baseDetail);
+  teamHistoryList.appendChild(baseRow);
+
+  TEAM_HISTORY.forEach((record,index)=>{
+    const row=document.createElement('div');
+    row.className='history-row';
+
+    const detail=document.createElement('div');
+    detail.className='grow';
+
+    const teamName=document.createElement('b');
+    teamName.textContent=TEAMS[record.teamIndex];
+
+    const period=document.createElement('div');
+    period.className='small';
+    period.textContent=
+      record.from+' ~ '+(record.to||'이후');
+
+    detail.appendChild(teamName);
+    detail.appendChild(period);
+    row.appendChild(detail);
+
+    const deleteButton=document.createElement('button');
+    deleteButton.type='button';
+    deleteButton.className='btn red';
+    deleteButton.textContent='삭제';
+
+    deleteButton.onclick=()=>{
+      deleteTeamHistory(index);
+    };
+
+    row.appendChild(deleteButton);
+    teamHistoryList.appendChild(row);
+  });
+}
+
+window.deleteTeamHistory=index=>{
+  if(index<0||index>=TEAM_HISTORY.length){
+    return;
+  }
+
+  TEAM_HISTORY.splice(index,1);
+
+  normalizeHistory();
+  syncCurrentTeamIndex();
+  renderTeamHistory();
+  renderTeamSelect();
+  renderCurrent();
+};
+
+// 앱 시작 시 저장된 실제 이력만 정리하고 현재 조를 동기화한다.
+normalizeHistory();
+syncCurrentTeamIndex();
 function renderTypes(){typeManageList.innerHTML='';DEFAULT_TYPE_KEYS.forEach(k=>{const v=SHIFT_STYLE[k],r=document.createElement('div');r.className='type-row';r.innerHTML=`<span class="pill" style="background:${v.bg};color:${v.color}">${v.label}</span><div class="grow"><b>${k}</b><div class="small">패턴 고정</div></div><input type="color" value="${v.bg}">`;r.querySelector('input').oninput=e=>{SHIFT_STYLE[k].bg=e.target.value;saveTypeState();renderCurrent()};typeManageList.appendChild(r)});CUSTOM_TYPES.forEach((t,i)=>{const r=document.createElement('div');r.className='type-row';r.innerHTML=`<span class="pill" style="background:${t.bg};color:${t.color}">${t.label}</span><div class="grow"><b>${t.key}</b></div><input type="color" value="${t.bg}"><button class="btn red">삭제</button>`;r.querySelector('input').oninput=e=>{CUSTOM_TYPES[i].bg=e.target.value;saveTypeState();renderCurrent()};r.querySelector('button').onclick=()=>{CUSTOM_TYPES.splice(i,1);saveTypeState();renderTypes();renderCurrent()};typeManageList.appendChild(r)})}
 function renderCompanyHolidays(){companyHolidayList.innerHTML=COMPANY_HOLIDAYS.map((h,i)=>`<div class="holiday-row"><div class="grow"><b>${h.name}</b><div class="small">${h.annual?`${pad2(h.month)}-${pad2(h.day)} 매년 반복`:h.date} · ${h.payAsHoliday?'휴일수당 적용':'표시만'} · ${h.enabled?'사용':'중지'}</div></div><button class="btn" onclick="toggleHoliday(${i})">${h.enabled?'중지':'사용'}</button><button class="btn red" onclick="deleteHoliday(${i})">삭제</button></div>`).join('')}
 window.toggleHoliday=i=>{COMPANY_HOLIDAYS[i].enabled=!COMPANY_HOLIDAYS[i].enabled;store.set('companyHolidays',COMPANY_HOLIDAYS);renderCompanyHolidays();renderCurrent()}
@@ -862,9 +1183,91 @@ salaryClose.onclick=()=>{salaryPanel.classList.add('hidden');switchTab('My');act
 prevMonthBtn.onclick=()=>changeMonth(-1);nextMonthBtn.onclick=()=>changeMonth(1);
 memoCancelBtn.onclick=closeMemoModal;
 memoModal.addEventListener('click',e=>{if(e.target===memoModal)closeMemoModal()});memoSaveBtn.onclick=()=>{if(!memoTargetDate)return;setMemo(memoTargetDate,memoText.value);setOverride(memoTargetDate,memoOverrideSelect.value);closeMemoModal();renderCurrent()};memoDeleteBtn.onclick=()=>{if(!memoTargetDate)return;setMemo(memoTargetDate,'');setOverride(memoTargetDate,'');closeMemoModal();renderCurrent()};
-settingsCompany.oninput=e=>{companyName=e.target.value;store.set('companyName',companyName);renderMonthLabel()};
-settingsRefDate.onchange=e=>{if(!e.target.value)return;refDate=new Date(e.target.value+'T00:00:00');store.set('refDate',e.target.value);renderCurrent()};
-addTeamHistoryBtn.onclick=()=>{if(!teamChangeDate.value)return alert('변경일을 입력하세요.');TEAM_HISTORY=TEAM_HISTORY.filter(r=>r.from!==teamChangeDate.value);TEAM_HISTORY.push({from:teamChangeDate.value,to:null,teamIndex:+teamChangeTeam.value});normalizeHistory();store.set('teamHistory',TEAM_HISTORY);myTeamIndex=+teamChangeTeam.value;store.set('myTeamIndex',myTeamIndex);renderTeamHistory();renderTeamSelect();renderCurrent()};
+teamChangeDate.onchange=()=>{
+  if(!teamChangeDate.value){
+    return;
+  }
+
+  const lastDate=new Date(
+    teamChangeDate.value+'T00:00:00'
+  );
+
+  const currentIndex=getTeamIndexForDate(lastDate);
+
+  teamChangeTeam.value=String(
+    (currentIndex+1)%TEAMS.length
+  );
+};
+
+addTeamHistoryBtn.onclick=()=>{
+  if(!teamChangeDate.value){
+    return alert(
+      '기존 조의 마지막 날짜를 입력하세요.'
+    );
+  }
+
+  const currentTeamLastDate=teamChangeDate.value;
+
+  const lastDateObject=new Date(
+    currentTeamLastDate+'T00:00:00'
+  );
+
+  const nextStartDate=new Date(
+    lastDateObject
+  );
+
+  nextStartDate.setDate(
+    nextStartDate.getDate()+1
+  );
+
+  const nextFrom=dateKey(nextStartDate);
+
+  const previousTeamIndex=getTeamIndexForDate(
+    lastDateObject
+  );
+
+  const nextTeamIndex=Number(
+    teamChangeTeam.value
+  );
+
+  if(
+    !Number.isInteger(nextTeamIndex) ||
+    nextTeamIndex<0 ||
+    nextTeamIndex>=TEAMS.length
+  ){
+    return alert('다음 조를 선택하세요.');
+  }
+
+  if(nextTeamIndex===previousTeamIndex){
+    return alert(
+      '현재 조와 다른 조를 선택하세요.'
+    );
+  }
+
+  // 같은 적용 시작일이 이미 있으면 새 설정으로 교체한다.
+  TEAM_HISTORY=TEAM_HISTORY.filter(
+    record=>record.from!==nextFrom
+  );
+
+  TEAM_HISTORY.push({
+    from:nextFrom,
+    to:null,
+    teamIndex:nextTeamIndex
+  });
+
+  normalizeHistory();
+  syncCurrentTeamIndex();
+  renderTeamHistory();
+  renderTeamSelect();
+  renderCurrent();
+
+  alert(
+    currentTeamLastDate+'까지 '+
+    TEAMS[previousTeamIndex]+'가 적용되고\n'+
+    nextFrom+'부터 '+
+    TEAMS[nextTeamIndex]+'가 적용됩니다.'
+  );
+};
 addTypeBtn.onclick=()=>{const n=newTypeLabel.value.trim();if(!n)return;CUSTOM_TYPES.push({key:n,label:n.slice(0,3),bg:newTypeColor.value,color:'#fff'});saveTypeState();newTypeLabel.value='';renderTypes()};
 addHolidayBtn.onclick=()=>{const n=holidayName.value.trim(),d=holidayDate.value;if(!n||!d)return alert('휴일명과 날짜를 입력하세요.');const dt=new Date(d+'T00:00:00');COMPANY_HOLIDAYS.push({id:'custom-'+Date.now(),name:n,month:dt.getMonth()+1,day:dt.getDate(),date:d,enabled:true,payAsHoliday:holidayPay.checked,annual:holidayAnnual.checked});store.set('companyHolidays',COMPANY_HOLIDAYS);holidayName.value='';renderCompanyHolidays();renderCurrent()};
 addWithBtn.onclick=()=>{withEntries.push({name:'새 비교 대상',refDate:dateKey(refDate),cycle:[...CYCLE]});store.set('withEntries',withEntries);renderWithManageList()};
@@ -1338,6 +1741,79 @@ async function autoLoadHolidayData(){
 }
 
 
+async function autoLoadInsuranceData(){
+  const url=store.get(
+    'insuranceDataUrl',
+    './data/insurance.json'
+  );
+
+  try{
+    const requestUrl=
+      url+
+      (url.includes('?')?'&':'?')+
+      't='+
+      Date.now();
+
+    const response=await fetch(
+      requestUrl,
+      {cache:'no-store'}
+    );
+
+    if(!response.ok){
+      throw new Error(
+        'HTTP '+response.status
+      );
+    }
+
+    const data=await response.json();
+
+    if(
+      !data.version ||
+      !Array.isArray(data.health) ||
+      !Array.isArray(data.nps)
+    ){
+      throw new Error(
+        '보험 JSON 형식 오류'
+      );
+    }
+
+    const previousVersion=INSURANCE_DATA.version;
+
+    INSURANCE_DATA=data;
+
+    store.set(
+      'remoteInsuranceData',
+      data
+    );
+
+    if(previousVersion!==data.version){
+      renderUpdateStatus();
+
+      if(
+        !salaryPanel.classList.contains('hidden')
+      ){
+        renderSalary();
+      }
+    }
+  }catch(error){
+    console.warn(
+      '보험 기준 자동 불러오기 실패. 저장된 캐시를 사용합니다.',
+      error
+    );
+  }
+}
+
+async function autoLoadReferenceData(){
+  await Promise.allSettled([
+    autoLoadHolidayData(),
+    autoLoadInsuranceData()
+  ]);
+
+  renderUpdateStatus();
+  renderCurrent();
+}
+
+
 // PWA 설치 및 서비스워커
 let deferredPwaInstallPrompt_=null;
 
@@ -1415,6 +1891,7 @@ if('serviceWorker' in navigator && location.protocol.startsWith('http')){
 }
 
 switchTab('My');
+autoLoadReferenceData();
 </script>
 </body>
 </html>
