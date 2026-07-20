@@ -17,9 +17,11 @@
 
 <style>
 :root{
-  --blue-dark:#3a5a9a;--blue-mid:#4a7fd8;--red:#e5352b;--yellow:#f2e79a;
-  --black:#2b2b2b;--gray-bg:#f4f5f7;--line:#e3e5ea;--green:#1a6b4a;
-  --surface:#fff;--text:#222;--muted:#777;--warn:#7a4f00;--warn-bg:#fff4d6;--nav-h:66px;
+  --blue-dark:#2f5368;--blue-mid:#53778c;--red:#d94841;--yellow:#f2e79a;
+  --black:#2b2b2b;--gray-bg:#f3f4f5;--line:#dfe3e6;--green:#356b57;
+  --surface:#fff;--surface-muted:#f6f7f8;--text:#202428;--muted:#68727a;
+  --accent:#315d73;--accent-strong:#244759;--accent-soft:#e8eff2;
+  --warn:#6a562e;--warn-bg:#faf5e9;--nav-h:68px;--memo-weight:600;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0;height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Malgun Gothic",sans-serif;background:var(--gray-bg);color:var(--text);user-select:none}
@@ -59,9 +61,18 @@ button{cursor:pointer}
   font-weight:700;padding:0 10px;
 }
 .month-bar .team-badge{
-  justify-self:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;
-  white-space:nowrap;font-size:14px;background:#fff;
-  border:1px solid #e1e3e7;padding:5px 12px;border-radius:999px;font-weight:750;
+  justify-self:center;
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  padding:5px 10px;
+  color:var(--accent-strong);
+  background:#fff;
+  border:1px solid #cfd8dd;
+  border-radius:6px;
+  font-size:14px;
+  font-weight:750;
 }
 #calendarWrap{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;overflow:hidden;touch-action:pan-y}
 .weekday-row{display:grid;grid-template-columns:repeat(7,1fr);flex:0 0 auto;border-bottom:1px solid var(--line);background:#fff}
@@ -112,7 +123,20 @@ button{cursor:pointer}
   color:inherit;
   line-height:1;
 }
-.memo{font-size:9px;color:#666;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.memo{
+  width:100%;
+  max-height:3.75em;
+  margin-top:1px;
+  color:#4f5961;
+  font-size:9.5px;
+  font-weight:var(--memo-weight);
+  line-height:1.25;
+  text-align:center;
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+  overflow:hidden;
+}
 .table-wrap{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;overflow:hidden;background:#fff}
 .trow{display:grid;flex:1 1 0;min-height:0;border-bottom:1px solid var(--line)}
 .trow.header-row{flex:0 0 34px;background:#f7f8fa;font-weight:700;font-size:12px}
@@ -121,26 +145,76 @@ button{cursor:pointer}
 .tcell:last-child{border-right:none}.tcell.label{font-weight:800;font-size:12px;background:#fafbfc}
 .badge{color:#fff;font-size:11px;font-weight:800;padding:2px 6px;border-radius:3px}
 nav{
-  position:fixed;left:0;right:0;bottom:0;z-index:9000;
+  position:fixed;
+  left:0;
+  right:0;
+  bottom:0;
+  z-index:9000;
   height:calc(var(--nav-h) + env(safe-area-inset-bottom));
-  display:flex;align-items:flex-start;background:#fff;
+  display:flex;
+  align-items:flex-start;
+  gap:2px;
+  background:#fff;
   border-top:1px solid var(--line);
-  padding:6px 0 max(6px,env(safe-area-inset-bottom));
-  overflow-x:auto;overflow-y:hidden;
-  -webkit-overflow-scrolling:touch;
-  scroll-snap-type:x proximity;touch-action:pan-x;
+  padding:6px 4px max(6px,env(safe-area-inset-bottom));
+  overflow:hidden;
 }
-nav::-webkit-scrollbar{display:none}
-nav button{background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:#999;padding:2px 4px;flex:0 0 20vw;min-width:20vw;max-width:20vw;scroll-snap-align:center;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-nav button.active{color:#2266ee}nav .icon{font-size:18px}
+nav button{
+  min-width:0;
+  max-width:none;
+  height:54px;
+  flex:1 1 0;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:3px;
+  margin:0;
+  padding:3px 1px;
+  color:#7a838a;
+  background:transparent;
+  border:0;
+  border-radius:8px;
+  font-size:10px;
+  font-weight:650;
+  white-space:nowrap;
+  overflow:hidden;
+}
+nav button.active{
+  color:var(--accent-strong);
+  background:var(--accent-soft);
+}
+.nav-icon{
+  width:21px;
+  height:21px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+}
+.nav-icon svg{
+  width:21px;
+  height:21px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.9;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.nav-label{
+  display:block;
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:clip;
+}
 .hidden{display:none!important}
 .panel{position:fixed;top:0;left:0;right:0;bottom:calc(var(--nav-h) + env(safe-area-inset-bottom));z-index:5000;background:var(--gray-bg);display:flex;flex-direction:column;overflow:hidden}
 .panel-head{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line);flex:0 0 auto;background:#fff}
-.panel-head button{background:none;border:none;font-size:22px;color:#2266ee}
+.panel-head button{background:none;border:none;font-size:22px;color:var(--accent)}
 .panel-title{font-weight:800;font-size:17px}
 .panel-body{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;touch-action:pan-y;padding:16px 16px 24px}
 .section-label{font-size:13px;color:#888;font-weight:700;margin:6px 0}
-.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px;min-width:0;overflow:hidden}
+.card{background:#fff;border:1px solid var(--line);border-radius:9px;padding:14px;margin-bottom:12px;min-width:0;overflow:hidden}
 .card-title{font-weight:800;font-size:14px;margin-bottom:10px}
 .form-group{margin-bottom:12px}.form-label{font-size:13px;font-weight:700;margin-bottom:5px;display:block}.form-hint{font-size:11px;color:#999;margin-top:4px}
 .form-input{
@@ -232,6 +306,62 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{
   color:#7a4f00;
 }
 
+.call-work-fields{
+  margin-top:10px;
+  padding:12px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:#f8f9fb;
+}
+
+.call-time-grid{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  gap:10px;
+}
+
+.call-time-grid>*{
+  min-width:0;
+}
+
+input[type="time"].form-input{
+  display:block;
+  width:100%;
+  min-width:0;
+  max-width:100%;
+  height:46px;
+  overflow:hidden;
+  -webkit-appearance:none;
+  appearance:none;
+}
+
+input[type="time"].form-input::-webkit-date-and-time-value{
+  min-width:0;
+  text-align:left;
+}
+
+.call-time-preview{
+  margin-top:10px;
+  padding:9px 10px;
+  border-radius:8px;
+  background:#eef4ff;
+  color:#174d9b;
+  font-size:12px;
+  line-height:1.45;
+}
+
+.call-time-preview.warn{
+  background:#fff4d6;
+  color:#7a4f00;
+}
+
+@media(max-width:390px){
+  .call-time-grid{
+    grid-template-columns:minmax(0,1fr);
+  }
+}
+
+
 @media(max-width:390px){
   .team-change-form{
     grid-template-columns:minmax(0,1fr);
@@ -251,15 +381,32 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{
   }
 }
 .btn{padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:#fff;font-weight:700}
-.btn.primary{background:#2266ee;color:#fff;border-color:#2266ee}.btn.green{background:var(--green);color:#fff;border-color:var(--green)}.btn.red{color:var(--red);border-color:var(--red)}
+.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}.btn.green{background:var(--green);color:#fff;border-color:var(--green)}.btn.red{color:var(--red);border-color:var(--red)}
 .stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px}
-.stat{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px}
+.stat{background:#fff;border:1px solid var(--line);border-radius:9px;padding:12px}
 .stat .k{font-size:11px;color:#888}.stat .v{font-size:20px;font-weight:800;margin-top:4px}.stat .s{font-size:11px;color:#999;margin-top:2px}
 .data-table{width:100%;border-collapse:collapse}.data-table td{padding:8px 4px;border-bottom:1px solid var(--line);font-size:13px}.data-table td:last-child{text-align:right;font-weight:700}.data-table tr:last-child td{border-bottom:none}
-.notice{padding:10px;border-radius:8px;font-size:12px;margin-bottom:10px}.notice.warn{background:var(--warn-bg);color:var(--warn);border:1px solid #edd28a}.notice.info{background:#eaf1ff;color:#1a4a8b;border:1px solid #bcd0f1}
+.notice{
+  padding:10px 11px;
+  margin-bottom:10px;
+  border:1px solid var(--line);
+  border-radius:7px;
+  font-size:12px;
+  line-height:1.5;
+}
+.notice.warn{
+  color:var(--warn);
+  background:var(--warn-bg);
+  border-color:#e4d8ba;
+}
+.notice.info{
+  color:#465761;
+  background:#f4f6f7;
+  border-color:#d8dfe3;
+}
 .slip-grid{display:grid;grid-template-columns:1fr;gap:12px}.slip-table{width:100%;border-collapse:collapse}.slip-table td{padding:7px;border-bottom:1px solid var(--line);font-size:13px}.slip-table td:last-child{text-align:right}.slip-table tr.total td{font-weight:800;background:#fafafa}
 .type-row,.history-row,.holiday-row,.rule-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}.type-row:last-child,.history-row:last-child,.holiday-row:last-child,.rule-row:last-child{border-bottom:none}
-.pill{padding:2px 7px;border-radius:999px;font-size:11px;font-weight:800}
+.pill{padding:3px 6px;border-radius:5px;font-size:11px;font-weight:800;border:1px solid rgba(0,0,0,.08)}
 .small{font-size:11px;color:#888}.grow{flex:1}
 .modal{position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center}
 .modal-box{background:#fff;border-radius:14px;width:88%;max-width:360px;padding:18px}
@@ -308,8 +455,27 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
     <div id="memoTitle" style="font-weight:800;font-size:16px;margin-bottom:10px">메모</div>
     <label class="form-label">근무 상태</label>
     <select id="memoOverrideSelect" class="form-input" style="margin-bottom:10px"></select>
-    <label class="form-label">메모</label>
-    <textarea id="memoText" rows="3" class="form-input" style="resize:none"></textarea>
+
+    <div id="callWorkFields" class="call-work-fields hidden">
+      <div class="call-time-grid">
+        <div>
+          <label class="form-label" for="callStartTime">근무 시작</label>
+          <input id="callStartTime" type="time" class="form-input" value="23:00">
+        </div>
+
+        <div>
+          <label class="form-label" for="callEndTime">근무 종료</label>
+          <input id="callEndTime" type="time" class="form-input" value="07:00">
+        </div>
+      </div>
+
+      <div id="callTimePreview" class="call-time-preview">
+        시간을 입력하면 총 근무시간과 야간시간을 자동 계산합니다.
+      </div>
+    </div>
+
+    <label class="form-label" style="margin-top:10px">메모</label>
+    <textarea id="memoText" rows="4" class="form-input" style="resize:none" placeholder="줄바꿈을 포함해 메모를 입력할 수 있습니다."></textarea>
     <div class="row" style="margin-top:12px">
       <button id="memoDeleteBtn" class="btn red" style="flex:1">삭제</button>
       <button id="memoCancelBtn" class="btn" style="flex:1">취소</button>
@@ -386,6 +552,33 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
       <div class="form-hint">
         선택한 날짜까지는 현재 조로 계산하고, 그다음 날부터 새 조로 달력과 급여를 계산합니다.
       </div>
+    </div>
+
+    <div class="section-label">메모 표시</div>
+    <div class="card">
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label" for="memoFontWeightSelect">메모 글자 굵기</label>
+        <select id="memoFontWeightSelect" class="form-input">
+          <option value="400">얇게</option>
+          <option value="500">보통</option>
+          <option value="600">조금 굵게</option>
+          <option value="700">굵게</option>
+          <option value="800">아주 굵게</option>
+        </select>
+      </div>
+
+      <div id="memoFontPreview" style="
+        margin-top:10px;
+        padding:10px 12px;
+        background:var(--surface-muted);
+        border:1px solid var(--line);
+        border-radius:7px;
+        color:#4f5961;
+        font-size:11px;
+        line-height:1.45;
+        white-space:pre-wrap;
+      ">메모 미리보기
+두 번째 줄도 그대로 표시됩니다.</div>
     </div>
 
     <div class="section-label">근무 타입 관리</div>
@@ -489,9 +682,9 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
   <div class="panel-head">
     <button id="salaryClose">✕</button>
     <div class="row" style="align-items:center">
-      <button id="salPrevBtn" style="background:none;border:none;font-size:20px;color:#2266ee">‹</button>
+      <button id="salPrevBtn" style="background:none;border:none;font-size:20px;color:var(--accent)">‹</button>
       <div id="salaryTitle" class="panel-title" style="min-width:120px;text-align:center"></div>
-      <button id="salNextBtn" style="background:none;border:none;font-size:20px;color:#2266ee">›</button>
+      <button id="salNextBtn" style="background:none;border:none;font-size:20px;color:var(--accent)">›</button>
     </div>
     <div style="width:22px"></div>
   </div>
@@ -504,7 +697,7 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
   <div class="modal-box" style="max-width:560px;max-height:88vh;overflow-y:auto">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
       <div style="font-size:17px;font-weight:800">구글 스프레드시트 + GAS 설정</div>
-      <button id="gasGuideCloseBtn" style="background:none;border:none;font-size:22px;color:#2266ee">✕</button>
+      <button id="gasGuideCloseBtn" style="background:none;border:none;font-size:22px;color:var(--accent)">✕</button>
     </div>
 
     <div class="notice warn">
@@ -606,13 +799,70 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
   </div>
 </div>
 
-<nav>
-  <button id="navMy" class="active"><span class="icon">👤</span>My</button>
-  <button id="navAll"><span class="icon">👥</span>All</button>
-  <button id="navWith"><span class="icon">🪪</span>With</button>
-  <button id="navDashboard"><span class="icon">📊</span>대시보드</button>
-  <button id="navSalary"><span class="icon">💰</span>급여명세서</button>
-  <button id="navSetting"><span class="icon">⚙️</span>Setting</button>
+<nav aria-label="주요 메뉴">
+  <button id="navMy" class="active">
+    <span class="nav-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24">
+        <circle cx="12" cy="8" r="3"></circle>
+        <path d="M5.5 20c.7-4 3-6 6.5-6s5.8 2 6.5 6"></path>
+      </svg>
+    </span>
+    <span class="nav-label">내근무</span>
+  </button>
+
+  <button id="navAll">
+    <span class="nav-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24">
+        <circle cx="9" cy="8" r="3"></circle>
+        <circle cx="17" cy="9" r="2.4"></circle>
+        <path d="M3.5 20c.6-4 2.7-6 5.5-6s4.9 2 5.5 6"></path>
+        <path d="M14 15.5c2.7-.4 5 1.3 5.8 4.5"></path>
+      </svg>
+    </span>
+    <span class="nav-label">다른조</span>
+  </button>
+
+  <button id="navWith">
+    <span class="nav-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24">
+        <rect x="3" y="5" width="18" height="16" rx="2"></rect>
+        <path d="M8 3v4M16 3v4M3 10h18"></path>
+        <path d="M8 15h3M13 15h3M8 18h3"></path>
+      </svg>
+    </span>
+    <span class="nav-label">친구근무</span>
+  </button>
+
+  <button id="navDashboard">
+    <span class="nav-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24">
+        <path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path>
+      </svg>
+    </span>
+    <span class="nav-label">대시보드</span>
+  </button>
+
+  <button id="navSalary">
+    <span class="nav-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24">
+        <path d="M6 3h12v18l-2-1.5L14 21l-2-1.5L10 21l-2-1.5L6 21z"></path>
+        <path d="M9 8h6M9 12h6M9 16h4"></path>
+      </svg>
+    </span>
+    <span class="nav-label">급여명세서</span>
+  </button>
+
+  <button id="navSetting">
+    <span class="nav-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24">
+        <path d="M4 6h10M18 6h2M4 12h3M11 12h9M4 18h7M15 18h5"></path>
+        <circle cx="16" cy="6" r="2"></circle>
+        <circle cx="9" cy="12" r="2"></circle>
+        <circle cx="13" cy="18" r="2"></circle>
+      </svg>
+    </span>
+    <span class="nav-label">설정</span>
+  </button>
 </nav>
 </div>
 
@@ -638,7 +888,13 @@ const withWrap=document.getElementById('withWrap');
 const memoModal=document.getElementById('memoModal');
 const memoTitle=document.getElementById('memoTitle');
 const memoOverrideSelect=document.getElementById('memoOverrideSelect');
+const callWorkFields=document.getElementById('callWorkFields');
+const callStartTime=document.getElementById('callStartTime');
+const callEndTime=document.getElementById('callEndTime');
+const callTimePreview=document.getElementById('callTimePreview');
 const memoText=document.getElementById('memoText');
+const memoFontWeightSelect=document.getElementById('memoFontWeightSelect');
+const memoFontPreview=document.getElementById('memoFontPreview');
 const memoDeleteBtn=document.getElementById('memoDeleteBtn');
 const memoCancelBtn=document.getElementById('memoCancelBtn');
 const memoSaveBtn=document.getElementById('memoSaveBtn');
@@ -697,6 +953,40 @@ const stripTime=d=>new Date(d.getFullYear(),d.getMonth(),d.getDate());
 const fmt=n=>Math.round(n||0).toLocaleString('ko-KR');
 const fmtW=n=>fmt(n)+'원';
 const today=new Date();
+
+const MEMO_FONT_WEIGHT_KEY='memoFontWeight';
+
+function normalizeMemoFontWeight_(value){
+  const weight=Number(value);
+  const allowed=[400,500,600,700,800];
+
+  return allowed.includes(weight)
+    ? weight
+    : 600;
+}
+
+function applyMemoFontWeight_(value){
+  const weight=normalizeMemoFontWeight_(value);
+
+  document.documentElement.style.setProperty(
+    '--memo-weight',
+    String(weight)
+  );
+
+  if(memoFontWeightSelect){
+    memoFontWeightSelect.value=String(weight);
+  }
+
+  if(memoFontPreview){
+    memoFontPreview.style.fontWeight=String(weight);
+  }
+
+  return weight;
+}
+
+let memoFontWeight=applyMemoFontWeight_(
+  store.get(MEMO_FONT_WEIGHT_KEY,600)
+);
 const headerMonthLabel=document.getElementById('headerMonthLabel');
 
 const DEFAULT_HOLIDAY_DATA={
@@ -818,16 +1108,33 @@ let SHIFT_STYLE=store.get('shiftStyle',{
  '휴무':{label:'휴',bg:'#e5352b',color:'#fff'}
 });
 const DEFAULT_TYPE_KEYS=['주간','야간','휴무'];
-let CUSTOM_TYPES=store.get('customTypes',[
+const REQUIRED_CUSTOM_TYPES=[
  {key:'연차',label:'연차',bg:'#7a4f00',color:'#fff'},
  {key:'교육',label:'교',bg:'#2255cc',color:'#fff'},
  {key:'출장',label:'출',bg:'#1a8a4a',color:'#fff'},
  {key:'주+반OT',label:'주+',bg:'#c04a00',color:'#fff'},
  {key:'야+반OT',label:'야+',bg:'#4a2a00',color:'#fff'},
- {key:'주OT',label:'주OT',bg:'#1a4a8b',color:'#fff'},
+ {key:'주8OT',label:'주8',bg:'#1a4a8b',color:'#fff'},
+ {key:'야8OT',label:'야8',bg:'#202020',color:'#fff'},
+ {key:'주OT',label:'주OT',bg:'#2f65a7',color:'#fff'},
  {key:'야OT',label:'야OT',bg:'#120e2a',color:'#fff'},
+ {key:'호출',label:'호출',bg:'#6d28d9',color:'#fff'},
  {key:'일근OT:8',label:'일OT',bg:'#5b21b6',color:'#fff'}
-]);
+];
+
+let CUSTOM_TYPES=store.get('customTypes',[]);
+
+if(!Array.isArray(CUSTOM_TYPES)){
+  CUSTOM_TYPES=[];
+}
+
+REQUIRED_CUSTOM_TYPES.forEach(requiredType=>{
+  if(!CUSTOM_TYPES.some(type=>type.key===requiredType.key)){
+    CUSTOM_TYPES.push({...requiredType});
+  }
+});
+
+store.set('customTypes',CUSTOM_TYPES);
 const saveTypeState=()=>{store.set('shiftStyle',SHIFT_STYLE);store.set('customTypes',CUSTOM_TYPES)};
 function getTypeStyle(key){
   if(SHIFT_STYLE[key])return SHIFT_STYLE[key];
@@ -838,7 +1145,35 @@ function getTypeStyle(key){
 const getMemo=d=>store.get('memo-'+dateKey(d),'');
 function setMemo(d,text){if(text&&text.trim())store.set('memo-'+dateKey(d),text.trim());else localStorage.removeItem('memo-'+dateKey(d))}
 const getOverride=d=>store.get('override-'+dateKey(d),null);
-function setOverride(d,key){if(key)store.set('override-'+dateKey(d),key);else localStorage.removeItem('override-'+dateKey(d))}
+function setOverride(d,key){
+  if(key){
+    store.set('override-'+dateKey(d),key);
+  }else{
+    localStorage.removeItem('override-'+dateKey(d));
+  }
+}
+
+const getCallWork=d=>store.get(
+  'callwork-'+dateKey(d),
+  null
+);
+
+function setCallWork(d,data){
+  const key='callwork-'+dateKey(d);
+
+  if(
+    data &&
+    /^\d{2}:\d{2}$/.test(data.start||'') &&
+    /^\d{2}:\d{2}$/.test(data.end||'')
+  ){
+    store.set(key,{
+      start:data.start,
+      end:data.end
+    });
+  }else{
+    localStorage.removeItem(key);
+  }
+}
 
 function getShiftForTeam(date,teamIndex){
   const diffDays=Math.floor((stripTime(date)-stripTime(refDate))/86400000);
@@ -910,19 +1245,261 @@ const calcHR=s=>((s.base1+s.base3)*18/12+s.meal+s.license)/179;
 function roundPay(v){let r=Math.round(v);if(Math.floor(r/10)%10===9)r=Math.ceil(r/100)*100;if(Math.floor(r/100)%10===9)r=Math.ceil(r/1000)*1000;return r}
 function findRule(rules,dateStr){return (rules||[]).find(r=>dateStr>=r.from&&(!r.to||dateStr<=r.to))||(rules||[]).slice(-1)[0]}
 function toPayCode(raw){if(raw==='주간')return'주';if(raw==='야간')return'야';if(raw==='휴무')return'휴';return raw}
-function calcHoursForMonth(y,m){
-  const days=new Date(y,m,0).getDate(),h={normal:0,extend:0,weekly:0,weeklyExt:0,holiday:0,holidayExt:0,festBase:0,festExt:0,night:0,shiftOT:SAL.shiftH,workDays:0,annualDays:0};
-  for(let d=1;d<=days;d++){
-    const date=new Date(y,m-1,d),code=toPayCode(getMyDisplayShift(date)),maj=isMajorDay(date),hol=isPayHoliday(date);
-    if(code==='주'){h.workDays++;if(hol){h.holiday+=8;h.holidayExt+=4}else h.normal+=12}
-    else if(code==='야'){h.workDays++;h.night+=8;if(hol){h.holiday+=8;h.holidayExt+=4}else h.normal+=12}
-    else if(code==='주+반OT'){h.workDays++;h.extend+=4;if(hol){h.holiday+=8;h.holidayExt+=4}else h.normal+=12}
-    else if(code==='야+반OT'){h.workDays++;h.night+=8;h.extend+=4;if(hol){h.holiday+=8;h.holidayExt+=4}else h.normal+=12}
-    else if(code==='주OT'){h.workDays++;if(maj){h.festBase+=8;h.festExt+=4}else if(hol){h.holiday+=8;h.holidayExt+=4}else{h.weekly+=8;h.weeklyExt+=4}}
-    else if(code==='야OT'){h.workDays++;h.night+=8;if(maj){h.festBase+=8;h.festExt+=4}else if(hol){h.holiday+=8;h.holidayExt+=4}else{h.weekly+=8;h.weeklyExt+=4}}
-    else if(code==='연차'){h.annualDays++}
-    else if(code&&code.startsWith('일근OT:')){const hrs=parseFloat(code.split(':')[1])||0;h.workDays++;if(hrs<=8)h.weekly+=hrs;else{h.weekly+=8;h.weeklyExt+=hrs-8}}
+
+function timeToMinutes_(value){
+  const parts=String(value||'').split(':');
+  const hour=Number(parts[0]);
+  const minute=Number(parts[1]);
+
+  if(
+    !Number.isInteger(hour) ||
+    !Number.isInteger(minute) ||
+    hour<0 ||
+    hour>23 ||
+    minute<0 ||
+    minute>59
+  ){
+    return null;
   }
+
+  return hour*60+minute;
+}
+
+function overlapMinutes_(start,end,rangeStart,rangeEnd){
+  return Math.max(
+    0,
+    Math.min(end,rangeEnd)-Math.max(start,rangeStart)
+  );
+}
+
+function calculateCallWorkHours_(startValue,endValue){
+  const start=timeToMinutes_(startValue);
+  let end=timeToMinutes_(endValue);
+
+  if(start===null||end===null){
+    return null;
+  }
+
+  if(end<=start){
+    end+=1440;
+  }
+
+  const totalMinutes=end-start;
+
+  if(totalMinutes<=0||totalMinutes>1440){
+    return null;
+  }
+
+  let nightMinutes=0;
+
+  // 시작일 00:00~06:00
+  nightMinutes+=overlapMinutes_(
+    start,
+    end,
+    0,
+    360
+  );
+
+  // 시작일 22:00~다음 날 06:00
+  nightMinutes+=overlapMinutes_(
+    start,
+    end,
+    1320,
+    1800
+  );
+
+  // 다음 날 22:00 이후까지 근무하는 예외적인 경우
+  nightMinutes+=overlapMinutes_(
+    start,
+    end,
+    2760,
+    3240
+  );
+
+  return {
+    total:totalMinutes/60,
+    night:nightMinutes/60,
+    day:(totalMinutes-nightMinutes)/60
+  };
+}
+
+function addOffDayOtHours_(hours,total,night,isMajor,isHoliday){
+  const base=Math.min(8,total);
+  const extension=Math.max(0,total-8);
+
+  hours.workDays++;
+  hours.night+=night;
+
+  if(isMajor){
+    hours.festBase+=base;
+    hours.festExt+=extension;
+  }else if(isHoliday){
+    hours.holiday+=base;
+    hours.holidayExt+=extension;
+  }else{
+    hours.weekly+=base;
+    hours.weeklyExt+=extension;
+  }
+}
+
+function addRegularShiftHours_(hours,baseCode,isHoliday){
+  if(baseCode==='주'){
+    hours.workDays++;
+
+    if(isHoliday){
+      hours.holiday+=8;
+      hours.holidayExt+=4;
+    }else{
+      hours.normal+=12;
+    }
+
+    return;
+  }
+
+  if(baseCode==='야'){
+    hours.workDays++;
+    hours.night+=8;
+
+    if(isHoliday){
+      hours.holiday+=8;
+      hours.holidayExt+=4;
+    }else{
+      hours.normal+=12;
+    }
+  }
+}
+
+function calcHoursForMonth(y,m){
+  const days=new Date(y,m,0).getDate();
+
+  const h={
+    normal:0,
+    extend:0,
+    weekly:0,
+    weeklyExt:0,
+    holiday:0,
+    holidayExt:0,
+    festBase:0,
+    festExt:0,
+    night:0,
+    shiftOT:SAL.shiftH,
+    workDays:0,
+    annualDays:0
+  };
+
+  for(let day=1;day<=days;day++){
+    const date=new Date(y,m-1,day);
+    const displayCode=toPayCode(getMyDisplayShift(date));
+    const baseCode=toPayCode(
+      getShiftForTeam(
+        date,
+        getTeamIndexForDate(date)
+      )
+    );
+
+    const major=isMajorDay(date);
+    const holiday=isPayHoliday(date);
+
+    if(displayCode==='주'){
+      addRegularShiftHours_(h,'주',holiday);
+    }
+    else if(displayCode==='야'){
+      addRegularShiftHours_(h,'야',holiday);
+    }
+    else if(displayCode==='주+반OT'){
+      h.workDays++;
+      h.extend+=4;
+
+      // 19:00~23:00 추가근무 중 22:00~23:00은 야간 1시간
+      h.night+=1;
+
+      if(holiday){
+        h.holiday+=8;
+        h.holidayExt+=4;
+      }else{
+        h.normal+=12;
+      }
+    }
+    else if(displayCode==='야+반OT'){
+      h.workDays++;
+      h.night+=8;
+      h.extend+=4;
+
+      if(holiday){
+        h.holiday+=8;
+        h.holidayExt+=4;
+      }else{
+        h.normal+=12;
+      }
+    }
+    else if(displayCode==='주8OT'){
+      addOffDayOtHours_(h,8,0,major,holiday);
+    }
+    else if(displayCode==='야8OT'){
+      // 23:00~07:00 = 총 8시간, 법정 야간 23:00~06:00 = 7시간
+      addOffDayOtHours_(h,8,7,major,holiday);
+    }
+    else if(displayCode==='주OT'){
+      addOffDayOtHours_(h,12,0,major,holiday);
+    }
+    else if(displayCode==='야OT'){
+      addOffDayOtHours_(h,12,8,major,holiday);
+    }
+    else if(displayCode==='호출'){
+      const callWork=getCallWork(date);
+      const calculated=callWork
+        ? calculateCallWorkHours_(
+            callWork.start,
+            callWork.end
+          )
+        : null;
+
+      if(!calculated){
+        continue;
+      }
+
+      if(baseCode==='휴'){
+        // 원래 휴무인 날의 호출은 휴무일 OT로 계산
+        addOffDayOtHours_(
+          h,
+          calculated.total,
+          calculated.night,
+          major,
+          holiday
+        );
+      }else{
+        // 원래 근무일이면 정규근무를 먼저 계산하고
+        // 호출 시간 전체를 추가 연장근로로 반영
+        addRegularShiftHours_(
+          h,
+          baseCode,
+          holiday
+        );
+
+        h.extend+=calculated.total;
+        h.night+=calculated.night;
+      }
+    }
+    else if(displayCode==='연차'){
+      h.annualDays++;
+    }
+    else if(
+      displayCode &&
+      displayCode.startsWith('일근OT:')
+    ){
+      const hours=
+        parseFloat(displayCode.split(':')[1])||0;
+
+      addOffDayOtHours_(
+        h,
+        hours,
+        0,
+        major,
+        holiday
+      );
+    }
+  }
+
   return h;
 }
 function calcSalary(y,m){
@@ -1129,9 +1706,87 @@ function renderCurrent(){if(currentTab==='My')renderCalendar();else if(currentTa
 function switchTab(tab){currentTab=tab;calendarWrap.classList.toggle('hidden',tab!=='My');allWrap.classList.toggle('hidden',tab!=='All');withWrap.classList.toggle('hidden',tab!=='With');navMy.classList.toggle('active',tab==='My');navAll.classList.toggle('active',tab==='All');navWith.classList.toggle('active',tab==='With');renderCurrent()}
 
 let memoTargetDate=null;
-function populateOverrideSelect(){memoOverrideSelect.innerHTML='<option value="">기본 패턴 유지</option>'+DEFAULT_TYPE_KEYS.map(k=>`<option value="${k}">${k}</option>`).join('')+CUSTOM_TYPES.map(t=>`<option value="${t.key}">${t.key}</option>`).join('')}
-function openMemoModal(date){memoTargetDate=date;memoTitle.textContent=`${date.getMonth()+1}월 ${date.getDate()}일`;populateOverrideSelect();memoOverrideSelect.value=getOverride(date)||'';memoText.value=getMemo(date);memoModal.classList.remove('hidden')}
-function closeMemoModal(){memoModal.classList.add('hidden');memoTargetDate=null}
+
+function populateOverrideSelect(){
+  memoOverrideSelect.innerHTML=
+    '<option value="">기본 패턴 유지</option>'+
+    DEFAULT_TYPE_KEYS
+      .map(key=>`<option value="${key}">${key}</option>`)
+      .join('')+
+    CUSTOM_TYPES
+      .map(type=>`<option value="${type.key}">${type.key}</option>`)
+      .join('');
+}
+
+function renderCallWorkFields_(){
+  const isCall=memoOverrideSelect.value==='호출';
+
+  callWorkFields.classList.toggle(
+    'hidden',
+    !isCall
+  );
+
+  if(!isCall){
+    return;
+  }
+
+  const calculated=calculateCallWorkHours_(
+    callStartTime.value,
+    callEndTime.value
+  );
+
+  if(!calculated){
+    callTimePreview.classList.add('warn');
+    callTimePreview.textContent=
+      '시작시간과 종료시간을 확인하세요.';
+    return;
+  }
+
+  callTimePreview.classList.remove('warn');
+
+  const nextDay=
+    timeToMinutes_(callEndTime.value)<=
+    timeToMinutes_(callStartTime.value);
+
+  callTimePreview.textContent=
+    '총 '+calculated.total.toFixed(1).replace('.0','')+'시간'+
+    ' · 야간 '+calculated.night.toFixed(1).replace('.0','')+'시간'+
+    (nextDay?' · 다음 날 퇴근':'');
+}
+
+function openMemoModal(date){
+  memoTargetDate=date;
+
+  memoTitle.textContent=
+    `${date.getMonth()+1}월 ${date.getDate()}일`;
+
+  populateOverrideSelect();
+
+  const override=getOverride(date)||'';
+  memoOverrideSelect.value=override;
+
+  const callWork=getCallWork(date);
+
+  callStartTime.value=
+    callWork&&callWork.start
+      ? callWork.start
+      : '23:00';
+
+  callEndTime.value=
+    callWork&&callWork.end
+      ? callWork.end
+      : '07:00';
+
+  memoText.value=getMemo(date);
+
+  renderCallWorkFields_();
+  memoModal.classList.remove('hidden');
+}
+
+function closeMemoModal(){
+  memoModal.classList.add('hidden');
+  memoTargetDate=null;
+}
 
 function openSettings(){
   settingsPanel.classList.remove('hidden');
@@ -1162,6 +1817,7 @@ function openSettings(){
   renderSalaryFields();
   renderUpdateStatus();
   renderTeamChangePreview_();
+  applyMemoFontWeight_(memoFontWeight);
 }
 
 function renderTeamSelect(){
@@ -1441,7 +2097,73 @@ dashboardClose.onclick=()=>{dashboardPanel.classList.add('hidden');switchTab('My
 salaryClose.onclick=()=>{salaryPanel.classList.add('hidden');switchTab('My');activateNav(navMy)};
 prevMonthBtn.onclick=()=>changeMonth(-1);nextMonthBtn.onclick=()=>changeMonth(1);
 memoCancelBtn.onclick=closeMemoModal;
-memoModal.addEventListener('click',e=>{if(e.target===memoModal)closeMemoModal()});memoSaveBtn.onclick=()=>{if(!memoTargetDate)return;setMemo(memoTargetDate,memoText.value);setOverride(memoTargetDate,memoOverrideSelect.value);closeMemoModal();renderCurrent()};memoDeleteBtn.onclick=()=>{if(!memoTargetDate)return;setMemo(memoTargetDate,'');setOverride(memoTargetDate,'');closeMemoModal();renderCurrent()};
+
+memoModal.addEventListener('click',event=>{
+  if(event.target===memoModal){
+    closeMemoModal();
+  }
+});
+
+memoOverrideSelect.onchange=renderCallWorkFields_;
+callStartTime.oninput=renderCallWorkFields_;
+callEndTime.oninput=renderCallWorkFields_;
+
+memoSaveBtn.onclick=()=>{
+  if(!memoTargetDate){
+    return;
+  }
+
+  const selectedType=memoOverrideSelect.value;
+
+  if(selectedType==='호출'){
+    const calculated=calculateCallWorkHours_(
+      callStartTime.value,
+      callEndTime.value
+    );
+
+    if(!calculated){
+      return alert(
+        '호출 근무 시작시간과 종료시간을 확인하세요.'
+      );
+    }
+
+    setCallWork(
+      memoTargetDate,
+      {
+        start:callStartTime.value,
+        end:callEndTime.value
+      }
+    );
+  }else{
+    setCallWork(memoTargetDate,null);
+  }
+
+  setMemo(
+    memoTargetDate,
+    memoText.value
+  );
+
+  setOverride(
+    memoTargetDate,
+    selectedType
+  );
+
+  closeMemoModal();
+  renderCurrent();
+};
+
+memoDeleteBtn.onclick=()=>{
+  if(!memoTargetDate){
+    return;
+  }
+
+  setMemo(memoTargetDate,'');
+  setOverride(memoTargetDate,'');
+  setCallWork(memoTargetDate,null);
+
+  closeMemoModal();
+  renderCurrent();
+};
 function formatMonthDay_(date){
   return (date.getMonth()+1)+'월 '+date.getDate()+'일';
 }
@@ -1573,6 +2295,19 @@ addTeamHistoryBtn.onclick=()=>{
 addTypeBtn.onclick=()=>{const n=newTypeLabel.value.trim();if(!n)return;CUSTOM_TYPES.push({key:n,label:n.slice(0,3),bg:newTypeColor.value,color:'#fff'});saveTypeState();newTypeLabel.value='';renderTypes()};
 addHolidayBtn.onclick=()=>{const n=holidayName.value.trim(),d=holidayDate.value;if(!n||!d)return alert('휴일명과 날짜를 입력하세요.');const dt=new Date(d+'T00:00:00');COMPANY_HOLIDAYS.push({id:'custom-'+Date.now(),name:n,month:dt.getMonth()+1,day:dt.getDate(),date:d,enabled:true,payAsHoliday:holidayPay.checked,annual:holidayAnnual.checked});store.set('companyHolidays',COMPANY_HOLIDAYS);holidayName.value='';renderCompanyHolidays();renderCurrent()};
 addWithBtn.onclick=()=>{withEntries.push({name:'새 비교 대상',refDate:dateKey(refDate),cycle:[...CYCLE]});store.set('withEntries',withEntries);renderWithManageList()};
+memoFontWeightSelect.onchange=()=>{
+  memoFontWeight=applyMemoFontWeight_(
+    memoFontWeightSelect.value
+  );
+
+  store.set(
+    MEMO_FONT_WEIGHT_KEY,
+    memoFontWeight
+  );
+
+  renderCurrent();
+};
+
 saveSalaryBtn.onclick=()=>{salaryFields.forEach(([k])=>{SAL[k]=parseFloat(document.getElementById('sal-'+k).value)||0});store.set('salarySettings',SAL);alert('급여 설정 저장 완료')};
 updateHolidayBtn.onclick=()=>updateRemote('holiday');updateInsuranceBtn.onclick=()=>updateRemote('insurance');
 clearMemosBtn.onclick=()=>{Object.keys(localStorage).filter(k=>k.startsWith('memo-')).forEach(k=>localStorage.removeItem(k));renderCurrent();alert('메모 삭제 완료')};
