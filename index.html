@@ -2710,6 +2710,84 @@ function renderTypes(){
     });
 }
 
+function renderCompanyHolidays(){
+  companyHolidayList.innerHTML=COMPANY_HOLIDAYS
+    .map((holiday,index)=>{
+      const dateLabel=holiday.annual
+        ? `${pad2(holiday.month)}-${pad2(holiday.day)} 매년 반복`
+        : holiday.date;
+
+      return (
+        `<div class="holiday-row">`+
+        `<div class="grow">`+
+        `<b>${holiday.name}</b>`+
+        `<div class="small">`+
+        `${dateLabel} · `+
+        `${holiday.payAsHoliday?'휴일수당 적용':'표시만'} · `+
+        `${holiday.enabled?'사용':'중지'}`+
+        `</div>`+
+        `</div>`+
+        `<button class="btn" data-holiday-toggle="${index}">`+
+        `${holiday.enabled?'중지':'사용'}`+
+        `</button>`+
+        `<button class="btn red" data-holiday-delete="${index}">삭제</button>`+
+        `</div>`
+      );
+    })
+    .join('');
+
+  companyHolidayList
+    .querySelectorAll('[data-holiday-toggle]')
+    .forEach(button=>{
+      button.onclick=()=>{
+        const index=Number(button.dataset.holidayToggle);
+
+        if(
+          !Number.isInteger(index) ||
+          !COMPANY_HOLIDAYS[index]
+        ){
+          return;
+        }
+
+        COMPANY_HOLIDAYS[index].enabled=
+          !COMPANY_HOLIDAYS[index].enabled;
+
+        store.set(
+          'companyHolidays',
+          COMPANY_HOLIDAYS
+        );
+
+        renderCompanyHolidays();
+        renderCurrent();
+      };
+    });
+
+  companyHolidayList
+    .querySelectorAll('[data-holiday-delete]')
+    .forEach(button=>{
+      button.onclick=()=>{
+        const index=Number(button.dataset.holidayDelete);
+
+        if(
+          !Number.isInteger(index) ||
+          !COMPANY_HOLIDAYS[index]
+        ){
+          return;
+        }
+
+        COMPANY_HOLIDAYS.splice(index,1);
+
+        store.set(
+          'companyHolidays',
+          COMPANY_HOLIDAYS
+        );
+
+        renderCompanyHolidays();
+        renderCurrent();
+      };
+    });
+}
+
 function renderWorkPeriods_(){
   normalizeWorkPeriods_();
   workPeriodList.innerHTML='';
