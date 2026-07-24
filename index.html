@@ -15,6 +15,47 @@
 <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png">
 
+<script>
+(function(){
+  const key='themePreference';
+  const allowed=['system','light','dark'];
+  let preference='system';
+
+  try{
+    const raw=localStorage.getItem(key);
+    const saved=raw===null?null:JSON.parse(raw);
+
+    if(allowed.includes(saved)){
+      preference=saved;
+    }
+  }catch(_){}
+
+  const systemDark=
+    window.matchMedia &&
+    window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+  const resolved=
+    preference==='dark' ||
+    (preference==='system'&&systemDark)
+      ?'dark'
+      :'light';
+
+  document.documentElement.dataset.theme=resolved;
+  document.documentElement.dataset.themePreference=preference;
+
+  const themeMeta=document.querySelector(
+    'meta[name="theme-color"]'
+  );
+
+  if(themeMeta){
+    themeMeta.setAttribute(
+      'content',
+      resolved==='dark'?'#171c20':'#ffffff'
+    );
+  }
+})();
+</script>
+
 <style>
 :root{
   --blue-dark:#2f5368;--blue-mid:#53778c;--red:#d94841;--yellow:#f2e79a;
@@ -22,6 +63,25 @@
   --surface:#fff;--surface-muted:#f6f7f8;--text:#202428;--muted:#68727a;
   --accent:#315d73;--accent-strong:#244759;--accent-soft:#e8eff2;
   --warn:#6a562e;--warn-bg:#faf5e9;--nav-h:68px;--memo-weight:600;--memo-stroke:0px;
+  --calendar-text:#222;--text-soft:#58636b;--memo-color:#30383e;
+  --sunday-color:#e5352b;--saturday-color:#2255cc;
+  --today-bg:rgba(59,130,246,.09);--today-ring:#243b6b;
+  --modal-backdrop:rgba(0,0,0,.45);--shadow:rgba(28,48,60,.14);
+}
+html{
+  color-scheme:light;
+}
+html[data-theme="dark"]{
+  color-scheme:dark;
+  --blue-dark:#83a9be;--blue-mid:#789caf;--red:#ff7770;--yellow:#d8cd78;
+  --black:#25282b;--gray-bg:#0f1316;--line:#30383e;--green:#5c947c;
+  --surface:#181d21;--surface-muted:#20262b;--text:#edf1f3;--muted:#aab3b9;
+  --accent:#779bad;--accent-strong:#bdd3de;--accent-soft:#263842;
+  --warn:#dfc98f;--warn-bg:#332d21;
+  --calendar-text:#edf1f3;--text-soft:#b5bec4;--memo-color:#e5eaed;
+  --sunday-color:#ff7a73;--saturday-color:#78a8ff;
+  --today-bg:rgba(120,180,220,.14);--today-ring:#a7cadc;
+  --modal-backdrop:rgba(0,0,0,.62);--shadow:rgba(0,0,0,.35);
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0;height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Malgun Gothic",sans-serif;background:var(--gray-bg);color:var(--text);user-select:none}
@@ -30,10 +90,10 @@ input,select,textarea{font-size:16px!important}
 button{cursor:pointer}
 #app{display:flex;flex-direction:column;height:100vh;height:100dvh;width:100vw;overflow:hidden;padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom))}
 .main-header{
-  background:#fff;color:#111;padding:18px 16px 14px;
+  background:var(--surface);color:var(--text);padding:18px 16px 14px;
   display:flex;align-items:center;justify-content:space-between;
   flex:0 0 auto;position:relative;z-index:20;
-  border-bottom:1px solid #eceef2;
+  border-bottom:1px solid var(--line);
 }
 .header-month{
   font-size:34px;line-height:1;font-weight:850;letter-spacing:.5px;
@@ -42,22 +102,22 @@ button{cursor:pointer}
 .header-actions{display:flex;align-items:center;gap:4px}
 .header-icon-btn{
   width:42px;height:42px;display:flex;align-items:center;justify-content:center;
-  background:transparent;border:0;border-radius:12px;padding:8px;color:#404246;
+  background:transparent;border:0;border-radius:12px;padding:8px;color:var(--text-soft);
 }
-.header-icon-btn:active{background:#f0f1f3}
+.header-icon-btn:active{background:var(--surface-muted)}
 .header-icon-btn svg{
   width:27px;height:27px;fill:none;stroke:currentColor;
   stroke-width:2;stroke-linecap:round;stroke-linejoin:round;
 }
 .header-icon-btn svg circle{fill:currentColor;stroke:none}
 .month-bar{
-  background:#f7f8fa;color:#222;display:grid;
+  background:var(--surface-muted);color:var(--text);display:grid;
   grid-template-columns:54px minmax(0,1fr) 54px;
   align-items:center;padding:7px 8px;
   flex:0 0 auto;border-bottom:1px solid var(--line);
 }
 .month-bar button{
-  background:none;border:none;color:#444;font-size:28px;
+  background:none;border:none;color:var(--text-soft);font-size:28px;
   font-weight:700;padding:0 10px;
 }
 .month-bar .team-badge{
@@ -68,24 +128,24 @@ button{cursor:pointer}
   white-space:nowrap;
   padding:5px 10px;
   color:var(--accent-strong);
-  background:#fff;
-  border:1px solid #cfd8dd;
+  background:var(--surface);
+  border:1px solid var(--line);
   border-radius:6px;
   font-size:14px;
   font-weight:750;
 }
 #calendarWrap{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;overflow:hidden;touch-action:pan-y}
-.weekday-row{display:grid;grid-template-columns:repeat(7,1fr);flex:0 0 auto;border-bottom:1px solid var(--line);background:#fff}
-.weekday-row div{text-align:center;padding:6px 0;font-weight:700;font-size:13px;color:#444}
-.weekday-row div:first-child{color:var(--red)} .weekday-row div:last-child{color:#2255cc}
-.grid{flex:1 1 auto;display:grid;grid-template-columns:repeat(7,1fr);grid-template-rows:repeat(6,1fr);min-height:0;background:#fff}
+.weekday-row{display:grid;grid-template-columns:repeat(7,1fr);flex:0 0 auto;border-bottom:1px solid var(--line);background:var(--surface)}
+.weekday-row div{text-align:center;padding:6px 0;font-weight:700;font-size:13px;color:var(--text-soft)}
+.weekday-row div:first-child{color:var(--sunday-color)} .weekday-row div:last-child{color:var(--saturday-color)}
+.grid{flex:1 1 auto;display:grid;grid-template-columns:repeat(7,1fr);grid-template-rows:repeat(6,1fr);min-height:0;background:var(--surface)}
 .cell{border-right:1px solid var(--line);border-bottom:1px solid var(--line);display:flex;flex-direction:column;min-height:0;overflow:hidden;position:relative;padding:2px 3px}
 .cell:nth-child(7n){border-right:none}.cell.dim .daynum{color:#c9c9c9}.cell.dim .tag{opacity:.35}
 .tag{align-self:flex-start;font-size:10.5px;font-weight:800;color:#fff;padding:1px 4px;border-radius:3px;margin-bottom:2px;line-height:1.4}
 .daynum{font-size:15px;font-weight:700;margin-top:auto;margin-bottom:auto;text-align:center}
 /* 오늘 표시: 요일·공휴일 색상은 유지하고 위치만 강조 */
 .cell.today{
-  background:rgba(59,130,246,.09);
+  background:var(--today-bg);
   box-shadow:none;
 }
 
@@ -96,18 +156,18 @@ button{cursor:pointer}
   width:25px;
   height:25px;
   margin:0 auto;
-  background:#fff;
-  border:2px solid #243b6b;
+  background:var(--surface);
+  border:2px solid var(--today-ring);
   border-radius:50%;
   line-height:1;
 }
 
 /* All·With 모드의 오늘 세로 열 */
 .tcell.today-col{
-  background:rgba(59,130,246,.09);
+  background:var(--today-bg);
   box-shadow:
-    inset 1px 0 0 #243b6b,
-    inset -1px 0 0 #243b6b;
+    inset 1px 0 0 var(--today-ring),
+    inset -1px 0 0 var(--today-ring);
 }
 
 .today-number-ring{
@@ -117,8 +177,8 @@ button{cursor:pointer}
   min-width:24px;
   height:24px;
   padding:0 4px;
-  background:#fff;
-  border:2px solid #243b6b;
+  background:var(--surface);
+  border:2px solid var(--today-ring);
   border-radius:999px;
   color:inherit;
   line-height:1;
@@ -127,7 +187,7 @@ button{cursor:pointer}
   width:calc(100% - 4px);
   max-height:2.75em;
   margin:auto 2px 4px;
-  color:#30383e;
+  color:var(--memo-color);
   font-size:10.5px;
   font-weight:var(--memo-weight);
   line-height:1.28;
@@ -138,12 +198,12 @@ button{cursor:pointer}
   overflow:hidden;
   -webkit-text-stroke:var(--memo-stroke) currentColor;
 }
-.table-wrap{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;overflow:hidden;background:#fff}
+.table-wrap{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;overflow:hidden;background:var(--surface)}
 .trow{display:grid;flex:1 1 0;min-height:0;border-bottom:1px solid var(--line)}
-.trow.header-row{flex:0 0 34px;background:#f7f8fa;font-weight:700;font-size:12px}
+.trow.header-row{flex:0 0 34px;background:var(--surface-muted);font-weight:700;font-size:12px}
 .tcell{display:flex;align-items:center;justify-content:center;border-right:1px solid var(--line);font-size:12px;font-weight:700;flex-direction:column;overflow:hidden;white-space:nowrap;min-width:0}
 .tcell span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tcell:last-child{border-right:none}.tcell.label{font-weight:800;font-size:12px;background:#fafbfc}
+.tcell:last-child{border-right:none}.tcell.label{font-weight:800;font-size:12px;background:var(--surface-muted)}
 .badge{color:#fff;font-size:11px;font-weight:800;padding:2px 6px;border-radius:3px}
 nav{
   position:fixed;
@@ -155,7 +215,7 @@ nav{
   display:flex;
   align-items:flex-start;
   gap:2px;
-  background:#fff;
+  background:var(--surface);
   border-top:1px solid var(--line);
   padding:6px 4px max(6px,env(safe-area-inset-bottom));
   overflow:hidden;
@@ -172,7 +232,7 @@ nav button{
   gap:3px;
   margin:0;
   padding:3px 1px;
-  color:#7a838a;
+  color:var(--muted);
   background:transparent;
   border:0;
   border-radius:8px;
@@ -210,14 +270,14 @@ nav button.active{
 }
 .hidden{display:none!important}
 .panel{position:fixed;top:0;left:0;right:0;bottom:calc(var(--nav-h) + env(safe-area-inset-bottom));z-index:5000;background:var(--gray-bg);display:flex;flex-direction:column;overflow:hidden}
-.panel-head{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line);flex:0 0 auto;background:#fff}
+.panel-head{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line);flex:0 0 auto;background:var(--surface)}
 .panel-head button{background:none;border:none;font-size:22px;color:var(--accent)}
 .panel-title{font-weight:800;font-size:17px}
 .panel-body{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;touch-action:pan-y;padding:16px 16px 24px}
-.section-label{font-size:13px;color:#888;font-weight:700;margin:6px 0}
-.card{background:#fff;border:1px solid var(--line);border-radius:9px;padding:14px;margin-bottom:12px;min-width:0;overflow:hidden}
+.section-label{font-size:13px;color:var(--muted);font-weight:700;margin:6px 0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:14px;margin-bottom:12px;min-width:0;overflow:hidden}
 .card-title{font-weight:800;font-size:14px;margin-bottom:10px}
-.form-group{margin-bottom:12px}.form-label{font-size:13px;font-weight:700;margin-bottom:5px;display:block}.form-hint{font-size:11px;color:#999;margin-top:4px}
+.form-group{margin-bottom:12px}.form-label{font-size:13px;font-weight:700;margin-bottom:5px;display:block}.form-hint{font-size:11px;color:var(--muted);margin-top:4px}
 .form-input{
   display:block;
   width:100%;
@@ -226,7 +286,8 @@ nav button.active{
   padding:10px;
   border:1px solid var(--line);
   border-radius:8px;
-  background:#fff;
+  background:var(--surface);
+  color:var(--text);
 }
 
 input[type="date"].form-input{
@@ -261,12 +322,12 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{
   padding:12px;
   border:1px solid var(--line);
   border-radius:10px;
-  background:#f8f9fb;
+  background:var(--surface-muted);
 }
 
 .fixed-basis .label{
   font-size:12px;
-  color:#777;
+  color:var(--muted);
 }
 
 .fixed-basis .value{
@@ -296,15 +357,15 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{
   margin-top:10px;
   padding:10px 12px;
   border-radius:8px;
-  background:#eef4ff;
-  color:#174d9b;
+  background:var(--accent-soft);
+  color:var(--accent-strong);
   font-size:12px;
   line-height:1.5;
 }
 
 .change-preview.warn{
-  background:#fff4d6;
-  color:#7a4f00;
+  background:var(--warn-bg);
+  color:var(--warn);
 }
 
 .call-work-fields{
@@ -312,7 +373,7 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{
   padding:12px;
   border:1px solid var(--line);
   border-radius:10px;
-  background:#f8f9fb;
+  background:var(--surface-muted);
 }
 
 .call-time-grid{
@@ -345,15 +406,15 @@ input[type="time"].form-input::-webkit-date-and-time-value{
   margin-top:10px;
   padding:9px 10px;
   border-radius:8px;
-  background:#eef4ff;
-  color:#174d9b;
+  background:var(--accent-soft);
+  color:var(--accent-strong);
   font-size:12px;
   line-height:1.45;
 }
 
 .call-time-preview.warn{
-  background:#fff4d6;
-  color:#7a4f00;
+  background:var(--warn-bg);
+  color:var(--warn);
 }
 
 .mode-switch{
@@ -362,7 +423,7 @@ input[type="time"].form-input::-webkit-date-and-time-value{
   gap:5px;
   padding:4px;
   margin-bottom:10px;
-  background:#eef1f3;
+  background:var(--surface-muted);
   border-radius:8px;
 }
 .mode-switch button{
@@ -370,14 +431,14 @@ input[type="time"].form-input::-webkit-date-and-time-value{
   border:0;
   border-radius:6px;
   background:transparent;
-  color:#657078;
+  color:var(--muted);
   font-size:13px;
   font-weight:750;
 }
 .mode-switch button.active{
-  background:#fff;
+  background:var(--surface);
   color:var(--accent-strong);
-  box-shadow:0 1px 3px rgba(28,48,60,.14);
+  box-shadow:0 1px 3px var(--shadow);
 }
 .salary-two-col{
   display:grid;
@@ -472,11 +533,11 @@ input[type="time"].form-input::-webkit-date-and-time-value{
     text-align:left;
   }
 }
-.btn{padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:#fff;font-weight:700}
+.btn{padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--text);font-weight:700}
 .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}.btn.green{background:var(--green);color:#fff;border-color:var(--green)}.btn.red{color:var(--red);border-color:var(--red)}
 .stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px}
-.stat{background:#fff;border:1px solid var(--line);border-radius:9px;padding:12px}
-.stat .k{font-size:11px;color:#888}.stat .v{font-size:20px;font-weight:800;margin-top:4px}.stat .s{font-size:11px;color:#999;margin-top:2px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:12px}
+.stat .k{font-size:11px;color:var(--muted)}.stat .v{font-size:20px;font-weight:800;margin-top:4px}.stat .s{font-size:11px;color:var(--muted);margin-top:2px}
 .data-table{width:100%;border-collapse:collapse}.data-table td{padding:8px 4px;border-bottom:1px solid var(--line);font-size:13px}.data-table td:last-child{text-align:right;font-weight:700}.data-table tr:last-child td{border-bottom:none}
 .notice{
   padding:10px 11px;
@@ -489,20 +550,191 @@ input[type="time"].form-input::-webkit-date-and-time-value{
 .notice.warn{
   color:var(--warn);
   background:var(--warn-bg);
-  border-color:#e4d8ba;
+  border-color:color-mix(in srgb,var(--warn) 34%,var(--line));
 }
 .notice.info{
-  color:#465761;
-  background:#f4f6f7;
-  border-color:#d8dfe3;
+  color:var(--text-soft);
+  background:var(--surface-muted);
+  border-color:var(--line);
 }
-.slip-grid{display:grid;grid-template-columns:1fr;gap:12px}.slip-table{width:100%;border-collapse:collapse}.slip-table td{padding:7px;border-bottom:1px solid var(--line);font-size:13px}.slip-table td:last-child{text-align:right}.slip-table tr.total td{font-weight:800;background:#fafafa}
+.slip-grid{display:grid;grid-template-columns:1fr;gap:12px}.slip-table{width:100%;border-collapse:collapse}.slip-table td{padding:7px;border-bottom:1px solid var(--line);font-size:13px}.slip-table td:last-child{text-align:right}.slip-table tr.total td{font-weight:800;background:var(--surface-muted)}
 .type-row,.history-row,.holiday-row,.rule-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}.type-row:last-child,.history-row:last-child,.holiday-row:last-child,.rule-row:last-child{border-bottom:none}
 .pill{padding:3px 6px;border-radius:5px;font-size:11px;font-weight:800;border:1px solid rgba(0,0,0,.08)}
-.small{font-size:11px;color:#888}.grow{flex:1}
-.modal{position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center}
-.modal-box{background:#fff;border-radius:14px;width:88%;max-width:360px;padding:18px}
+.small{font-size:11px;color:var(--muted)}.grow{flex:1}
+.modal{position:fixed;inset:0;z-index:10000;background:var(--modal-backdrop);display:flex;align-items:center;justify-content:center}
+.modal-box{background:var(--surface);border:1px solid var(--line);border-radius:14px;width:88%;max-width:360px;padding:18px}
 hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
+
+input,
+select,
+textarea{
+  color:var(--text);
+  caret-color:var(--accent);
+}
+input::placeholder,
+textarea::placeholder{
+  color:var(--muted);
+  opacity:.8;
+}
+select option{
+  color:var(--text);
+  background:var(--surface);
+}
+.cell.dim .daynum{
+  color:var(--muted);
+  opacity:.55;
+}
+.theme-sheet{
+  position:fixed;
+  inset:0;
+  z-index:12000;
+  display:flex;
+  align-items:flex-end;
+  justify-content:center;
+  padding:0;
+  background:var(--modal-backdrop);
+}
+.theme-sheet-panel{
+  width:100%;
+  max-width:560px;
+  padding:10px 14px calc(14px + env(safe-area-inset-bottom));
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-bottom:0;
+  border-radius:16px 16px 0 0;
+  box-shadow:0 -10px 32px rgba(0,0,0,.18);
+}
+.theme-sheet-handle{
+  width:38px;
+  height:4px;
+  margin:0 auto 12px;
+  border-radius:999px;
+  background:var(--line);
+}
+.theme-sheet-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:8px;
+}
+.theme-sheet-title{
+  font-size:17px;
+  font-weight:850;
+}
+.theme-sheet-close{
+  width:38px;
+  height:38px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:0;
+  color:var(--text-soft);
+  background:transparent;
+  border:0;
+  border-radius:8px;
+}
+.theme-sheet-close:active{
+  background:var(--surface-muted);
+}
+.theme-options{
+  display:grid;
+  gap:6px;
+}
+.theme-option{
+  width:100%;
+  min-height:62px;
+  display:grid;
+  grid-template-columns:40px minmax(0,1fr) 26px;
+  align-items:center;
+  gap:10px;
+  padding:9px 10px;
+  color:var(--text);
+  text-align:left;
+  background:transparent;
+  border:1px solid transparent;
+  border-radius:8px;
+}
+.theme-option.active{
+  color:var(--accent-strong);
+  background:var(--accent-soft);
+  border-color:color-mix(in srgb,var(--accent) 34%,var(--line));
+}
+.theme-option-icon{
+  width:38px;
+  height:38px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border:1px solid var(--line);
+  border-radius:8px;
+  background:var(--surface);
+}
+.theme-option svg,
+.theme-setting-button svg,
+.theme-sheet-close svg{
+  width:21px;
+  height:21px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.9;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.theme-option-title{
+  display:block;
+  font-size:14px;
+  font-weight:800;
+}
+.theme-option-description{
+  display:block;
+  margin-top:2px;
+  color:var(--muted);
+  font-size:11px;
+  font-weight:500;
+}
+.theme-option-check{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  visibility:hidden;
+}
+.theme-option.active .theme-option-check{
+  visibility:visible;
+}
+.theme-setting-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:7px;
+}
+.theme-setting-button{
+  min-width:0;
+  min-height:70px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  padding:8px 4px;
+  color:var(--muted);
+  background:var(--surface-muted);
+  border:1px solid var(--line);
+  border-radius:8px;
+  font-size:11px;
+  font-weight:750;
+}
+.theme-setting-button.active{
+  color:var(--accent-strong);
+  background:var(--accent-soft);
+  border-color:var(--accent);
+}
+.theme-current-text{
+  margin-top:9px;
+  color:var(--muted);
+  font-size:11px;
+  line-height:1.5;
+}
+
 @media(max-width:390px){.header-month{font-size:30px}.header-icon-btn{width:38px;height:38px;padding:7px}}
 @media(min-width:700px){.stat-grid{grid-template-columns:repeat(4,1fr)}.slip-grid{grid-template-columns:1fr 1fr}}
 </style>
@@ -518,6 +750,14 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
         <circle cx="6" cy="12" r="2.4"></circle>
         <circle cx="18" cy="19" r="2.4"></circle>
         <path d="M8.1 10.9l7.7-4.5M8.1 13.1l7.7 4.5"></path>
+      </svg>
+    </button>
+    <button id="themeBtn" class="header-icon-btn" aria-label="화면 모드 변경">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 8a2.83 2.83 0 0 0 4 4 4 4 0 1 1-4-4"></path>
+        <path d="M12 2v2M12 20v2M2 12h2M20 12h2"></path>
+        <path d="m4.93 4.93 1.41 1.41M17.66 17.66l1.41 1.41"></path>
+        <path d="m4.93 19.07 1.41-1.41M17.66 6.34l1.41-1.41"></path>
       </svg>
     </button>
     <button id="settingsBtn" class="header-icon-btn" aria-label="설정 열기">
@@ -541,6 +781,81 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
 </div>
 <div id="allWrap" class="table-wrap hidden"></div>
 <div id="withWrap" class="table-wrap hidden"></div>
+
+
+<div id="themeSheet" class="theme-sheet hidden" aria-hidden="true">
+  <section class="theme-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="themeSheetTitle">
+    <div class="theme-sheet-handle" aria-hidden="true"></div>
+
+    <div class="theme-sheet-head">
+      <div>
+        <div id="themeSheetTitle" class="theme-sheet-title">화면 모드</div>
+        <div id="themeSheetCurrent" class="theme-option-description"></div>
+      </div>
+
+      <button id="themeSheetClose" class="theme-sheet-close" type="button" aria-label="화면 모드 선택창 닫기">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M18 6 6 18M6 6l12 12"></path>
+        </svg>
+      </button>
+    </div>
+
+    <div class="theme-options" role="radiogroup" aria-label="화면 모드">
+      <button class="theme-option" type="button" data-theme-choice="system" role="radio">
+        <span class="theme-option-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <rect x="3" y="4" width="18" height="13" rx="2"></rect>
+            <path d="M8 21h8M12 17v4"></path>
+          </svg>
+        </span>
+        <span>
+          <span class="theme-option-title">시스템 설정</span>
+          <span class="theme-option-description">휴대폰의 화면 모드를 따라갑니다.</span>
+        </span>
+        <span class="theme-option-check" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="m5 12 4 4L19 6"></path>
+          </svg>
+        </span>
+      </button>
+
+      <button class="theme-option" type="button" data-theme-choice="light" role="radio">
+        <span class="theme-option-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"></path>
+          </svg>
+        </span>
+        <span>
+          <span class="theme-option-title">라이트</span>
+          <span class="theme-option-description">항상 밝은 화면으로 표시합니다.</span>
+        </span>
+        <span class="theme-option-check" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="m5 12 4 4L19 6"></path>
+          </svg>
+        </span>
+      </button>
+
+      <button class="theme-option" type="button" data-theme-choice="dark" role="radio">
+        <span class="theme-option-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5 8.5 8.5 0 1 0 20.5 14.2z"></path>
+          </svg>
+        </span>
+        <span>
+          <span class="theme-option-title">다크</span>
+          <span class="theme-option-description">항상 어두운 화면으로 표시합니다.</span>
+        </span>
+        <span class="theme-option-check" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="m5 12 4 4L19 6"></path>
+          </svg>
+        </span>
+      </button>
+    </div>
+  </section>
+</div>
 
 <div id="memoModal" class="modal hidden">
   <div class="modal-box">
@@ -588,6 +903,37 @@ hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
       </div>
       <button id="pwaInstallBtn" class="btn primary" style="width:100%">홈 화면에 앱 설치</button>
       <div id="pwaInstallStatus" class="small" style="margin-top:8px">설치 상태 확인 중</div>
+    </div>
+
+
+    <div class="section-label">화면 설정</div>
+    <div class="card">
+      <div class="theme-setting-grid" role="radiogroup" aria-label="화면 모드 설정">
+        <button class="theme-setting-button" type="button" data-theme-choice="system" role="radio">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="3" y="4" width="18" height="13" rx="2"></rect>
+            <path d="M8 21h8M12 17v4"></path>
+          </svg>
+          <span>시스템 설정</span>
+        </button>
+
+        <button class="theme-setting-button" type="button" data-theme-choice="light" role="radio">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"></path>
+          </svg>
+          <span>라이트</span>
+        </button>
+
+        <button class="theme-setting-button" type="button" data-theme-choice="dark" role="radio">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5 8.5 8.5 0 1 0 20.5 14.2z"></path>
+          </svg>
+          <span>다크</span>
+        </button>
+      </div>
+
+      <div id="themeSettingsCurrent" class="theme-current-text"></div>
     </div>
 
     <div class="section-label">내 근무조</div>
@@ -1001,6 +1347,11 @@ window.addEventListener('error',function(e){
 /* 모든 DOM 요소를 명시적으로 연결: iOS Safari에서 id 자동 전역변수에 의존하지 않음 */
 const app=document.getElementById('app');
 const settingsBtn=document.getElementById('settingsBtn');
+const themeBtn=document.getElementById('themeBtn');
+const themeSheet=document.getElementById('themeSheet');
+const themeSheetClose=document.getElementById('themeSheetClose');
+const themeSheetCurrent=document.getElementById('themeSheetCurrent');
+const themeSettingsCurrent=document.getElementById('themeSettingsCurrent');
 const prevMonthBtn=document.getElementById('prevMonthBtn');
 const teamBadge=document.getElementById('teamBadge');
 const nextMonthBtn=document.getElementById('nextMonthBtn');
@@ -1080,6 +1431,148 @@ const stripTime=d=>new Date(d.getFullYear(),d.getMonth(),d.getDate());
 const fmt=n=>Math.round(n||0).toLocaleString('ko-KR');
 const fmtW=n=>fmt(n)+'원';
 const today=new Date();
+
+const THEME_PREFERENCE_KEY='themePreference';
+const THEME_PREFERENCES=['system','light','dark'];
+const systemThemeQuery=window.matchMedia(
+  '(prefers-color-scheme: dark)'
+);
+
+function normalizeThemePreference_(value){
+  return THEME_PREFERENCES.includes(value)
+    ?value
+    :'system';
+}
+
+let themePreference=normalizeThemePreference_(
+  store.get(
+    THEME_PREFERENCE_KEY,
+    document.documentElement.dataset.themePreference||
+    'system'
+  )
+);
+
+function resolvedTheme_(preference=themePreference){
+  return (
+    preference==='dark' ||
+    (
+      preference==='system' &&
+      systemThemeQuery.matches
+    )
+  )
+    ?'dark'
+    :'light';
+}
+
+function themeLabel_(preference){
+  return {
+    system:'시스템 설정',
+    light:'라이트',
+    dark:'다크'
+  }[preference]||'시스템 설정';
+}
+
+function syncThemeControls_(){
+  const resolved=resolvedTheme_();
+
+  document
+    .querySelectorAll('[data-theme-choice]')
+    .forEach(button=>{
+      const selected=
+        button.dataset.themeChoice===themePreference;
+
+      button.classList.toggle('active',selected);
+      button.setAttribute(
+        'aria-checked',
+        selected?'true':'false'
+      );
+    });
+
+  const currentText=
+    themePreference==='system'
+      ?`시스템 설정 · 현재 ${resolved==='dark'?'다크':'라이트'} 적용 중`
+      :`${themeLabel_(themePreference)} 모드 적용 중`;
+
+  if(themeSheetCurrent){
+    themeSheetCurrent.textContent=currentText;
+  }
+
+  if(themeSettingsCurrent){
+    themeSettingsCurrent.textContent=
+      themePreference==='system'
+        ?'휴대폰의 라이트·다크 설정이 바뀌면 앱도 자동으로 변경됩니다.'
+        :`${themeLabel_(themePreference)} 모드를 항상 사용합니다.`;
+  }
+
+  if(themeBtn){
+    themeBtn.setAttribute(
+      'aria-label',
+      `화면 모드 변경 · ${currentText}`
+    );
+    themeBtn.title=currentText;
+  }
+}
+
+function applyThemePreference_(
+  preference,
+  options={}
+){
+  const normalized=
+    normalizeThemePreference_(preference);
+
+  const save=options.save!==false;
+  const resolved=resolvedTheme_(normalized);
+
+  themePreference=normalized;
+
+  document.documentElement.dataset.theme=resolved;
+  document.documentElement.dataset.themePreference=normalized;
+
+  const themeMeta=document.querySelector(
+    'meta[name="theme-color"]'
+  );
+
+  if(themeMeta){
+    themeMeta.setAttribute(
+      'content',
+      resolved==='dark'?'#171c20':'#ffffff'
+    );
+  }
+
+  const statusBarMeta=document.querySelector(
+    'meta[name="apple-mobile-web-app-status-bar-style"]'
+  );
+
+  if(statusBarMeta){
+    statusBarMeta.setAttribute(
+      'content',
+      resolved==='dark'
+        ?'black-translucent'
+        :'default'
+    );
+  }
+
+  if(save){
+    store.set(
+      THEME_PREFERENCE_KEY,
+      normalized
+    );
+  }
+
+  syncThemeControls_();
+}
+
+function openThemeSheet_(){
+  themeSheet.classList.remove('hidden');
+  themeSheet.setAttribute('aria-hidden','false');
+  syncThemeControls_();
+}
+
+function closeThemeSheet_(){
+  themeSheet.classList.add('hidden');
+  themeSheet.setAttribute('aria-hidden','true');
+  themeBtn?.focus();
+}
 
 const MEMO_FONT_WEIGHT_KEY='memoFontWeight';
 
@@ -1167,7 +1660,7 @@ function isPayHoliday(date){
   const h=companyHolidayFor(date);return !!(h&&h.payAsHoliday);
 }
 function isMajorDay(date){return (HOLIDAY_DATA.majorDays||[]).includes(dateKey(date))}
-function getDayColor(d){if(getHoliday(d))return '#e5352b';if(d.getDay()===0)return '#e5352b';if(d.getDay()===6)return '#2255cc';return '#222'}
+function getDayColor(d){if(getHoliday(d))return 'var(--sunday-color)';if(d.getDay()===0)return 'var(--sunday-color)';if(d.getDay()===6)return 'var(--saturday-color)';return 'var(--calendar-text)'}
 
 const CYCLE=['주간','주간','휴무','휴무','야간','야간','휴무','휴무'];
 const TEAMS=['A조','B조','C조','D조'];
@@ -2425,6 +2918,7 @@ function openSettings(){
   renderUpdateStatus();
   renderTeamChangePreview_();
   applyMemoFontWeight_(memoFontWeight);
+  syncThemeControls_();
 }
 
 function renderTeamSelect(){
@@ -3507,6 +4001,64 @@ navDashboard.onclick=()=>{closeAllPanels();dashboardPanel.classList.remove('hidd
 navSalary.onclick=()=>{closeAllPanels();salaryPanel.classList.remove('hidden');renderSalary();activateNav(navSalary)};
 navSetting.onclick=()=>{closeAllPanels();openSettings();activateNav(navSetting)};
 settingsBtn.onclick=()=>{closeAllPanels();openSettings();activateNav(navSetting)};
+
+themeBtn.onclick=openThemeSheet_;
+themeSheetClose.onclick=closeThemeSheet_;
+
+themeSheet.onclick=event=>{
+  if(event.target===themeSheet){
+    closeThemeSheet_();
+  }
+};
+
+document
+  .querySelectorAll('[data-theme-choice]')
+  .forEach(button=>{
+    button.onclick=()=>{
+      applyThemePreference_(
+        button.dataset.themeChoice
+      );
+
+      if(button.closest('#themeSheet')){
+        closeThemeSheet_();
+      }
+    };
+  });
+
+const handleSystemThemeChange_=()=>{
+  if(themePreference==='system'){
+    applyThemePreference_(
+      'system',
+      {save:false}
+    );
+  }
+};
+
+if(systemThemeQuery.addEventListener){
+  systemThemeQuery.addEventListener(
+    'change',
+    handleSystemThemeChange_
+  );
+}else if(systemThemeQuery.addListener){
+  systemThemeQuery.addListener(
+    handleSystemThemeChange_
+  );
+}
+
+document.addEventListener('keydown',event=>{
+  if(
+    event.key==='Escape' &&
+    !themeSheet.classList.contains('hidden')
+  ){
+    closeThemeSheet_();
+  }
+});
+
+applyThemePreference_(
+  themePreference,
+  {save:false}
+);
+
 settingsClose.onclick=()=>{settingsPanel.classList.add('hidden');switchTab('My');activateNav(navMy)};
 dashboardClose.onclick=()=>{dashboardPanel.classList.add('hidden');switchTab('My');activateNav(navMy)};
 salaryClose.onclick=()=>{salaryPanel.classList.add('hidden');switchTab('My');activateNav(navMy)};
