@@ -7,6 +7,7 @@
 
 <link rel="manifest" href="./manifest.webmanifest">
 <meta name="theme-color" content="#ffffff">
+<meta name="color-scheme" content="light dark">
 <meta name="application-name" content="교대달력">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -42,6 +43,8 @@
 
   document.documentElement.dataset.theme=resolved;
   document.documentElement.dataset.themePreference=preference;
+  document.documentElement.style.colorScheme=
+    resolved==='dark'?'only dark':'only light';
 
   const themeMeta=document.querySelector(
     'meta[name="theme-color"]'
@@ -68,11 +71,11 @@
   --today-bg:rgba(59,130,246,.09);--today-ring:#243b6b;
   --modal-backdrop:rgba(0,0,0,.45);--shadow:rgba(28,48,60,.14);
 }
-html{
-  color-scheme:light;
+html[data-theme="light"]{
+  color-scheme:only light;
 }
 html[data-theme="dark"]{
-  color-scheme:dark;
+  color-scheme:only dark;
   --blue-dark:#83a9be;--blue-mid:#789caf;--red:#ff7770;--yellow:#d8cd78;
   --black:#25282b;--gray-bg:#0f1316;--line:#30383e;--green:#5c947c;
   --surface:#181d21;--surface-muted:#20262b;--text:#edf1f3;--muted:#aab3b9;
@@ -83,6 +86,66 @@ html[data-theme="dark"]{
   --today-bg:rgba(120,180,220,.14);--today-ring:#a7cadc;
   --modal-backdrop:rgba(0,0,0,.62);--shadow:rgba(0,0,0,.35);
 }
+
+html[data-theme="light"],
+html[data-theme="light"] body{
+  background-color:#f3f4f5 !important;
+  color:#202428;
+}
+
+html[data-theme="dark"],
+html[data-theme="dark"] body{
+  background-color:#0f1316 !important;
+  color:#edf1f3;
+}
+
+/*
+  Android 설치형 PWA / WebAPK 대응:
+  사용자가 앱 내부에서 라이트를 선택하면 시스템 다크모드보다 앱 선택을 우선한다.
+*/
+html[data-theme="light"] #app,
+html[data-theme="light"] .main-header,
+html[data-theme="light"] .month-bar,
+html[data-theme="light"] .weekday-row,
+html[data-theme="light"] .grid,
+html[data-theme="light"] .table-wrap,
+html[data-theme="light"] nav,
+html[data-theme="light"] .panel,
+html[data-theme="light"] .panel-head,
+html[data-theme="light"] .card,
+html[data-theme="light"] .modal-box,
+html[data-theme="light"] .theme-sheet-panel{
+  forced-color-adjust:none;
+}
+
+html[data-theme="light"] input,
+html[data-theme="light"] select,
+html[data-theme="light"] textarea,
+html[data-theme="light"] button{
+  color-scheme:only light;
+}
+
+html[data-theme="dark"] input,
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] button{
+  color-scheme:only dark;
+}
+
+html[data-theme="light"] input,
+html[data-theme="light"] select,
+html[data-theme="light"] textarea{
+  background-color:#ffffff;
+  color:#202428;
+}
+
+html[data-theme="dark"] input,
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea{
+  background-color:#181d21;
+  color:#edf1f3;
+}
+
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0;height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Malgun Gothic",sans-serif;background:var(--gray-bg);color:var(--text);user-select:none}
 button,input,select,textarea{font-family:inherit}
@@ -1527,6 +1590,19 @@ function applyThemePreference_(
 
   document.documentElement.dataset.theme=resolved;
   document.documentElement.dataset.themePreference=normalized;
+  document.documentElement.style.colorScheme=
+    resolved==='dark'?'only dark':'only light';
+
+  const colorSchemeMeta=document.querySelector(
+    'meta[name="color-scheme"]'
+  );
+
+  if(colorSchemeMeta){
+    colorSchemeMeta.setAttribute(
+      'content',
+      resolved==='dark'?'dark':'light'
+    );
+  }
 
   const themeMeta=document.querySelector(
     'meta[name="theme-color"]'
