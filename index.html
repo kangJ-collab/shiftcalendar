@@ -69,9 +69,12 @@
   --calendar-text:#222;--text-soft:#58636b;--memo-color:#30383e;
   --sunday-color:#e5352b;--saturday-color:#2255cc;
   --today-bg:rgba(59,130,246,.09);--today-ring:#243b6b;
-  --calendar-date-size:15px;--calendar-corner-date-size:13px;
+  --calendar-date-size:15px;--calendar-corner-date-size:12px;
+  --calendar-today-size:25px;--calendar-corner-today-size:22px;
   --calendar-shift-size:34px;--calendar-shift-font-size:15px;
   --calendar-shift-long-font-size:9px;
+  --calendar-date-tag-height:20px;--calendar-date-tag-font-size:11px;
+  --calendar-date-tag-long-font-size:8px;--calendar-date-tag-padding-x:6px;
   --modal-backdrop:rgba(0,0,0,.45);--shadow:rgba(28,48,60,.14);
 }
 html[data-theme="light"]{
@@ -207,7 +210,26 @@ button{cursor:pointer}
 .grid{flex:1 1 auto;display:grid;grid-template-columns:repeat(7,1fr);grid-template-rows:repeat(6,1fr);min-height:0;background:var(--surface)}
 .cell{border-right:1px solid var(--line);border-bottom:1px solid var(--line);display:flex;flex-direction:column;min-height:0;overflow:hidden;position:relative;padding:2px 3px}
 .cell:nth-child(7n){border-right:none}.cell.dim .daynum{color:#c9c9c9}.cell.dim .tag{opacity:.35}
-.tag{align-self:flex-start;font-size:10.5px;font-weight:800;color:#fff;padding:1px 4px;border-radius:3px;margin-bottom:2px;line-height:1.4}
+.tag{
+  align-self:flex-start;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-width:var(--calendar-date-tag-height);
+  min-height:var(--calendar-date-tag-height);
+  font-size:var(--calendar-date-tag-font-size);
+  font-weight:800;
+  color:#fff;
+  padding:0 var(--calendar-date-tag-padding-x);
+  border-radius:3px;
+  margin-bottom:2px;
+  line-height:1;
+  white-space:nowrap;
+}
+.tag.tag-long{
+  font-size:var(--calendar-date-tag-long-font-size);
+  letter-spacing:-.35px;
+}
 .daynum{font-size:var(--calendar-date-size);font-weight:700;margin-top:auto;margin-bottom:auto;text-align:center}
 /* 오늘 표시: 요일·공휴일 색상은 유지하고 위치만 강조 */
 .cell.today{
@@ -219,8 +241,8 @@ button{cursor:pointer}
   display:flex;
   align-items:center;
   justify-content:center;
-  width:25px;
-  height:25px;
+  width:var(--calendar-today-size);
+  height:var(--calendar-today-size);
   margin:0 auto;
   background:var(--surface);
   border:2px solid var(--today-ring);
@@ -297,8 +319,8 @@ html[data-calendar-emphasis="shift"] .cell .daynum{
 html[data-calendar-emphasis="shift"] .cell.today .daynum{
   top:1px;
   left:1px;
-  width:25px;
-  height:25px;
+  width:var(--calendar-corner-today-size);
+  height:var(--calendar-corner-today-size);
   margin:0;
 }
 html[data-calendar-emphasis="shift"] .cell .holiday-name{
@@ -444,14 +466,16 @@ html[data-calendar-emphasis="date"] .cell .tag{
   left:50%;
   top:50%;
   transform:translate(-50%,-50%);
-  font-size:calc(var(--calendar-date-size) + 9px);
+  font-size:var(--calendar-date-size);
 }
 .calendar-emphasis-sample.date-large .sample-shift{
   top:4px;
   left:4px;
-  padding:2px 5px;
+  min-width:var(--calendar-date-tag-height);
+  min-height:var(--calendar-date-tag-height);
+  padding:0 var(--calendar-date-tag-padding-x);
   border-radius:4px;
-  font-size:10px;
+  font-size:var(--calendar-date-tag-font-size);
 }
 .calendar-emphasis-sample.shift-large .sample-date{
   top:5px;
@@ -863,6 +887,13 @@ input[type="time"].form-input::-webkit-date-and-time-value{
 .stat{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:12px}
 .stat .k{font-size:11px;color:var(--muted)}.stat .v{font-size:20px;font-weight:800;margin-top:4px}.stat .s{font-size:11px;color:var(--muted);margin-top:2px}
 .data-table{width:100%;border-collapse:collapse}.data-table td{padding:8px 4px;border-bottom:1px solid var(--line);font-size:13px}.data-table td:last-child{text-align:right;font-weight:700}.data-table tr:last-child td{border-bottom:none}
+.data-table .allowance-total-row td{
+  padding-top:11px;
+  border-top:2px solid var(--accent);
+  background:var(--accent-soft);
+  color:var(--accent-strong);
+  font-weight:900;
+}
 .notice{
   padding:10px 11px;
   margin-bottom:10px;
@@ -1400,17 +1431,20 @@ select option{
         <div class="calendar-size-row">
           <label class="calendar-size-label" for="calendarDateSize">날짜 글자 크기</label>
           <output id="calendarDateSizeValue" class="calendar-size-value">15px</output>
-          <input id="calendarDateSize" type="range" min="12" max="22" step="1" value="15">
+          <input id="calendarDateSize" type="range" min="6" max="26" step="1" value="15">
         </div>
 
         <div class="calendar-size-row">
-          <label class="calendar-size-label" for="calendarShiftSize">근무 원 크기</label>
+          <label class="calendar-size-label" for="calendarShiftSize">근무 크기</label>
           <output id="calendarShiftSizeValue" class="calendar-size-value">34px</output>
-          <input id="calendarShiftSize" type="range" min="26" max="44" step="1" value="34">
+          <input id="calendarShiftSize" type="range" min="12" max="44" step="1" value="34">
         </div>
 
         <button id="calendarSizeReset" class="btn calendar-size-reset" type="button">크기 기본값으로 되돌리기</button>
-        <div class="form-hint">근무 원 크기는 ‘근무 크게’ 모드에 적용됩니다. 기본값은 이전 수정본보다 작게 설정했습니다.</div>
+        <div class="form-hint">
+          날짜 크기와 근무 크기는 ‘날짜 크게’와 ‘근무 크게’ 모드 모두에 적용됩니다.
+          모드를 바꿔도 사용자가 지정한 크기는 그대로 유지됩니다.
+        </div>
       </div>
     </div>
 
@@ -2279,13 +2313,13 @@ function normalizeCalendarSizeSettings_(value){
   return {
     dateSize:clampCalendarSize_(
       source.dateSize,
-      12,
-      22,
+      6,
+      26,
       15
     ),
     shiftSize:clampCalendarSize_(
       source.shiftSize,
-      26,
+      12,
       44,
       34
     )
@@ -2294,17 +2328,52 @@ function normalizeCalendarSizeSettings_(value){
 
 function applyCalendarSizeSettings_(value,{save=true}={}){
   const normalized=normalizeCalendarSizeSettings_(value);
+
+  /*
+    날짜 크기는 두 모드에 모두 적용한다.
+    날짜 크게 모드에서는 입력값을 그대로 사용하고,
+    근무 크게 모드의 좌측 상단 날짜는 비율만 줄여 표시한다.
+  */
   const cornerDateSize=Math.max(
-    11,
+    6,
     Math.round(normalized.dateSize*.8)
   );
+  const todaySize=Math.max(
+    16,
+    normalized.dateSize+10
+  );
+  const cornerTodaySize=Math.max(
+    15,
+    cornerDateSize+9
+  );
+
+  /*
+    근무 크기도 두 모드에 모두 적용한다.
+    근무 크게 모드에서는 원의 실제 크기로 사용하고,
+    날짜 크게 모드에서는 작은 배지의 높이·글자·여백으로 환산한다.
+  */
   const shiftFontSize=Math.max(
-    12,
+    7,
     Math.round(normalized.shiftSize*.44)
   );
   const shiftLongFontSize=Math.max(
-    8,
+    6,
     Math.round(normalized.shiftSize*.27)
+  );
+  const shiftRatio=
+    (normalized.shiftSize-12)/(44-12);
+  const dateTagHeight=Math.round(
+    12+(12*shiftRatio)
+  );
+  const dateTagFontSize=Math.round(
+    7+(6*shiftRatio)
+  );
+  const dateTagLongFontSize=Math.max(
+    6,
+    Math.round(dateTagFontSize*.72)
+  );
+  const dateTagPaddingX=Math.round(
+    3+(4*shiftRatio)
   );
 
   document.documentElement.style.setProperty(
@@ -2314,6 +2383,14 @@ function applyCalendarSizeSettings_(value,{save=true}={}){
   document.documentElement.style.setProperty(
     '--calendar-corner-date-size',
     cornerDateSize+'px'
+  );
+  document.documentElement.style.setProperty(
+    '--calendar-today-size',
+    todaySize+'px'
+  );
+  document.documentElement.style.setProperty(
+    '--calendar-corner-today-size',
+    cornerTodaySize+'px'
   );
   document.documentElement.style.setProperty(
     '--calendar-shift-size',
@@ -2326,6 +2403,22 @@ function applyCalendarSizeSettings_(value,{save=true}={}){
   document.documentElement.style.setProperty(
     '--calendar-shift-long-font-size',
     shiftLongFontSize+'px'
+  );
+  document.documentElement.style.setProperty(
+    '--calendar-date-tag-height',
+    dateTagHeight+'px'
+  );
+  document.documentElement.style.setProperty(
+    '--calendar-date-tag-font-size',
+    dateTagFontSize+'px'
+  );
+  document.documentElement.style.setProperty(
+    '--calendar-date-tag-long-font-size',
+    dateTagLongFontSize+'px'
+  );
+  document.documentElement.style.setProperty(
+    '--calendar-date-tag-padding-x',
+    dateTagPaddingX+'px'
   );
 
   if(calendarDateSize){
@@ -5282,6 +5375,23 @@ function renderDashboard(){
     getAnnualAsOfForView_()
   );
 
+  const allowanceEntries=Object.entries(sal.pay)
+    .filter(
+      ([key,value])=>
+        value>0 &&
+        ![
+          '기본급1',
+          '기본급3',
+          '면허수당',
+          '고정상여'
+        ].includes(key)
+    );
+
+  const allowanceExpectedTotal=allowanceEntries.reduce(
+    (sum,[,value])=>sum+Number(value||0),
+    0
+  );
+
   dashboardContent.innerHTML=`
     <div class="notice info">
       ${y}년 ${m}월 근태 → ${payY}년 ${payM}월 21일 예상 지급
@@ -5371,23 +5481,19 @@ function renderDashboard(){
       <div class="card-title">수당 예상액</div>
       <table class="data-table">
         ${
-          Object.entries(sal.pay)
-            .filter(
-              ([key,value])=>
-                value>0 &&
-                ![
-                  '기본급1',
-                  '기본급3',
-                  '면허수당',
-                  '고정상여'
-                ].includes(key)
-            )
-            .map(
-              ([key,value])=>
-                `<tr><td>${key}</td><td>${fmtW(value)}</td></tr>`
-            )
-            .join('')
+          allowanceEntries.length
+            ? allowanceEntries
+                .map(
+                  ([key,value])=>
+                    `<tr><td>${key}</td><td>${fmtW(value)}</td></tr>`
+                )
+                .join('')
+            :'<tr><td>발생 수당</td><td>0원</td></tr>'
         }
+        <tr class="allowance-total-row">
+          <td>수당 예상 합계액</td>
+          <td>${fmtW(allowanceExpectedTotal)}</td>
+        </tr>
       </table>
     </div>
   `;
