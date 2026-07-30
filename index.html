@@ -646,6 +646,39 @@ nav button.active{
 .panel-head button{background:none;border:none;font-size:22px;color:var(--accent)}
 .panel-title{font-weight:800;font-size:17px}
 .panel-body{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;touch-action:pan-y;padding:16px 16px 24px}
+.settings-quick-nav{
+  position:sticky;
+  top:-16px;
+  z-index:4;
+  display:flex;
+  gap:7px;
+  margin:-16px -16px 14px;
+  padding:10px 16px;
+  overflow-x:auto;
+  background:var(--surface);
+  border-bottom:1px solid var(--line);
+  box-shadow:0 5px 12px var(--shadow);
+  scrollbar-width:none;
+}
+.settings-quick-nav::-webkit-scrollbar{display:none}
+.settings-quick-nav button{
+  flex:0 0 auto;
+  min-height:36px;
+  padding:7px 11px;
+  color:var(--accent-strong);
+  font-size:12px;
+  font-weight:850;
+  white-space:nowrap;
+  background:var(--accent-soft);
+  border:1px solid var(--line);
+  border-radius:999px;
+}
+.settings-quick-nav button:active{
+  transform:scale(.97);
+}
+.settings-section-anchor{
+  scroll-margin-top:68px;
+}
 .section-label{font-size:13px;color:var(--muted);font-weight:700;margin:6px 0}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:14px;margin-bottom:12px;min-width:0;overflow:hidden}
 .card-title{font-weight:800;font-size:14px;margin-bottom:10px}
@@ -1560,7 +1593,17 @@ select option{
   <div class="panel-head"><button id="settingsClose">✕</button><div class="panel-title">설정</div><div style="width:22px"></div></div>
   <div class="panel-body">
 
-    <div class="section-label">앱 설치</div>
+    <div class="settings-quick-nav" aria-label="설정 섹션 바로가기">
+      <button type="button" data-settings-target="settingsAppSection">앱 설치</button>
+      <button type="button" data-settings-target="settingsCalendarSection">달력 표시</button>
+      <button type="button" data-settings-target="settingsTeamSection">근무 설정</button>
+      <button type="button" data-settings-target="settingsAnnualSection">연차 설정</button>
+      <button type="button" data-settings-target="settingsTypeSection">근무 타입</button>
+      <button type="button" data-settings-target="settingsSalarySection">급여 설정</button>
+      <button type="button" data-settings-target="settingsBackupSection">백업</button>
+    </div>
+
+    <div id="settingsAppSection" class="section-label settings-section-anchor">앱 설치</div>
     <div class="card">
       <div class="notice info">
         홈 화면에 설치하면 주소창 없이 일반 앱처럼 실행할 수 있습니다.
@@ -1601,7 +1644,7 @@ select option{
       <div id="themeSettingsCurrent" class="theme-current-text"></div>
     </div>
 
-    <div class="section-label">달력 표시</div>
+    <div id="settingsCalendarSection" class="section-label settings-section-anchor">달력 표시</div>
     <div class="card">
       <div class="calendar-emphasis-grid" role="radiogroup" aria-label="달력 강조 항목">
         <button id="calendarEmphasisDate" class="calendar-emphasis-button" type="button" data-calendar-emphasis="date" role="radio">
@@ -1645,7 +1688,7 @@ select option{
       </div>
     </div>
 
-    <div class="section-label">내 근무조</div>
+    <div id="settingsTeamSection" class="section-label settings-section-anchor">내 근무조</div>
     <div class="card">
       <div class="form-group">
         <label class="form-label">현재 적용 중인 조</label>
@@ -1769,7 +1812,7 @@ select option{
       <div class="form-hint">날짜별 메모 작성 화면에서도 배경색과 글자색을 따로 바꿀 수 있습니다.</div>
     </div>
 
-    <div class="section-label">연차 설정</div>
+    <div id="settingsAnnualSection" class="section-label settings-section-anchor">연차 설정</div>
     <div class="card">
       <div class="form-group">
         <label class="form-label" for="annualJoinDate">입사일</label>
@@ -1811,7 +1854,7 @@ select option{
       </div>
     </div>
 
-    <div class="section-label">근무 타입 관리</div>
+    <div id="settingsTypeSection" class="section-label settings-section-anchor">근무 타입 관리</div>
     <div class="card">
       <div id="typeManageList"></div>
       <div class="new-type-row">
@@ -1859,7 +1902,7 @@ select option{
     <div class="section-label">비교 대상</div>
     <div class="card"><div id="withManageList"></div><button id="addWithBtn" class="btn" style="width:100%;margin-top:10px">+ 비교 대상 추가</button></div>
 
-    <div class="section-label">급여 설정</div>
+    <div id="settingsSalarySection" class="section-label settings-section-anchor">급여 설정</div>
     <div class="card">
       <div class="notice info">
         개인 금액은 코드에 고정하지 않습니다. 각 사용자가 자신의 명세서 금액을 입력하고,
@@ -1883,7 +1926,7 @@ select option{
 
 
 
-    <div class="section-label">기기 JSON 백업</div>
+    <div id="settingsBackupSection" class="section-label settings-section-anchor">기기 JSON 백업</div>
     <div class="card">
       <div class="notice info">
         지원되는 안드로이드 브라우저에서는 백업 파일을 한 번 연결한 뒤
@@ -3790,6 +3833,86 @@ if(!SAL.shiftOtMode){
 }
 
 let salOvr=store.get('salOvr',{});
+let ACTUAL_INSURANCE_HISTORY=store.get(
+  'actualInsuranceHistory',
+  []
+);
+
+function normalizeActualInsuranceHistory_(){
+  const unique=new Map();
+
+  (
+    Array.isArray(ACTUAL_INSURANCE_HISTORY)
+      ?ACTUAL_INSURANCE_HISTORY
+      :[]
+  ).forEach(rule=>{
+    const from=String(rule&&rule.from||'');
+
+    if(!/^\d{4}-\d{2}$/.test(from)){
+      return;
+    }
+
+    const normalized={
+      from,
+      healthOnly:
+        rule.healthOnly==='' ||
+        rule.healthOnly===null ||
+        rule.healthOnly===undefined
+          ?null
+          :Math.max(0,Number(rule.healthOnly)||0),
+      longTermCare:
+        rule.longTermCare==='' ||
+        rule.longTermCare===null ||
+        rule.longTermCare===undefined
+          ?null
+          :Math.max(0,Number(rule.longTermCare)||0),
+      nps:
+        rule.nps==='' ||
+        rule.nps===null ||
+        rule.nps===undefined
+          ?null
+          :Math.max(0,Number(rule.nps)||0)
+    };
+
+    if(
+      normalized.healthOnly===null &&
+      normalized.longTermCare===null &&
+      normalized.nps===null
+    ){
+      return;
+    }
+
+    unique.set(from,normalized);
+  });
+
+  ACTUAL_INSURANCE_HISTORY=[
+    ...unique.values()
+  ].sort(
+    (a,b)=>a.from.localeCompare(b.from)
+  );
+
+  store.set(
+    'actualInsuranceHistory',
+    ACTUAL_INSURANCE_HISTORY
+  );
+}
+
+function getActualInsuranceRule_(year,month){
+  const key=`${year}-${pad2(month)}`;
+  let applied=null;
+
+  for(const rule of ACTUAL_INSURANCE_HISTORY){
+    if(rule.from<=key){
+      applied=rule;
+    }else{
+      break;
+    }
+  }
+
+  return applied;
+}
+
+normalizeActualInsuranceHistory_();
 
 function roundMoneyByMode_(value,mode=SAL.roundingMode){
   const numeric=Number(value)||0;
@@ -4431,6 +4554,8 @@ function calcDeductions(totalA,salY,salM){
   const key=`${salY}-${salM}`;
   const ovr=salOvr[key]||{};
   const dateStr=`${salY}-${pad2(salM)}-21`;
+  const actualInsuranceRule=
+    getActualInsuranceRule_(salY,salM);
 
   const healthRule=
     findRule(INSURANCE_DATA.health,dateStr)||
@@ -4469,19 +4594,33 @@ function calcDeductions(totalA,salY,salM){
     )
   );
 
-  const healthVal=
-    ovr.healthOnly??healthRaw;
-
-  const ltcareVal=
-    ovr.longTermCare??ltcareRaw;
-
-  const npsVal=
-    ovr.nps??
+  const autoNpsVal=
     Math.round(
       npsBase*
       npsRule.employeeRate/
       100
     );
+
+  /*
+    우선순위:
+    1. 해당 급여월만 수정한 실제값
+    2. 설정에서 적용 시작월과 함께 저장한 고정 보험료
+    3. 보험 요율을 이용한 자동 예상값
+  */
+  const healthVal=
+    ovr.healthOnly??
+    actualInsuranceRule?.healthOnly??
+    healthRaw;
+
+  const ltcareVal=
+    ovr.longTermCare??
+    actualInsuranceRule?.longTermCare??
+    ltcareRaw;
+
+  const npsVal=
+    ovr.nps??
+    actualInsuranceRule?.nps??
+    autoNpsVal;
 
   const employVal=
     ovr.employ??
@@ -4517,6 +4656,19 @@ function calcDeductions(totalA,salY,salM){
     '식비공제':Number(SAL.foodDed)||0
   };
 
+  const oneTimeDeductions=[
+    ['건강보험 정산금',ovr.healthSettlement],
+    ['장기요양 정산금',ovr.longTermCareSettlement],
+    ['연말정산',ovr.yearEndTax],
+    ['기타 일회성 공제',ovr.otherDeduction]
+  ];
+
+  oneTimeDeductions.forEach(([label,value])=>{
+    if(value!==undefined&&value!==null&&Number(value)!==0){
+      ded[label]=Number(value)||0;
+    }
+  });
+
   const pre=Object.values(ded).reduce(
     (sum,value)=>sum+value,
     0
@@ -4539,10 +4691,12 @@ function calcDeductions(totalA,salY,salM){
     netPay:totalA-totalDed,
     healthRule,
     npsRule,
+    actualInsuranceRule,
     prevMonthly:Math.round(prevMonthly),
     npsBase:Math.round(npsBase),
     healthRaw,
     ltcareRaw,
+    autoNpsVal,
     override:ovr
   };
 }
@@ -5713,7 +5867,134 @@ function updateSalaryPreviews_(){
   }
 }
 
+function formatInsuranceRuleValue_(value){
+  return value===null ||
+    value===undefined
+      ?'자동'
+      :fmtW(value);
+}
+
+function renderActualInsuranceHistoryList_(){
+  const list=document.getElementById(
+    'actualInsuranceHistoryList'
+  );
+
+  if(!list){
+    return;
+  }
+
+  if(!ACTUAL_INSURANCE_HISTORY.length){
+    list.innerHTML=
+      '<div class="form-hint">저장된 실제 보험료 적용 내역이 없습니다. 자동 예상값을 사용합니다.</div>';
+    return;
+  }
+
+  list.innerHTML=
+    ACTUAL_INSURANCE_HISTORY
+      .slice()
+      .reverse()
+      .map(rule=>`
+        <div class="history-row">
+          <div class="grow">
+            <b>${rule.from.replace('-','년 ')}월부터</b>
+            <div class="small">
+              건강 ${formatInsuranceRuleValue_(rule.healthOnly)} ·
+              장기요양 ${formatInsuranceRuleValue_(rule.longTermCare)} ·
+              국민연금 ${formatInsuranceRuleValue_(rule.nps)}
+            </div>
+          </div>
+          <button
+            type="button"
+            class="btn red"
+            data-insurance-delete="${rule.from}"
+          >삭제</button>
+        </div>
+      `)
+      .join('');
+
+  list
+    .querySelectorAll('[data-insurance-delete]')
+    .forEach(button=>{
+      button.onclick=()=>{
+        const from=button.dataset.insuranceDelete;
+
+        ACTUAL_INSURANCE_HISTORY=
+          ACTUAL_INSURANCE_HISTORY.filter(
+            rule=>rule.from!==from
+          );
+
+        normalizeActualInsuranceHistory_();
+        renderActualInsuranceHistoryList_();
+        renderCurrent();
+      };
+    });
+}
+
+function saveActualInsuranceRule_(){
+  const from=document.getElementById(
+    'sal-insuranceFrom'
+  )?.value||'';
+
+  if(!/^\d{4}-\d{2}$/.test(from)){
+    alert('보험료 적용 시작 급여월을 선택하세요.');
+    return;
+  }
+
+  const readOptionalAmount=id=>{
+    const raw=String(
+      document.getElementById(id)?.value||''
+    ).trim();
+
+    return raw===''
+      ?null
+      :Math.max(0,Number(raw)||0);
+  };
+
+  const rule={
+    from,
+    healthOnly:readOptionalAmount(
+      'sal-healthOnlyActual'
+    ),
+    longTermCare:readOptionalAmount(
+      'sal-longTermCareActual'
+    ),
+    nps:readOptionalAmount(
+      'sal-npsActual'
+    )
+  };
+
+  if(
+    rule.healthOnly===null &&
+    rule.longTermCare===null &&
+    rule.nps===null
+  ){
+    alert('저장할 보험료를 하나 이상 입력하세요.');
+    return;
+  }
+
+  ACTUAL_INSURANCE_HISTORY=
+    ACTUAL_INSURANCE_HISTORY.filter(
+      item=>item.from!==from
+    );
+
+  ACTUAL_INSURANCE_HISTORY.push(rule);
+  normalizeActualInsuranceHistory_();
+  renderActualInsuranceHistoryList_();
+  renderCurrent();
+
+  alert(`${from.replace('-','년 ')}월부터 적용할 보험료를 저장했습니다.`);
+}
+
 function renderSalaryFields(){
+  const latestInsurance=
+    ACTUAL_INSURANCE_HISTORY[
+      ACTUAL_INSURANCE_HISTORY.length-1
+    ]||null;
+
+  const defaultInsuranceFrom=
+    latestInsurance?.from||
+    `${today.getFullYear()}-${pad2(today.getMonth()+1)}`;
+
   salaryFieldsGrid.innerHTML=`
     <div class="card-title">개인 급여항목</div>
 
@@ -5851,6 +6132,69 @@ function renderSalaryFields(){
 
     <hr class="sep">
 
+    <div class="card-title">실제 보험료 고정 적용</div>
+    <div class="notice info">
+      급여명세서에 나온 보험료를 한 번 저장하면 적용 시작 급여월부터 계속 사용합니다.
+      다음에 금액이 바뀔 때만 새로운 적용 시작월과 금액을 저장하세요.
+      4월 정산금처럼 한 번만 공제되는 금액은 급여명세서의 고급 수정에서 입력합니다.
+    </div>
+
+    <div class="salary-two-col">
+      <div class="form-group">
+        <label class="form-label">적용 시작 급여월</label>
+        <input
+          id="sal-insuranceFrom"
+          type="month"
+          class="form-input"
+          value="${defaultInsuranceFrom}"
+        >
+      </div>
+      <div class="form-group">
+        <label class="form-label">건강보험료</label>
+        <input
+          id="sal-healthOnlyActual"
+          type="number"
+          min="0"
+          class="form-input"
+          value="${latestInsurance?.healthOnly??''}"
+          placeholder="비우면 자동 계산"
+        >
+      </div>
+      <div class="form-group">
+        <label class="form-label">노인장기요양보험</label>
+        <input
+          id="sal-longTermCareActual"
+          type="number"
+          min="0"
+          class="form-input"
+          value="${latestInsurance?.longTermCare??''}"
+          placeholder="비우면 자동 계산"
+        >
+      </div>
+      <div class="form-group">
+        <label class="form-label">국민연금</label>
+        <input
+          id="sal-npsActual"
+          type="number"
+          min="0"
+          class="form-input"
+          value="${latestInsurance?.nps??''}"
+          placeholder="비우면 자동 계산"
+        >
+      </div>
+    </div>
+
+    <button
+      id="saveActualInsuranceRuleBtn"
+      type="button"
+      class="btn primary"
+      style="width:100%"
+    >보험료 적용 내역 저장</button>
+
+    <div id="actualInsuranceHistoryList" style="margin-top:10px"></div>
+
+    <hr class="sep">
+
     <div class="card-title">공제·기타 설정</div>
     <div class="salary-two-col">
       <div class="form-group">
@@ -5910,6 +6254,18 @@ function renderSalaryFields(){
       input.onchange=updateSalaryPreviews_;
     });
 
+  const saveInsuranceButton=
+    document.getElementById(
+      'saveActualInsuranceRuleBtn'
+    );
+
+  if(saveInsuranceButton){
+    saveInsuranceButton.onclick=
+      saveActualInsuranceRule_;
+  }
+
+  renderActualInsuranceHistoryList_();
+
   setSalaryMode_('fixedBonusMode',SAL.fixedBonusMode);
   setSalaryMode_('hourlyMode',SAL.hourlyMode);
   setSalaryMode_('shiftOtMode',SAL.shiftOtMode);
@@ -5940,53 +6296,51 @@ let dashboardViewYear=today.getFullYear();
 let dashboardViewMonth=today.getMonth()+1;
 
 function renderDashboard(){
-  const y=dashboardViewYear;
-  const m=dashboardViewMonth;
-  const sal=calcSalary(y,m);
+  /*
+    대시보드의 연·월은 근태월이 아니라 실제 급여 지급월이다.
+    예: 2026년 8월 대시보드
+    → 2026년 7월 근태 반영
+    → 7월 입사자의 연차수당도 8월 대시보드에 표시
+  */
+  const payY=dashboardViewYear;
+  const payM=dashboardViewMonth;
 
-  dashboardTitle.textContent=
-    `${y}년 ${m}월`;
+  let workY=payY;
+  let workM=payM-1;
 
-  let py=y;
-  let pm=m-1;
-
-  if(pm<1){
-    pm=12;
-    py--;
+  if(workM<1){
+    workM=12;
+    workY--;
   }
 
-  const prev=calcSalary(py,pm);
-
-  let payY=y;
-  let payM=m+1;
-
-  if(payM>12){
-    payM=1;
-    payY++;
-  }
-
+  const sal=calcSalary(workY,workM);
   const ded=calcDeductions(
     sal.totalA,
     payY,
     payM
   );
 
-  const prevDed=calcDeductions(
-    prev.totalA,
-    y,
-    m
+  const nextPay=nextMonthYear_(payY,payM);
+  const nextSal=calcSalary(payY,payM);
+  const nextDed=calcDeductions(
+    nextSal.totalA,
+    nextPay.year,
+    nextPay.month
   );
+
+  dashboardTitle.textContent=
+    `${payY}년 ${payM}월 급여`;
 
   const dashboardAsOf=(()=>{
     const monthEnd=new Date(
-      y,
-      m,
+      workY,
+      workM,
       0
     );
 
     if(
-      y===today.getFullYear() &&
-      m===today.getMonth()+1
+      workY===today.getFullYear() &&
+      workM===today.getMonth()+1
     ){
       return stripTime(today);
     }
@@ -5999,8 +6353,8 @@ function renderDashboard(){
   );
   const annualSections=
     getAnnualDashboardSummaries_(
-      y,
-      m,
+      workY,
+      workM,
       dashboardAsOf
     );
 
@@ -6023,22 +6377,23 @@ function renderDashboard(){
 
   dashboardContent.innerHTML=`
     <div class="notice info">
-      ${y}년 ${m}월 근태 → ${payY}년 ${payM}월 21일 예상 지급
+      ${payY}년 ${payM}월 21일 예상 급여 ·
+      ${workY}년 ${workM}월 근태 반영
     </div>
 
     ${renderAnnualAllowanceNotice_(sal.annualAllowance)}
 
     <div class="stat-grid">
       <div class="stat">
-        <div class="k">이번달 예상 실수령</div>
-        <div class="v">${fmt(prevDed.netPay)}</div>
-        <div class="s">원</div>
+        <div class="k">선택월 예상 실수령</div>
+        <div class="v">${fmt(ded.netPay)}</div>
+        <div class="s">${payY}년 ${payM}월</div>
       </div>
 
       <div class="stat">
         <div class="k">다음달 예상 실수령</div>
-        <div class="v">${fmt(ded.netPay)}</div>
-        <div class="s">원</div>
+        <div class="v">${fmt(nextDed.netPay)}</div>
+        <div class="s">${nextPay.year}년 ${nextPay.month}월</div>
       </div>
 
       <div class="stat">
@@ -6133,7 +6488,8 @@ function renderSalary(){
   salaryContent.innerHTML=`
     <div class="notice warn">
       근태 반영월: ${by}년 ${bm}월 · 지급일: ${salaryViewYear}년 ${salaryViewMonth}월 21일<br>
-      소득세와 보험료 자동값은 예상치입니다. 실제 명세서가 나오면 아래에 직접 입력할 수 있습니다.
+      소득세는 설정한 예상 세율을 사용합니다.
+      보험료는 저장된 실제 보험료가 있으면 우선 적용하고, 없으면 자동 예상값을 사용합니다.
     </div>
 
     ${renderAnnualAllowanceNotice_(sal.annualAllowance)}
@@ -6198,10 +6554,14 @@ function renderSalary(){
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-title">월별 실제 공제액 반영</div>
-      <div class="form-hint" style="margin-bottom:10px">
-        빈칸은 자동 예상값을 사용합니다. 입력한 금액은 해당 급여월에만 적용됩니다.
+    <details class="card">
+      <summary class="card-title" style="cursor:pointer">
+        고급: 이 달만 공제 수정
+      </summary>
+      <div class="form-hint" style="margin:10px 0">
+        평소 보험료는 설정의 ‘실제 보험료 고정 적용’을 사용하세요.
+        이곳은 4월 보험료 정산이나 특정 달의 예외 금액처럼 해당 급여월에만 적용됩니다.
+        빈칸은 자동값 또는 고정 보험료를 사용합니다.
       </div>
 
       <div class="actual-deduction-grid">
@@ -6229,12 +6589,28 @@ function renderSalary(){
           <label class="form-label">지방소득세</label>
           <input id="actual-localTax" type="number" class="form-input" value="${overrideValue('localTax')}">
         </div>
+        <div>
+          <label class="form-label">건강보험 정산금</label>
+          <input id="actual-healthSettlement" type="number" class="form-input" value="${overrideValue('healthSettlement')}" placeholder="해당 월만">
+        </div>
+        <div>
+          <label class="form-label">장기요양 정산금</label>
+          <input id="actual-longTermCareSettlement" type="number" class="form-input" value="${overrideValue('longTermCareSettlement')}" placeholder="해당 월만">
+        </div>
+        <div>
+          <label class="form-label">연말정산</label>
+          <input id="actual-yearEndTax" type="number" class="form-input" value="${overrideValue('yearEndTax')}" placeholder="환급은 음수">
+        </div>
+        <div>
+          <label class="form-label">기타 일회성 공제</label>
+          <input id="actual-otherDeduction" type="number" class="form-input" value="${overrideValue('otherDeduction')}">
+        </div>
       </div>
 
       <button id="saveActualDeductionBtn" class="btn primary" style="width:100%;margin-top:10px">
-        이 달 실제 공제액 저장
+        이 달 예외 공제 저장
       </button>
-    </div>
+    </details>
 
     <div class="card">
       <div class="card-title">계산 기준</div>
@@ -6243,6 +6619,16 @@ function renderSalary(){
         <tr><td>자동계산 통상시급</td><td>${fmtW(sal.autoHr)}</td></tr>
         <tr><td>교대 적용일수</td><td>${sal.h.shiftApplicableDays}일</td></tr>
         <tr><td>교대조 OT시간</td><td>${sal.h.shiftOT.toFixed(2)}시간</td></tr>
+        <tr>
+          <td>보험료 적용 방식</td>
+          <td>
+            ${
+              ded.actualInsuranceRule
+                ?`실제 입력 · ${ded.actualInsuranceRule.from.replace('-','년 ')}월부터`
+                :'자동 예상'
+            }
+          </td>
+        </tr>
         <tr><td>건강보험 근로자율</td><td>${ded.healthRule.employeeRate}%</td></tr>
         <tr><td>장기요양 소득대비율</td><td>${ded.healthRule.longTermCareIncomeRate}%</td></tr>
         <tr><td>국민연금 근로자율</td><td>${ded.npsRule.employeeRate}%</td></tr>
@@ -6266,7 +6652,11 @@ function renderSalary(){
         nps:'actual-nps',
         employ:'actual-employ',
         incomeTax:'actual-incomeTax',
-        localTax:'actual-localTax'
+        localTax:'actual-localTax',
+        healthSettlement:'actual-healthSettlement',
+        longTermCareSettlement:'actual-longTermCareSettlement',
+        yearEndTax:'actual-yearEndTax',
+        otherDeduction:'actual-otherDeduction'
       };
 
       const next={...monthlyOverride};
@@ -6343,6 +6733,23 @@ navDashboard.onclick=()=>{
 };
 navSalary.onclick=()=>{closeAllPanels();salaryPanel.classList.remove('hidden');renderSalary();activateNav(navSalary)};
 navSetting.onclick=()=>{closeAllPanels();openSettings();activateNav(navSetting)};
+document
+  .querySelectorAll('[data-settings-target]')
+  .forEach(button=>{
+    button.onclick=()=>{
+      const target=document.getElementById(
+        button.dataset.settingsTarget
+      );
+
+      if(target){
+        target.scrollIntoView({
+          behavior:'smooth',
+          block:'start'
+        });
+      }
+    };
+  });
+
 settingsBtn.onclick=()=>{closeAllPanels();openSettings();activateNav(navSetting)};
 
 headerMonthLabel.onclick=openMonthPicker_;
