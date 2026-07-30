@@ -882,9 +882,93 @@ input[type="time"].form-input::-webkit-date-and-time-value{
   border-color:var(--line);
 }
 .slip-grid{display:grid;grid-template-columns:1fr;gap:12px}.slip-table{width:100%;border-collapse:collapse}.slip-table td{padding:7px;border-bottom:1px solid var(--line);font-size:13px}.slip-table td:last-child{text-align:right}.slip-table tr.total td{font-weight:800;background:var(--surface-muted)}
-.type-row,.history-row,.holiday-row,.rule-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}.type-row:last-child,.history-row:last-child,.holiday-row:last-child,.rule-row:last-child{border-bottom:none}
-.pill{padding:3px 6px;border-radius:5px;font-size:11px;font-weight:800;border:1px solid rgba(0,0,0,.08)}
-.small{font-size:11px;color:var(--muted)}.grow{flex:1}
+.type-row{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:center;
+  gap:8px;
+  padding:9px 0;
+  border-bottom:1px solid var(--line);
+}
+.history-row,.holiday-row,.rule-row{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 0;
+  border-bottom:1px solid var(--line);
+}
+.type-row:last-child,.history-row:last-child,.holiday-row:last-child,.rule-row:last-child{
+  border-bottom:none;
+}
+.pill{
+  padding:3px 6px;
+  border-radius:5px;
+  font-size:11px;
+  font-weight:800;
+  border:1px solid rgba(0,0,0,.08);
+}
+.small{font-size:11px;color:var(--muted)}
+.grow{flex:1;min-width:0}
+.type-color-controls{
+  display:flex;
+  align-items:flex-end;
+  justify-content:flex-end;
+  gap:6px;
+  flex:0 0 auto;
+}
+.type-color-field{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:3px;
+  min-width:42px;
+  color:var(--muted);
+  font-size:10px;
+  font-weight:700;
+  line-height:1;
+}
+.type-color-input{
+  width:42px;
+  height:34px;
+  padding:2px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  background:var(--surface);
+}
+.type-color-input:disabled{
+  opacity:.45;
+}
+.new-type-row{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto auto;
+  align-items:end;
+  gap:8px;
+  margin-top:10px;
+}
+.new-type-row .type-color-controls{
+  align-items:flex-end;
+}
+@media(max-width:420px){
+  .type-row{
+    grid-template-columns:auto minmax(0,1fr);
+  }
+  .type-row .type-color-controls{
+    grid-column:1 / -1;
+    justify-content:flex-end;
+  }
+  .new-type-row{
+    grid-template-columns:minmax(0,1fr) auto;
+  }
+  .new-type-row .type-color-controls{
+    grid-column:1 / 2;
+    justify-content:flex-start;
+  }
+  .new-type-row .btn{
+    grid-column:2;
+    grid-row:1 / span 2;
+    align-self:stretch;
+  }
+}
 .modal{position:fixed;inset:0;z-index:10000;background:var(--modal-backdrop);display:flex;align-items:center;justify-content:center}
 .modal-box{background:var(--surface);border:1px solid var(--line);border-radius:14px;width:88%;max-width:360px;padding:18px}
 hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
@@ -1490,7 +1574,8 @@ select option{
       <button id="saveAnnualLeaveSettingsBtn" class="btn primary" style="width:100%">연차 설정 저장</button>
       <div id="annualLeavePreview" class="notice info" style="margin-top:9px"></div>
       <div class="form-hint">
-        연차 사용량은 매년 1월 1일부터 선택한 날짜까지 집계합니다.
+        연차 사용량은 매년 1월 1일이 아니라 입사일을 기준으로 리셋됩니다.
+        가장 최근 입사기념일부터 선택한 날짜까지 사용한 연차만 집계합니다.
         교대 연차 1.5개, 일근 연차 1개, 반차 0.5개, 반반차 0.25개가 차감됩니다.
       </div>
     </div>
@@ -1498,9 +1583,30 @@ select option{
     <div class="section-label">근무 타입 관리</div>
     <div class="card">
       <div id="typeManageList"></div>
-      <div class="row" style="margin-top:10px">
+      <div class="new-type-row">
         <input id="newTypeLabel" class="form-input" placeholder="예: 교육">
-        <input id="newTypeColor" type="color" value="#888888" style="width:44px;border:1px solid var(--line);border-radius:8px">
+        <div class="type-color-controls" aria-label="새 근무 타입 색상">
+          <label class="type-color-field">
+            <span>배경</span>
+            <input
+              id="newTypeColor"
+              class="type-color-input"
+              type="color"
+              value="#888888"
+              aria-label="새 근무 타입 배경색"
+            >
+          </label>
+          <label class="type-color-field">
+            <span>글씨</span>
+            <input
+              id="newTypeTextColor"
+              class="type-color-input"
+              type="color"
+              value="#ffffff"
+              aria-label="새 근무 타입 글씨색"
+            >
+          </label>
+        </div>
         <button id="addTypeBtn" class="btn primary">추가</button>
       </div>
     </div>
@@ -1863,6 +1969,7 @@ const addWorkPeriodBtn=document.getElementById('addWorkPeriodBtn');
 const typeManageList=document.getElementById('typeManageList');
 const newTypeLabel=document.getElementById('newTypeLabel');
 const newTypeColor=document.getElementById('newTypeColor');
+const newTypeTextColor=document.getElementById('newTypeTextColor');
 const addTypeBtn=document.getElementById('addTypeBtn');
 const companyHolidayList=document.getElementById('companyHolidayList');
 const holidayName=document.getElementById('holidayName');
@@ -2531,7 +2638,73 @@ function annualUsageUnitsFor_(date,status){
   return 0;
 }
 
-function calculateAnnualUsage_(year,throughDate){
+function anniversaryDateForYear_(joinDate,year){
+  /*
+    2월 29일 입사자는 윤년이 아닌 해에
+    자바스크립트가 3월 1일로 넘겨 계산하는 것을 막고
+    해당 월의 마지막 날인 2월 28일을 입사기념일로 사용한다.
+  */
+  const month=joinDate.getMonth();
+  const day=joinDate.getDate();
+  const lastDay=new Date(year,month+1,0).getDate();
+
+  return new Date(
+    year,
+    month,
+    Math.min(day,lastDay)
+  );
+}
+
+function getAnnualUsagePeriod_(asOf){
+  const fallbackStart=new Date(
+    asOf.getFullYear(),
+    0,
+    1
+  );
+
+  if(!ANNUAL_LEAVE_SETTINGS.joinDate){
+    return {
+      start:fallbackStart,
+      end:asOf,
+      nextReset:new Date(
+        asOf.getFullYear()+1,
+        0,
+        1
+      ),
+      basedOnJoinDate:false
+    };
+  }
+
+  const joinDate=new Date(
+    ANNUAL_LEAVE_SETTINGS.joinDate+'T00:00:00'
+  );
+
+  let start=anniversaryDateForYear_(
+    joinDate,
+    asOf.getFullYear()
+  );
+
+  if(asOf<start){
+    start=anniversaryDateForYear_(
+      joinDate,
+      asOf.getFullYear()-1
+    );
+  }
+
+  const nextReset=anniversaryDateForYear_(
+    joinDate,
+    start.getFullYear()+1
+  );
+
+  return {
+    start,
+    end:asOf,
+    nextReset,
+    basedOnJoinDate:true
+  };
+}
+
+function calculateAnnualUsage_(periodStart,throughDate){
   const result={
     used:0,
     annualCount:0,
@@ -2555,8 +2728,13 @@ function calculateAnnualUsage_(year,throughDate){
 
       const date=new Date(rawDate+'T00:00:00');
 
+      /*
+        연차 사용량은 가장 최근 입사기념일부터 집계한다.
+        예: 입사일이 7월 2일이고 선택일이 7월 30일이면
+        7월 1일에 사용한 연차는 이전 연차연도이므로 제외된다.
+      */
       if(
-        date.getFullYear()!==year ||
+        date<periodStart ||
         (throughDate&&date>throughDate)
       ){
         return;
@@ -2596,8 +2774,9 @@ function calculateAnnualUsage_(year,throughDate){
 }
 
 function calculateAnnualSummary_(asOf){
+  const period=getAnnualUsagePeriod_(asOf);
   const usage=calculateAnnualUsage_(
-    asOf.getFullYear(),
+    period.start,
     asOf
   );
   const entitlement=
@@ -2605,6 +2784,9 @@ function calculateAnnualSummary_(asOf){
 
   return {
     asOf,
+    periodStart:period.start,
+    nextReset:period.nextReset,
+    basedOnJoinDate:period.basedOnJoinDate,
     entitlement,
     ...usage,
     compensationDays:Math.max(
@@ -2621,6 +2803,17 @@ function formatLeaveUnits_(value){
     .toFixed(2)
     .replace(/\.00$/,'')
     .replace(/(\.\d)0$/,'$1');
+}
+
+function formatMonthDay_(date){
+  return `${date.getMonth()+1}월 ${date.getDate()}일`;
+}
+
+function formatAnnualUsagePeriod_(summary){
+  return `${summary.periodStart.getFullYear()}년 `+
+    `${formatMonthDay_(summary.periodStart)}부터 `+
+    `${summary.asOf.getFullYear()}년 `+
+    `${formatMonthDay_(summary.asOf)}까지`;
 }
 
 function getAnnualAsOfForView_(){
@@ -2668,6 +2861,7 @@ function renderAnnualLeavePreview_(){
   annualLeavePreview.innerHTML=
     `<b>${asOf.getFullYear()}년 `+
     `${asOf.getMonth()+1}월 ${asOf.getDate()}일 기준</b><br>`+
+    `집계기간 ${formatAnnualUsagePeriod_(summary)}<br>`+
     `발생 ${formatLeaveUnits_(summary.entitlement)}개 · `+
     `사용 ${formatLeaveUnits_(summary.used)}개 · `+
     `연차보상일수 ${formatLeaveUnits_(summary.compensationDays)}개`;
@@ -4309,6 +4503,93 @@ function getStatusDefinition_(key){
 function renderTypes(){
   typeManageList.innerHTML='';
 
+  const colorControlsHtml=(style,disabled=false)=>(
+    `<div class="type-color-controls">`+
+      `<label class="type-color-field">`+
+        `<span>배경</span>`+
+        `<input class="type-color-input type-bg-color" `+
+          `type="color" value="${style.bg}" `+
+          `aria-label="배경색" `+
+          `${disabled?'disabled title="휴무 색상을 사용합니다"':''}>`+
+      `</label>`+
+      `<label class="type-color-field">`+
+        `<span>글씨</span>`+
+        `<input class="type-color-input type-text-color" `+
+          `type="color" value="${style.color}" `+
+          `aria-label="글씨색" `+
+          `${disabled?'disabled title="휴무 글씨색을 사용합니다"':''}>`+
+      `</label>`+
+    `</div>`
+  );
+
+  const bindColorInputs=(
+    row,
+    key,
+    isDefault,
+    followsOffColor=false
+  )=>{
+    const preview=row.querySelector('.pill');
+    const backgroundInput=row.querySelector('.type-bg-color');
+    const textInput=row.querySelector('.type-text-color');
+
+    const updateStyle=(property,value)=>{
+      if(followsOffColor){
+        return;
+      }
+
+      if(isDefault){
+        SHIFT_STYLE[key][property]=value;
+      }else{
+        const type=CUSTOM_TYPES.find(
+          item=>item.key===key
+        );
+
+        if(type){
+          type[property]=value;
+        }
+      }
+
+      if(preview){
+        if(property==='bg'){
+          preview.style.background=value;
+        }else{
+          preview.style.color=value;
+        }
+      }
+
+      saveTypeState();
+      renderCurrent();
+    };
+
+    if(backgroundInput){
+      backgroundInput.oninput=event=>{
+        updateStyle('bg',event.target.value);
+      };
+
+      backgroundInput.onchange=()=>{
+        /*
+          연차는 휴무의 배경색과 글씨색을 그대로 사용한다.
+          휴무 색상을 바꾼 뒤 연차 미리보기도 즉시 갱신한다.
+        */
+        if(key==='휴무'){
+          renderTypes();
+        }
+      };
+    }
+
+    if(textInput){
+      textInput.oninput=event=>{
+        updateStyle('color',event.target.value);
+      };
+
+      textInput.onchange=()=>{
+        if(key==='휴무'){
+          renderTypes();
+        }
+      };
+    }
+  };
+
   WORK_STATUS_ORDER.forEach(key=>{
     const isDefault=DEFAULT_TYPE_KEYS.includes(key);
     const style=isDefault
@@ -4332,30 +4613,14 @@ function renderTypes(){
           :`<div class="small">기본 제공</div>`
       )+
       `</div>`+
-      `<input type="color" value="${style.bg}" `+
-      `${followsOffColor?'disabled title="휴무 색상을 사용합니다"':''}>`;
+      colorControlsHtml(style,followsOffColor);
 
-    row.querySelector('input').oninput=event=>{
-      if(followsOffColor){
-        return;
-      }
-
-      if(isDefault){
-        SHIFT_STYLE[key].bg=event.target.value;
-      }else{
-        const type=CUSTOM_TYPES.find(
-          item=>item.key===key
-        );
-
-        if(type){
-          type.bg=event.target.value;
-        }
-      }
-
-      saveTypeState();
-      renderTypes();
-      renderCurrent();
-    };
+    bindColorInputs(
+      row,
+      key,
+      isDefault,
+      followsOffColor
+    );
 
     typeManageList.appendChild(row);
   });
@@ -4377,14 +4642,26 @@ function renderTypes(){
         `style="background:${type.bg};color:${type.color}">`+
         `${type.label}</span>`+
         `<div class="grow"><b>${type.key}</b></div>`+
-        `<input type="color" value="${type.bg}">`+
-        `<button class="btn red">삭제</button>`;
+        `<div class="type-color-controls">`+
+          `<label class="type-color-field">`+
+            `<span>배경</span>`+
+            `<input class="type-color-input type-bg-color" `+
+              `type="color" value="${type.bg}" aria-label="배경색">`+
+          `</label>`+
+          `<label class="type-color-field">`+
+            `<span>글씨</span>`+
+            `<input class="type-color-input type-text-color" `+
+              `type="color" value="${type.color}" aria-label="글씨색">`+
+          `</label>`+
+          `<button class="btn red">삭제</button>`+
+        `</div>`;
 
-      row.querySelector('input').oninput=event=>{
-        CUSTOM_TYPES[index].bg=event.target.value;
-        saveTypeState();
-        renderCurrent();
-      };
+      bindColorInputs(
+        row,
+        type.key,
+        false,
+        false
+      );
 
       row.querySelector('button').onclick=()=>{
         CUSTOM_TYPES.splice(index,1);
@@ -4396,7 +4673,6 @@ function renderTypes(){
       typeManageList.appendChild(row);
     });
 }
-
 function renderCompanyHolidays(){
   companyHolidayList.innerHTML=COMPANY_HOLIDAYS
     .map((holiday,index)=>{
@@ -5039,7 +5315,7 @@ function renderDashboard(){
       <div class="stat">
         <div class="k">사용 연차</div>
         <div class="v">${formatLeaveUnits_(annual.used)}</div>
-        <div class="s">${annual.asOf.getFullYear()}년 누적</div>
+        <div class="s">${formatMonthDay_(annual.periodStart)}부터 집계</div>
       </div>
 
       <div class="stat">
@@ -5051,6 +5327,9 @@ function renderDashboard(){
 
     <div class="card">
       <div class="card-title">휴가 현황</div>
+      <div class="form-hint" style="margin:0 0 8px">
+        ${formatAnnualUsagePeriod_(annual)}
+      </div>
       <table class="data-table">
         <tr>
           <td>교대 연차</td>
@@ -5691,12 +5970,13 @@ addTypeBtn.onclick=()=>{
     key:name,
     label:name.slice(0,3),
     bg:newTypeColor.value,
-    color:'#fff'
+    color:newTypeTextColor.value
   });
 
   saveTypeState();
   newTypeLabel.value='';
   renderTypes();
+  renderCurrent();
 };
 addHolidayBtn.onclick=()=>{const n=holidayName.value.trim(),d=holidayDate.value;if(!n||!d)return alert('휴일명과 날짜를 입력하세요.');const dt=new Date(d+'T00:00:00');COMPANY_HOLIDAYS.push({id:'custom-'+Date.now(),name:n,month:dt.getMonth()+1,day:dt.getDate(),date:d,enabled:true,payAsHoliday:holidayPay.checked,annual:holidayAnnual.checked});store.set('companyHolidays',COMPANY_HOLIDAYS);holidayName.value='';renderCompanyHolidays();renderCurrent()};
 addWithBtn.onclick=()=>{withEntries.push({name:'새 비교 대상',refDate:dateKey(refDate),cycle:[...CYCLE]});store.set('withEntries',withEntries);renderWithManageList()};
