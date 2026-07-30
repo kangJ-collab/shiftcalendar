@@ -1,5 +1,4 @@
-javascript
-const CACHE_VERSION = 'shiftcalendar-pwa-v14';
+const CACHE_VERSION = 'shiftcalendar-pwa-v16';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 
