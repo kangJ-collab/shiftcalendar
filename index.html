@@ -69,6 +69,9 @@
   --calendar-text:#222;--text-soft:#58636b;--memo-color:#30383e;
   --sunday-color:#e5352b;--saturday-color:#2255cc;
   --today-bg:rgba(59,130,246,.09);--today-ring:#243b6b;
+  --calendar-date-size:15px;--calendar-corner-date-size:13px;
+  --calendar-shift-size:34px;--calendar-shift-font-size:15px;
+  --calendar-shift-long-font-size:9px;
   --modal-backdrop:rgba(0,0,0,.45);--shadow:rgba(28,48,60,.14);
 }
 html[data-theme="light"]{
@@ -205,7 +208,7 @@ button{cursor:pointer}
 .cell{border-right:1px solid var(--line);border-bottom:1px solid var(--line);display:flex;flex-direction:column;min-height:0;overflow:hidden;position:relative;padding:2px 3px}
 .cell:nth-child(7n){border-right:none}.cell.dim .daynum{color:#c9c9c9}.cell.dim .tag{opacity:.35}
 .tag{align-self:flex-start;font-size:10.5px;font-weight:800;color:#fff;padding:1px 4px;border-radius:3px;margin-bottom:2px;line-height:1.4}
-.daynum{font-size:15px;font-weight:700;margin-top:auto;margin-bottom:auto;text-align:center}
+.daynum{font-size:var(--calendar-date-size);font-weight:700;margin-top:auto;margin-bottom:auto;text-align:center}
 /* 오늘 표시: 요일·공휴일 색상은 유지하고 위치만 강조 */
 .cell.today{
   background:var(--today-bg);
@@ -280,14 +283,15 @@ button{cursor:pointer}
 html[data-theme="dark"] .holiday-name{color:#ff7a73}
 html[data-calendar-emphasis="shift"] .cell{
   padding:2px;
+  isolation:isolate;
 }
 html[data-calendar-emphasis="shift"] .cell .daynum{
   position:absolute;
   top:4px;
   left:5px;
-  z-index:3;
+  z-index:7;
   margin:0;
-  font-size:13px;
+  font-size:var(--calendar-corner-date-size);
   line-height:1;
 }
 html[data-calendar-emphasis="shift"] .cell.today .daynum{
@@ -299,37 +303,52 @@ html[data-calendar-emphasis="shift"] .cell.today .daynum{
 }
 html[data-calendar-emphasis="shift"] .cell .holiday-name{
   position:absolute;
-  top:4px;
-  right:4px;
-  z-index:2;
-  max-width:calc(100% - 33px);
-  font-size:8px;
+  top:3px;
+  right:3px;
+  z-index:8;
+  max-width:calc(100% - 26px);
+  padding:0 1px;
+  border-radius:2px;
+  background:var(--surface);
+  font-size:9px;
+  line-height:1.15;
   text-align:right;
 }
+html[data-calendar-emphasis="shift"] .cell.today .holiday-name{
+  max-width:calc(100% - 32px);
+}
 html[data-calendar-emphasis="shift"] .cell .tag{
+  position:relative;
+  z-index:2;
   align-self:center;
   display:flex;
   align-items:center;
   justify-content:center;
-  min-width:44px;
-  width:44px;
-  height:44px;
+  flex:0 0 auto;
+  min-width:0;
+  width:min(var(--calendar-shift-size),calc(100% - 10px));
+  height:min(var(--calendar-shift-size),calc(100% - 30px));
+  aspect-ratio:1/1;
   margin:auto;
   padding:0;
   border-radius:50%;
-  font-size:20px;
+  font-size:var(--calendar-shift-font-size);
   line-height:1;
   text-align:center;
+  white-space:nowrap;
+  overflow:hidden;
 }
 html[data-calendar-emphasis="shift"] .cell .tag.tag-long{
-  font-size:12px;
-  letter-spacing:-.4px;
+  font-size:var(--calendar-shift-long-font-size);
+  letter-spacing:-.65px;
 }
 html[data-calendar-emphasis="shift"] .cell.has-memo .tag{
   margin-top:auto;
   margin-bottom:auto;
 }
 html[data-calendar-emphasis="shift"] .cell .memo{
+  position:relative;
+  z-index:5;
   flex:0 0 auto;
   max-height:2.75em;
 }
@@ -372,12 +391,17 @@ html[data-calendar-emphasis="date"] .cell .tag{
 }
 .calendar-emphasis-grid{
   display:grid;
-  grid-template-columns:1fr 1fr;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
   gap:9px;
 }
 .calendar-emphasis-button{
-  min-height:96px;
-  padding:10px;
+  min-width:0;
+  min-height:128px;
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  padding:9px;
+  overflow:hidden;
   border:1px solid var(--line);
   border-radius:10px;
   background:var(--surface);
@@ -389,8 +413,12 @@ html[data-calendar-emphasis="date"] .cell .tag{
   background:var(--accent-soft);
 }
 .calendar-emphasis-sample{
-  height:58px;
-  margin-bottom:7px;
+  display:block;
+  width:100%;
+  height:54px;
+  flex:0 0 54px;
+  box-sizing:border-box;
+  margin:0 0 7px;
   border:1px solid var(--line);
   border-radius:7px;
   background:var(--surface-muted);
@@ -410,12 +438,13 @@ html[data-calendar-emphasis="date"] .cell .tag{
   background:#f2e79a;
   color:#3a3a1a;
   font-weight:850;
+  white-space:nowrap;
 }
 .calendar-emphasis-sample.date-large .sample-date{
   left:50%;
   top:50%;
   transform:translate(-50%,-50%);
-  font-size:25px;
+  font-size:calc(var(--calendar-date-size) + 9px);
 }
 .calendar-emphasis-sample.date-large .sample-shift{
   top:4px;
@@ -427,28 +456,71 @@ html[data-calendar-emphasis="date"] .cell .tag{
 .calendar-emphasis-sample.shift-large .sample-date{
   top:5px;
   left:6px;
-  font-size:12px;
+  font-size:var(--calendar-corner-date-size);
 }
 .calendar-emphasis-sample.shift-large .sample-shift{
   left:50%;
-  top:50%;
-  transform:translate(-50%,-43%);
-  width:38px;
-  height:38px;
+  top:52%;
+  transform:translate(-50%,-50%);
+  width:var(--calendar-shift-size);
+  height:var(--calendar-shift-size);
   border-radius:50%;
-  font-size:18px;
+  font-size:var(--calendar-shift-font-size);
 }
 .calendar-emphasis-title{
   display:block;
+  flex:0 0 auto;
   font-size:13px;
   font-weight:800;
 }
 .calendar-emphasis-description{
   display:block;
-  margin-top:2px;
+  flex:1 1 auto;
+  margin-top:3px;
   color:var(--muted);
   font-size:10.5px;
-  line-height:1.3;
+  line-height:1.35;
+  overflow-wrap:anywhere;
+}
+.calendar-size-controls{
+  display:grid;
+  gap:11px;
+  margin-top:12px;
+  padding-top:12px;
+  border-top:1px solid var(--line);
+}
+.calendar-size-row{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:5px 10px;
+  align-items:center;
+}
+.calendar-size-label{
+  min-width:0;
+  font-size:12px;
+  font-weight:750;
+}
+.calendar-size-value{
+  min-width:42px;
+  text-align:right;
+  color:var(--accent-strong);
+  font-size:12px;
+  font-weight:800;
+}
+.calendar-size-row input[type="range"]{
+  grid-column:1/-1;
+  width:100%;
+  min-width:0;
+  accent-color:var(--accent);
+}
+.calendar-size-reset{
+  width:100%;
+  margin-top:1px;
+}
+@media(max-width:360px){
+  .calendar-emphasis-grid{
+    grid-template-columns:1fr;
+  }
 }
 .table-wrap{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;overflow:hidden;background:var(--surface)}
 .trow{display:grid;flex:1 1 0;min-height:0;border-bottom:1px solid var(--line)}
@@ -1239,6 +1311,23 @@ select option{
         </button>
       </div>
       <div id="calendarEmphasisCurrent" class="theme-current-text"></div>
+
+      <div class="calendar-size-controls">
+        <div class="calendar-size-row">
+          <label class="calendar-size-label" for="calendarDateSize">날짜 글자 크기</label>
+          <output id="calendarDateSizeValue" class="calendar-size-value">15px</output>
+          <input id="calendarDateSize" type="range" min="12" max="22" step="1" value="15">
+        </div>
+
+        <div class="calendar-size-row">
+          <label class="calendar-size-label" for="calendarShiftSize">근무 원 크기</label>
+          <output id="calendarShiftSizeValue" class="calendar-size-value">34px</output>
+          <input id="calendarShiftSize" type="range" min="26" max="44" step="1" value="34">
+        </div>
+
+        <button id="calendarSizeReset" class="btn calendar-size-reset" type="button">크기 기본값으로 되돌리기</button>
+        <div class="form-hint">근무 원 크기는 ‘근무 크게’ 모드에 적용됩니다. 기본값은 이전 수정본보다 작게 설정했습니다.</div>
+      </div>
     </div>
 
     <div class="section-label">내 근무조</div>
@@ -1740,6 +1829,11 @@ const memoFontPreview=document.getElementById('memoFontPreview');
 const calendarEmphasisDate=document.getElementById('calendarEmphasisDate');
 const calendarEmphasisShift=document.getElementById('calendarEmphasisShift');
 const calendarEmphasisCurrent=document.getElementById('calendarEmphasisCurrent');
+const calendarDateSize=document.getElementById('calendarDateSize');
+const calendarDateSizeValue=document.getElementById('calendarDateSizeValue');
+const calendarShiftSize=document.getElementById('calendarShiftSize');
+const calendarShiftSizeValue=document.getElementById('calendarShiftSizeValue');
+const calendarSizeReset=document.getElementById('calendarSizeReset');
 const annualJoinDate=document.getElementById('annualJoinDate');
 const annualBaseDays=document.getElementById('annualBaseDays');
 const annualMaxDays=document.getElementById('annualMaxDays');
@@ -2009,6 +2103,7 @@ let memoFontWeight=applyMemoFontWeight_(
 );
 
 const CALENDAR_EMPHASIS_KEY='calendarEmphasis';
+const CALENDAR_SIZE_SETTINGS_KEY='calendarSizeSettings';
 const MEMO_DEFAULT_STYLE_KEY='memoDefaultStyle';
 const ANNUAL_LEAVE_SETTINGS_KEY='annualLeaveSettings';
 
@@ -2058,6 +2153,110 @@ function applyCalendarEmphasis_(value,{save=true}={}){
 
 let calendarEmphasis=applyCalendarEmphasis_(
   store.get(CALENDAR_EMPHASIS_KEY,'date'),
+  {save:false}
+);
+
+function clampCalendarSize_(value,min,max,fallback){
+  const number=Math.round(Number(value));
+
+  if(!Number.isFinite(number)){
+    return fallback;
+  }
+
+  return Math.min(max,Math.max(min,number));
+}
+
+function normalizeCalendarSizeSettings_(value){
+  const source=value&&typeof value==='object'?value:{};
+
+  return {
+    dateSize:clampCalendarSize_(
+      source.dateSize,
+      12,
+      22,
+      15
+    ),
+    shiftSize:clampCalendarSize_(
+      source.shiftSize,
+      26,
+      44,
+      34
+    )
+  };
+}
+
+function applyCalendarSizeSettings_(value,{save=true}={}){
+  const normalized=normalizeCalendarSizeSettings_(value);
+  const cornerDateSize=Math.max(
+    11,
+    Math.round(normalized.dateSize*.8)
+  );
+  const shiftFontSize=Math.max(
+    12,
+    Math.round(normalized.shiftSize*.44)
+  );
+  const shiftLongFontSize=Math.max(
+    8,
+    Math.round(normalized.shiftSize*.27)
+  );
+
+  document.documentElement.style.setProperty(
+    '--calendar-date-size',
+    normalized.dateSize+'px'
+  );
+  document.documentElement.style.setProperty(
+    '--calendar-corner-date-size',
+    cornerDateSize+'px'
+  );
+  document.documentElement.style.setProperty(
+    '--calendar-shift-size',
+    normalized.shiftSize+'px'
+  );
+  document.documentElement.style.setProperty(
+    '--calendar-shift-font-size',
+    shiftFontSize+'px'
+  );
+  document.documentElement.style.setProperty(
+    '--calendar-shift-long-font-size',
+    shiftLongFontSize+'px'
+  );
+
+  if(calendarDateSize){
+    calendarDateSize.value=String(normalized.dateSize);
+  }
+
+  if(calendarDateSizeValue){
+    calendarDateSizeValue.textContent=
+      normalized.dateSize+'px';
+  }
+
+  if(calendarShiftSize){
+    calendarShiftSize.value=String(normalized.shiftSize);
+  }
+
+  if(calendarShiftSizeValue){
+    calendarShiftSizeValue.textContent=
+      normalized.shiftSize+'px';
+  }
+
+  if(save){
+    store.set(
+      CALENDAR_SIZE_SETTINGS_KEY,
+      normalized
+    );
+  }
+
+  return normalized;
+}
+
+let calendarSizeSettings=applyCalendarSizeSettings_(
+  store.get(
+    CALENDAR_SIZE_SETTINGS_KEY,
+    {
+      dateSize:15,
+      shiftSize:34
+    }
+  ),
   {save:false}
 );
 
@@ -3900,6 +4099,10 @@ function openSettings(){
     calendarEmphasis,
     {save:false}
   );
+  calendarSizeSettings=applyCalendarSizeSettings_(
+    calendarSizeSettings,
+    {save:false}
+  );
   syncAnnualLeaveSettingsForm_();
   syncThemeControls_();
 }
@@ -5217,6 +5420,33 @@ document
     };
   });
 
+if(calendarDateSize){
+  calendarDateSize.oninput=()=>{
+    calendarSizeSettings=applyCalendarSizeSettings_({
+      ...calendarSizeSettings,
+      dateSize:calendarDateSize.value
+    });
+  };
+}
+
+if(calendarShiftSize){
+  calendarShiftSize.oninput=()=>{
+    calendarSizeSettings=applyCalendarSizeSettings_({
+      ...calendarSizeSettings,
+      shiftSize:calendarShiftSize.value
+    });
+  };
+}
+
+if(calendarSizeReset){
+  calendarSizeReset.onclick=()=>{
+    calendarSizeSettings=applyCalendarSizeSettings_({
+      dateSize:15,
+      shiftSize:34
+    });
+  };
+}
+
 memoSaveBtn.onclick=()=>{
   if(!memoTargetDate){
     return;
@@ -6092,102 +6322,3 @@ async function autoLoadInsuranceData(){
       error
     );
   }
-}
-
-async function autoLoadReferenceData(){
-  await Promise.allSettled([
-    autoLoadHolidayData(),
-    autoLoadInsuranceData()
-  ]);
-
-  renderUpdateStatus();
-  renderCurrent();
-}
-
-
-// PWA 설치 및 서비스워커
-let deferredPwaInstallPrompt_=null;
-
-function isStandaloneMode_(){
-  return window.matchMedia('(display-mode: standalone)').matches ||
-    window.navigator.standalone === true;
-}
-
-function updatePwaInstallUi_(message){
-  const button=document.getElementById('pwaInstallBtn');
-  const status=document.getElementById('pwaInstallStatus');
-  if(!button||!status) return;
-
-  if(isStandaloneMode_()){
-    button.textContent='설치 완료';
-    button.disabled=true;
-    status.textContent='현재 홈 화면 앱으로 실행 중입니다.';
-    return;
-  }
-
-  button.disabled=false;
-  button.textContent='홈 화면에 앱 설치';
-  status.textContent=message||'설치 버튼을 누르세요.';
-}
-
-window.addEventListener('beforeinstallprompt',function(event){
-  event.preventDefault();
-  deferredPwaInstallPrompt_=event;
-  updatePwaInstallUi_('이 브라우저에서 바로 설치할 수 있습니다.');
-});
-
-window.addEventListener('appinstalled',function(){
-  deferredPwaInstallPrompt_=null;
-  updatePwaInstallUi_('앱 설치가 완료되었습니다.');
-});
-
-document.getElementById('pwaInstallBtn').onclick=async function(){
-  if(isStandaloneMode_()){
-    updatePwaInstallUi_();
-    return;
-  }
-
-  if(deferredPwaInstallPrompt_){
-    deferredPwaInstallPrompt_.prompt();
-    await deferredPwaInstallPrompt_.userChoice;
-    deferredPwaInstallPrompt_=null;
-    updatePwaInstallUi_();
-    return;
-  }
-
-  alert(
-    '아이폰 Safari:\n' +
-    '하단 공유 버튼 → 홈 화면에 추가\n\n' +
-    '안드로이드 Chrome:\n' +
-    '브라우저 메뉴 → 앱 설치 또는 홈 화면에 추가'
-  );
-};
-
-updatePwaInstallUi_();
-
-if('serviceWorker' in navigator && location.protocol.startsWith('http')){
-  window.addEventListener('load',function(){
-    navigator.serviceWorker.register('./service-worker.js').then(function(registration){
-      registration.update();
-    }).catch(function(error){
-      console.warn('서비스워커 등록 실패:',error);
-    });
-  });
-
-  navigator.serviceWorker.addEventListener('controllerchange',function(){
-    if(sessionStorage.getItem('pwa-sw-reloaded')) return;
-    sessionStorage.setItem('pwa-sw-reloaded','1');
-    location.reload();
-  });
-}
-
-syncMemoDefaultControls_();
-calendarEmphasis=applyCalendarEmphasis_(
-  calendarEmphasis,
-  {save:false}
-);
-switchTab('My');
-autoLoadReferenceData();
-</script>
-</body>
-</html>
