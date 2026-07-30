@@ -44,7 +44,7 @@
   document.documentElement.dataset.theme=resolved;
   document.documentElement.dataset.themePreference=preference;
   document.documentElement.style.colorScheme=
-    resolved==='dark'?'only dark':'only light';
+    resolved==='dark'?'dark':'only light';
 
   const themeMeta=document.querySelector(
     'meta[name="theme-color"]'
@@ -75,7 +75,7 @@ html[data-theme="light"]{
   color-scheme:only light;
 }
 html[data-theme="dark"]{
-  color-scheme:only dark;
+  color-scheme:dark;
   --blue-dark:#83a9be;--blue-mid:#789caf;--red:#ff7770;--yellow:#d8cd78;
   --black:#25282b;--gray-bg:#0f1316;--line:#30383e;--green:#5c947c;
   --surface:#181d21;--surface-muted:#20262b;--text:#edf1f3;--muted:#aab3b9;
@@ -129,7 +129,7 @@ html[data-theme="dark"] input,
 html[data-theme="dark"] select,
 html[data-theme="dark"] textarea,
 html[data-theme="dark"] button{
-  color-scheme:only dark;
+  color-scheme:dark;
 }
 
 html[data-theme="light"] input,
@@ -260,6 +260,195 @@ button{cursor:pointer}
   word-break:break-word;
   overflow:hidden;
   -webkit-text-stroke:var(--memo-stroke) currentColor;
+}
+.memo.has-background{
+  width:100%;
+  margin:auto 0 0;
+  padding:2px 3px;
+  border-radius:2px;
+}
+.holiday-name{
+  font-size:9px;
+  color:#e5352b;
+  font-weight:700;
+  line-height:1.2;
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+html[data-theme="dark"] .holiday-name{color:#ff7a73}
+html[data-calendar-emphasis="shift"] .cell{
+  padding:2px;
+}
+html[data-calendar-emphasis="shift"] .cell .daynum{
+  position:absolute;
+  top:4px;
+  left:5px;
+  z-index:3;
+  margin:0;
+  font-size:13px;
+  line-height:1;
+}
+html[data-calendar-emphasis="shift"] .cell.today .daynum{
+  top:1px;
+  left:1px;
+  width:25px;
+  height:25px;
+  margin:0;
+}
+html[data-calendar-emphasis="shift"] .cell .holiday-name{
+  position:absolute;
+  top:4px;
+  right:4px;
+  z-index:2;
+  max-width:calc(100% - 33px);
+  font-size:8px;
+  text-align:right;
+}
+html[data-calendar-emphasis="shift"] .cell .tag{
+  align-self:center;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-width:44px;
+  width:44px;
+  height:44px;
+  margin:auto;
+  padding:0;
+  border-radius:50%;
+  font-size:20px;
+  line-height:1;
+  text-align:center;
+}
+html[data-calendar-emphasis="shift"] .cell .tag.tag-long{
+  font-size:12px;
+  letter-spacing:-.4px;
+}
+html[data-calendar-emphasis="shift"] .cell.has-memo .tag{
+  margin-top:auto;
+  margin-bottom:auto;
+}
+html[data-calendar-emphasis="shift"] .cell .memo{
+  flex:0 0 auto;
+  max-height:2.75em;
+}
+html[data-calendar-emphasis="date"] .cell .tag{
+  align-self:flex-start;
+}
+.memo-color-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:9px;
+  margin-top:9px;
+}
+.color-field{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-width:0;
+}
+.color-field input[type="color"]{
+  width:44px;
+  height:38px;
+  padding:2px;
+  border:1px solid var(--line);
+  border-radius:7px;
+  background:var(--surface);
+  flex:0 0 auto;
+}
+.memo-style-preview{
+  min-height:38px;
+  margin-top:9px;
+  padding:7px 9px;
+  border:1px solid var(--line);
+  border-radius:7px;
+  font-size:11px;
+  font-weight:var(--memo-weight);
+  line-height:1.35;
+  text-align:center;
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+}
+.calendar-emphasis-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:9px;
+}
+.calendar-emphasis-button{
+  min-height:96px;
+  padding:10px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:var(--surface);
+  color:var(--text);
+  text-align:left;
+}
+.calendar-emphasis-button.active{
+  border:2px solid var(--accent);
+  background:var(--accent-soft);
+}
+.calendar-emphasis-sample{
+  height:58px;
+  margin-bottom:7px;
+  border:1px solid var(--line);
+  border-radius:7px;
+  background:var(--surface-muted);
+  position:relative;
+  overflow:hidden;
+}
+.calendar-emphasis-sample .sample-date{
+  position:absolute;
+  color:var(--text);
+  font-weight:800;
+}
+.calendar-emphasis-sample .sample-shift{
+  position:absolute;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#f2e79a;
+  color:#3a3a1a;
+  font-weight:850;
+}
+.calendar-emphasis-sample.date-large .sample-date{
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+  font-size:25px;
+}
+.calendar-emphasis-sample.date-large .sample-shift{
+  top:4px;
+  left:4px;
+  padding:2px 5px;
+  border-radius:4px;
+  font-size:10px;
+}
+.calendar-emphasis-sample.shift-large .sample-date{
+  top:5px;
+  left:6px;
+  font-size:12px;
+}
+.calendar-emphasis-sample.shift-large .sample-shift{
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-43%);
+  width:38px;
+  height:38px;
+  border-radius:50%;
+  font-size:18px;
+}
+.calendar-emphasis-title{
+  display:block;
+  font-size:13px;
+  font-weight:800;
+}
+.calendar-emphasis-description{
+  display:block;
+  margin-top:2px;
+  color:var(--muted);
+  font-size:10.5px;
+  line-height:1.3;
 }
 .table-wrap{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;overflow:hidden;background:var(--surface)}
 .trow{display:grid;flex:1 1 0;min-height:0;border-bottom:1px solid var(--line)}
@@ -946,6 +1135,35 @@ select option{
 
     <label class="form-label" style="margin-top:10px">메모</label>
     <textarea id="memoText" rows="4" class="form-input" style="resize:none" placeholder="줄바꿈을 포함해 메모를 입력할 수 있습니다."></textarea>
+
+    <div class="memo-color-grid">
+      <label class="color-field">
+        <input id="memoBackgroundColor" type="color" value="#4a4a4a">
+        <span>
+          <b style="font-size:12px">배경색</b>
+          <span class="small" style="display:block">메모 바탕색</span>
+        </span>
+      </label>
+
+      <label class="color-field">
+        <input id="memoTextColor" type="color" value="#ffffff">
+        <span>
+          <b style="font-size:12px">글자색</b>
+          <span class="small" style="display:block">메모 텍스트</span>
+        </span>
+      </label>
+    </div>
+
+    <div class="row" style="align-items:center;margin-top:8px">
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;flex:1">
+        <input id="memoBackgroundEnabled" type="checkbox" checked>
+        배경색 사용
+      </label>
+      <button id="memoUseDefaultStyleBtn" type="button" class="btn">기본색 적용</button>
+    </div>
+
+    <div id="memoStylePreview" class="memo-style-preview">메모 색상 미리보기</div>
+
     <div class="row" style="margin-top:12px">
       <button id="memoDeleteBtn" class="btn red" style="flex:1">삭제</button>
       <button id="memoCancelBtn" class="btn" style="flex:1">취소</button>
@@ -997,6 +1215,30 @@ select option{
       </div>
 
       <div id="themeSettingsCurrent" class="theme-current-text"></div>
+    </div>
+
+    <div class="section-label">달력 표시</div>
+    <div class="card">
+      <div class="calendar-emphasis-grid" role="radiogroup" aria-label="달력 강조 항목">
+        <button id="calendarEmphasisDate" class="calendar-emphasis-button" type="button" data-calendar-emphasis="date" role="radio">
+          <span class="calendar-emphasis-sample date-large" aria-hidden="true">
+            <span class="sample-date">30</span>
+            <span class="sample-shift">주</span>
+          </span>
+          <span class="calendar-emphasis-title">날짜 크게</span>
+          <span class="calendar-emphasis-description">현재 교대달력처럼 날짜를 중심으로 표시합니다.</span>
+        </button>
+
+        <button id="calendarEmphasisShift" class="calendar-emphasis-button" type="button" data-calendar-emphasis="shift" role="radio">
+          <span class="calendar-emphasis-sample shift-large" aria-hidden="true">
+            <span class="sample-date">30</span>
+            <span class="sample-shift">주</span>
+          </span>
+          <span class="calendar-emphasis-title">근무 크게</span>
+          <span class="calendar-emphasis-description">날짜는 작게, 주·야·휴 근무를 크게 표시합니다.</span>
+        </button>
+      </div>
+      <div id="calendarEmphasisCurrent" class="theme-current-text"></div>
     </div>
 
     <div class="section-label">내 근무조</div>
@@ -1095,18 +1337,73 @@ select option{
         </select>
       </div>
 
-      <div id="memoFontPreview" style="
-        margin-top:10px;
-        padding:10px 12px;
-        background:var(--surface-muted);
-        border:1px solid var(--line);
-        border-radius:7px;
-        color:#4f5961;
-        font-size:11px;
-        line-height:1.45;
-        white-space:pre-wrap;
-      ">메모 미리보기
+      <div class="memo-color-grid">
+        <label class="color-field">
+          <input id="memoDefaultBackgroundColor" type="color" value="#4a4a4a">
+          <span>
+            <b style="font-size:12px">기본 배경색</b>
+            <span class="small" style="display:block">새 메모 기본값</span>
+          </span>
+        </label>
+
+        <label class="color-field">
+          <input id="memoDefaultTextColor" type="color" value="#ffffff">
+          <span>
+            <b style="font-size:12px">기본 글자색</b>
+            <span class="small" style="display:block">새 메모 기본값</span>
+          </span>
+        </label>
+      </div>
+
+      <label style="display:flex;align-items:center;gap:6px;margin-top:9px;font-size:12px">
+        <input id="memoDefaultBackgroundEnabled" type="checkbox" checked>
+        메모에 기본 배경색 사용
+      </label>
+
+      <div id="memoFontPreview" class="memo-style-preview">메모 미리보기
 두 번째 줄도 그대로 표시됩니다.</div>
+      <div class="form-hint">날짜별 메모 작성 화면에서도 배경색과 글자색을 따로 바꿀 수 있습니다.</div>
+    </div>
+
+    <div class="section-label">연차 설정</div>
+    <div class="card">
+      <div class="form-group">
+        <label class="form-label" for="annualJoinDate">입사일</label>
+        <input id="annualJoinDate" type="date" class="form-input">
+        <div class="form-hint">입사일을 기준으로 근속연수와 발생 연차를 자동 계산합니다.</div>
+      </div>
+
+      <div class="salary-two-col">
+        <div class="form-group">
+          <label class="form-label" for="annualBaseDays">기본 연차</label>
+          <input id="annualBaseDays" type="number" min="0" step="0.25" class="form-input" value="15">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="annualMaxDays">연차 한도</label>
+          <input id="annualMaxDays" type="number" min="0" step="0.25" class="form-input" value="25">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="annualIncreaseYears">증가 주기</label>
+          <input id="annualIncreaseYears" type="number" min="1" step="1" class="form-input" value="2">
+          <div class="form-hint">몇 년마다 증가하는지</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="annualIncreaseDays">주기당 증가</label>
+          <input id="annualIncreaseDays" type="number" min="0" step="0.25" class="form-input" value="1">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="annualAdjustment">직접 보정</label>
+          <input id="annualAdjustment" type="number" step="0.25" class="form-input" value="0">
+          <div class="form-hint">회사 기준과 다르면 ±값 입력</div>
+        </div>
+      </div>
+
+      <button id="saveAnnualLeaveSettingsBtn" class="btn primary" style="width:100%">연차 설정 저장</button>
+      <div id="annualLeavePreview" class="notice info" style="margin-top:9px"></div>
+      <div class="form-hint">
+        연차 사용량은 매년 1월 1일부터 선택한 날짜까지 집계합니다.
+        교대 연차 1.5개, 일근 연차 1개, 반차 0.5개, 반반차 0.25개가 차감됩니다.
+      </div>
     </div>
 
     <div class="section-label">근무 타입 관리</div>
@@ -1430,8 +1727,27 @@ const callStartTime=document.getElementById('callStartTime');
 const callEndTime=document.getElementById('callEndTime');
 const callTimePreview=document.getElementById('callTimePreview');
 const memoText=document.getElementById('memoText');
+const memoBackgroundColor=document.getElementById('memoBackgroundColor');
+const memoTextColor=document.getElementById('memoTextColor');
+const memoBackgroundEnabled=document.getElementById('memoBackgroundEnabled');
+const memoUseDefaultStyleBtn=document.getElementById('memoUseDefaultStyleBtn');
+const memoStylePreview=document.getElementById('memoStylePreview');
 const memoFontWeightSelect=document.getElementById('memoFontWeightSelect');
+const memoDefaultBackgroundColor=document.getElementById('memoDefaultBackgroundColor');
+const memoDefaultTextColor=document.getElementById('memoDefaultTextColor');
+const memoDefaultBackgroundEnabled=document.getElementById('memoDefaultBackgroundEnabled');
 const memoFontPreview=document.getElementById('memoFontPreview');
+const calendarEmphasisDate=document.getElementById('calendarEmphasisDate');
+const calendarEmphasisShift=document.getElementById('calendarEmphasisShift');
+const calendarEmphasisCurrent=document.getElementById('calendarEmphasisCurrent');
+const annualJoinDate=document.getElementById('annualJoinDate');
+const annualBaseDays=document.getElementById('annualBaseDays');
+const annualMaxDays=document.getElementById('annualMaxDays');
+const annualIncreaseYears=document.getElementById('annualIncreaseYears');
+const annualIncreaseDays=document.getElementById('annualIncreaseDays');
+const annualAdjustment=document.getElementById('annualAdjustment');
+const saveAnnualLeaveSettingsBtn=document.getElementById('saveAnnualLeaveSettingsBtn');
+const annualLeavePreview=document.getElementById('annualLeavePreview');
 const memoDeleteBtn=document.getElementById('memoDeleteBtn');
 const memoCancelBtn=document.getElementById('memoCancelBtn');
 const memoSaveBtn=document.getElementById('memoSaveBtn');
@@ -1591,7 +1907,7 @@ function applyThemePreference_(
   document.documentElement.dataset.theme=resolved;
   document.documentElement.dataset.themePreference=normalized;
   document.documentElement.style.colorScheme=
-    resolved==='dark'?'only dark':'only light';
+    resolved==='dark'?'dark':'only light';
 
   const colorSchemeMeta=document.querySelector(
     'meta[name="color-scheme"]'
@@ -1681,7 +1997,6 @@ function applyMemoFontWeight_(value){
 
   if(memoFontPreview){
     memoFontPreview.style.fontWeight=String(weight);
-    memoFontPreview.style.color='#30383e';
     memoFontPreview.style.webkitTextStroke=
       stroke+' currentColor';
   }
@@ -1692,6 +2007,473 @@ function applyMemoFontWeight_(value){
 let memoFontWeight=applyMemoFontWeight_(
   store.get(MEMO_FONT_WEIGHT_KEY,600)
 );
+
+const CALENDAR_EMPHASIS_KEY='calendarEmphasis';
+const MEMO_DEFAULT_STYLE_KEY='memoDefaultStyle';
+const ANNUAL_LEAVE_SETTINGS_KEY='annualLeaveSettings';
+
+function normalizeCalendarEmphasis_(value){
+  return value==='shift'?'shift':'date';
+}
+
+function applyCalendarEmphasis_(value,{save=true}={}){
+  const normalized=normalizeCalendarEmphasis_(value);
+  document.documentElement.dataset.calendarEmphasis=normalized;
+
+  if(save){
+    store.set(CALENDAR_EMPHASIS_KEY,normalized);
+  }
+
+  if(calendarEmphasisDate){
+    calendarEmphasisDate.classList.toggle(
+      'active',
+      normalized==='date'
+    );
+    calendarEmphasisDate.setAttribute(
+      'aria-checked',
+      normalized==='date'?'true':'false'
+    );
+  }
+
+  if(calendarEmphasisShift){
+    calendarEmphasisShift.classList.toggle(
+      'active',
+      normalized==='shift'
+    );
+    calendarEmphasisShift.setAttribute(
+      'aria-checked',
+      normalized==='shift'?'true':'false'
+    );
+  }
+
+  if(calendarEmphasisCurrent){
+    calendarEmphasisCurrent.textContent=
+      normalized==='shift'
+        ?'현재: 근무 크게'
+        :'현재: 날짜 크게';
+  }
+
+  return normalized;
+}
+
+let calendarEmphasis=applyCalendarEmphasis_(
+  store.get(CALENDAR_EMPHASIS_KEY,'date'),
+  {save:false}
+);
+
+function normalizeHexColor_(value,fallback){
+  const text=String(value||'').trim();
+
+  return /^#[0-9a-fA-F]{6}$/.test(text)
+    ?text.toLowerCase()
+    :fallback;
+}
+
+function normalizeMemoStyle_(value){
+  const source=value&&typeof value==='object'?value:{};
+
+  return {
+    backgroundEnabled:
+      source.backgroundEnabled!==false,
+    background:normalizeHexColor_(
+      source.background,
+      '#4a4a4a'
+    ),
+    color:normalizeHexColor_(
+      source.color,
+      '#ffffff'
+    )
+  };
+}
+
+let memoDefaultStyle=normalizeMemoStyle_(
+  store.get(
+    MEMO_DEFAULT_STYLE_KEY,
+    {
+      backgroundEnabled:true,
+      background:'#4a4a4a',
+      color:'#ffffff'
+    }
+  )
+);
+
+function getMemoStyle(d){
+  const saved=store.get(
+    'memo-style-'+dateKey(d),
+    null
+  );
+
+  return normalizeMemoStyle_(
+    saved||memoDefaultStyle
+  );
+}
+
+function setMemoStyle(d,style){
+  store.set(
+    'memo-style-'+dateKey(d),
+    normalizeMemoStyle_(style)
+  );
+}
+
+function removeMemoStyle(d){
+  localStorage.removeItem(
+    'memo-style-'+dateKey(d)
+  );
+}
+
+function applyMemoStyleToElement_(element,style){
+  const normalized=normalizeMemoStyle_(style);
+
+  element.style.color=normalized.color;
+  element.classList.toggle(
+    'has-background',
+    normalized.backgroundEnabled
+  );
+
+  element.style.backgroundColor=
+    normalized.backgroundEnabled
+      ?normalized.background
+      :'transparent';
+}
+
+function updateMemoStylePreview_(){
+  if(!memoStylePreview){
+    return;
+  }
+
+  const style=normalizeMemoStyle_({
+    backgroundEnabled:memoBackgroundEnabled?.checked,
+    background:memoBackgroundColor?.value,
+    color:memoTextColor?.value
+  });
+
+  memoStylePreview.textContent=
+    memoText?.value.trim()||
+    '메모 색상 미리보기';
+
+  memoStylePreview.style.color=style.color;
+  memoStylePreview.style.backgroundColor=
+    style.backgroundEnabled
+      ?style.background
+      :'transparent';
+}
+
+function syncMemoDefaultControls_(){
+  memoDefaultStyle=normalizeMemoStyle_(
+    memoDefaultStyle
+  );
+
+  if(memoDefaultBackgroundColor){
+    memoDefaultBackgroundColor.value=
+      memoDefaultStyle.background;
+  }
+
+  if(memoDefaultTextColor){
+    memoDefaultTextColor.value=
+      memoDefaultStyle.color;
+  }
+
+  if(memoDefaultBackgroundEnabled){
+    memoDefaultBackgroundEnabled.checked=
+      memoDefaultStyle.backgroundEnabled;
+  }
+
+  if(memoFontPreview){
+    memoFontPreview.style.color=
+      memoDefaultStyle.color;
+    memoFontPreview.style.backgroundColor=
+      memoDefaultStyle.backgroundEnabled
+        ?memoDefaultStyle.background
+        :'transparent';
+  }
+}
+
+function saveMemoDefaultStyle_(){
+  memoDefaultStyle=normalizeMemoStyle_({
+    backgroundEnabled:
+      memoDefaultBackgroundEnabled.checked,
+    background:
+      memoDefaultBackgroundColor.value,
+    color:
+      memoDefaultTextColor.value
+  });
+
+  store.set(
+    MEMO_DEFAULT_STYLE_KEY,
+    memoDefaultStyle
+  );
+
+  syncMemoDefaultControls_();
+  renderCurrent();
+}
+
+function normalizeAnnualLeaveSettings_(value){
+  const source=value&&typeof value==='object'?value:{};
+  const finite=(raw,fallback)=>{
+    const number=Number(raw);
+    return Number.isFinite(number)?number:fallback;
+  };
+
+  return {
+    joinDate:
+      /^\d{4}-\d{2}-\d{2}$/.test(source.joinDate||'')
+        ?source.joinDate
+        :'',
+    baseDays:Math.max(0,finite(source.baseDays,15)),
+    maxDays:Math.max(0,finite(source.maxDays,25)),
+    increaseYears:Math.max(
+      1,
+      Math.round(finite(source.increaseYears,2))
+    ),
+    increaseDays:Math.max(
+      0,
+      finite(source.increaseDays,1)
+    ),
+    adjustment:finite(source.adjustment,0)
+  };
+}
+
+let ANNUAL_LEAVE_SETTINGS=
+  normalizeAnnualLeaveSettings_(
+    store.get(
+      ANNUAL_LEAVE_SETTINGS_KEY,
+      {
+        joinDate:'',
+        baseDays:15,
+        maxDays:25,
+        increaseYears:2,
+        increaseDays:1,
+        adjustment:0
+      }
+    )
+  );
+
+function completedServiceYears_(joinDate,asOf){
+  if(!joinDate){
+    return 0;
+  }
+
+  let years=
+    asOf.getFullYear()-
+    joinDate.getFullYear();
+
+  const anniversary=new Date(
+    asOf.getFullYear(),
+    joinDate.getMonth(),
+    joinDate.getDate()
+  );
+
+  if(asOf<anniversary){
+    years--;
+  }
+
+  return Math.max(0,years);
+}
+
+function calculateAnnualEntitlement_(asOf){
+  const settings=ANNUAL_LEAVE_SETTINGS;
+  let entitlement=settings.baseDays;
+
+  if(settings.joinDate){
+    const joinDate=new Date(
+      settings.joinDate+'T00:00:00'
+    );
+    const years=completedServiceYears_(
+      joinDate,
+      asOf
+    );
+
+    if(years<1){
+      entitlement=0;
+    }else{
+      const increaseCount=Math.floor(
+        Math.max(0,years-1)/
+        settings.increaseYears
+      );
+
+      entitlement=
+        settings.baseDays+
+        increaseCount*
+        settings.increaseDays;
+    }
+  }
+
+  entitlement=Math.min(
+    settings.maxDays,
+    entitlement
+  );
+
+  entitlement+=settings.adjustment;
+
+  return Math.max(
+    0,
+    Math.round(entitlement*100)/100
+  );
+}
+
+function annualUsageUnitsFor_(date,status){
+  if(status==='연차'){
+    return isInDayWorkPeriod_(date)
+      ?1
+      :1.5;
+  }
+
+  if(
+    status==='주간반차' ||
+    status==='야간반차'
+  ){
+    return .5;
+  }
+
+  if(status==='반반차'){
+    return .25;
+  }
+
+  return 0;
+}
+
+function calculateAnnualUsage_(year,throughDate){
+  const result={
+    used:0,
+    annualCount:0,
+    dayAnnualCount:0,
+    shiftAnnualCount:0,
+    dayHalfCount:0,
+    nightHalfCount:0,
+    quarterCount:0,
+    publicCount:0,
+    specialCount:0
+  };
+
+  Object.keys(localStorage)
+    .filter(key=>key.startsWith('override-'))
+    .forEach(key=>{
+      const rawDate=key.slice('override-'.length);
+
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(rawDate)){
+        return;
+      }
+
+      const date=new Date(rawDate+'T00:00:00');
+
+      if(
+        date.getFullYear()!==year ||
+        (throughDate&&date>throughDate)
+      ){
+        return;
+      }
+
+      const status=store.get(key,null);
+      const units=annualUsageUnitsFor_(
+        date,
+        status
+      );
+
+      result.used+=units;
+
+      if(status==='연차'){
+        result.annualCount++;
+
+        if(isInDayWorkPeriod_(date)){
+          result.dayAnnualCount++;
+        }else{
+          result.shiftAnnualCount++;
+        }
+      }else if(status==='주간반차'){
+        result.dayHalfCount++;
+      }else if(status==='야간반차'){
+        result.nightHalfCount++;
+      }else if(status==='반반차'){
+        result.quarterCount++;
+      }else if(status==='공가'){
+        result.publicCount++;
+      }else if(status==='스페셜데이'){
+        result.specialCount++;
+      }
+    });
+
+  result.used=Math.round(result.used*100)/100;
+  return result;
+}
+
+function calculateAnnualSummary_(asOf){
+  const usage=calculateAnnualUsage_(
+    asOf.getFullYear(),
+    asOf
+  );
+  const entitlement=
+    calculateAnnualEntitlement_(asOf);
+
+  return {
+    asOf,
+    entitlement,
+    ...usage,
+    compensationDays:Math.max(
+      0,
+      Math.round(
+        (entitlement-usage.used)*100
+      )/100
+    )
+  };
+}
+
+function formatLeaveUnits_(value){
+  return Number(value||0)
+    .toFixed(2)
+    .replace(/\.00$/,'')
+    .replace(/(\.\d)0$/,'$1');
+}
+
+function getAnnualAsOfForView_(){
+  const monthEnd=new Date(
+    viewYear,
+    viewMonth+1,
+    0
+  );
+
+  if(
+    viewYear===today.getFullYear() &&
+    viewMonth===today.getMonth()
+  ){
+    return stripTime(today);
+  }
+
+  return monthEnd;
+}
+
+function syncAnnualLeaveSettingsForm_(){
+  annualJoinDate.value=
+    ANNUAL_LEAVE_SETTINGS.joinDate;
+  annualBaseDays.value=
+    ANNUAL_LEAVE_SETTINGS.baseDays;
+  annualMaxDays.value=
+    ANNUAL_LEAVE_SETTINGS.maxDays;
+  annualIncreaseYears.value=
+    ANNUAL_LEAVE_SETTINGS.increaseYears;
+  annualIncreaseDays.value=
+    ANNUAL_LEAVE_SETTINGS.increaseDays;
+  annualAdjustment.value=
+    ANNUAL_LEAVE_SETTINGS.adjustment;
+
+  renderAnnualLeavePreview_();
+}
+
+function renderAnnualLeavePreview_(){
+  if(!annualLeavePreview){
+    return;
+  }
+
+  const asOf=getAnnualAsOfForView_();
+  const summary=calculateAnnualSummary_(asOf);
+
+  annualLeavePreview.innerHTML=
+    `<b>${asOf.getFullYear()}년 `+
+    `${asOf.getMonth()+1}월 ${asOf.getDate()}일 기준</b><br>`+
+    `발생 ${formatLeaveUnits_(summary.entitlement)}개 · `+
+    `사용 ${formatLeaveUnits_(summary.used)}개 · `+
+    `연차보상일수 ${formatLeaveUnits_(summary.compensationDays)}개`;
+}
+
 const headerMonthLabel=document.getElementById('headerMonthLabel');
 
 const DEFAULT_HOLIDAY_DATA={
@@ -1816,7 +2598,12 @@ let SHIFT_STYLE=store.get('shiftStyle',{
 const DEFAULT_TYPE_KEYS=['휴무','주간','야간'];
 
 const WORK_STATUS_DEFINITIONS=[
- {key:'연차',description:'',label:'연차',bg:'#7a4f00',color:'#fff'},
+ {key:'연차',description:'출근 인정 · 교대 1.5개 / 일근 1개 차감',label:'연차',bg:'#e5352b',color:'#fff'},
+ {key:'주간반차',description:'07:00~15:00 근무 · 연차 0.5개 차감',label:'주반',bg:'#d97706',color:'#fff'},
+ {key:'야간반차',description:'23:00~07:00 근무 · 심야 7시간 · 연차 0.5개 차감',label:'야반',bg:'#4338ca',color:'#fff'},
+ {key:'반반차',description:'일근 15:00 조기퇴근 · 연차 0.25개 차감 · 07~17 근무는 연장 1시간 유지',label:'반반',bg:'#7c3aed',color:'#fff'},
+ {key:'공가',description:'출근 인정 · 연차 차감 없음 · 근무수당 없음',label:'공가',bg:'#287a62',color:'#fff'},
+ {key:'스페셜데이',description:'출근 인정 · 연차 차감 없음 · 근무수당 없음',label:'스페셜',bg:'#3b6f8f',color:'#fff'},
  {key:'주OT',description:'07:00~19:00',label:'주OT',bg:'#2f65a7',color:'#fff'},
  {key:'야OT',description:'19:00~07:00',label:'야OT',bg:'#120e2a',color:'#fff'},
  {key:'주+반OT',description:'정규 주간 + 19:00~23:00',label:'주+',bg:'#c04a00',color:'#fff'},
@@ -1834,6 +2621,11 @@ const WORK_STATUS_DEFINITIONS=[
 
 const WORK_STATUS_ORDER=[
  '연차',
+ '주간반차',
+ '야간반차',
+ '반반차',
+ '공가',
+ '스페셜데이',
  '주OT',
  '야OT',
  '주+반OT',
@@ -1911,6 +2703,18 @@ const saveTypeState=()=>{
   store.set('customTypes',CUSTOM_TYPES);
 };
 function getTypeStyle(key){
+  if(key==='연차'){
+    const offStyle=SHIFT_STYLE['휴무']||{
+      bg:'#e5352b',
+      color:'#fff'
+    };
+
+    return {
+      ...offStyle,
+      label:'연차'
+    };
+  }
+
   if(SHIFT_STYLE[key])return SHIFT_STYLE[key];
   const c=CUSTOM_TYPES.find(t=>t.key===key);if(c)return c;
   let hash=0;for(let i=0;i<key.length;i++)hash=(hash*31+key.charCodeAt(i))%360;
@@ -2294,6 +3098,7 @@ function addOffDayOtHours_(hours,total,night,isMajor,isHoliday){
   const extension=Math.max(0,total-8);
 
   hours.workDays++;
+  hours.attendanceDays++;
   hours.night+=night;
 
   if(isMajor){
@@ -2311,6 +3116,7 @@ function addOffDayOtHours_(hours,total,night,isMajor,isHoliday){
 function addRegularShiftHours_(hours,baseCode,isHoliday){
   if(baseCode==='주'){
     hours.workDays++;
+    hours.attendanceDays++;
 
     if(isHoliday){
       hours.holiday+=8;
@@ -2324,6 +3130,7 @@ function addRegularShiftHours_(hours,baseCode,isHoliday){
 
   if(baseCode==='야'){
     hours.workDays++;
+    hours.attendanceDays++;
     hours.night+=8;
 
     if(isHoliday){
@@ -2337,6 +3144,7 @@ function addRegularShiftHours_(hours,baseCode,isHoliday){
 
 function addDayWorkHours_(hours,extendedHours=0){
   hours.workDays++;
+  hours.attendanceDays++;
   hours.normal+=8;
   hours.extend+=extendedHours;
 }
@@ -2390,7 +3198,14 @@ function calcHoursForMonth(y,m){
     shiftOT:calculateShiftOtHours_(y,m),
     shiftApplicableDays:countShiftApplicableDays_(y,m),
     workDays:0,
-    annualDays:0
+    attendanceDays:0,
+    annualDays:0,
+    annualUsedUnits:0,
+    dayHalfDays:0,
+    nightHalfDays:0,
+    quarterLeaveDays:0,
+    publicLeaveDays:0,
+    specialLeaveDays:0
   };
 
   for(let day=1;day<=days;day++){
@@ -2409,6 +3224,7 @@ function calcHoursForMonth(y,m){
     }
     else if(displayCode==='주+반OT'){
       h.workDays++;
+      h.attendanceDays++;
       h.extend+=4;
       h.night+=1;
 
@@ -2421,6 +3237,7 @@ function calcHoursForMonth(y,m){
     }
     else if(displayCode==='야+반OT'){
       h.workDays++;
+      h.attendanceDays++;
       h.night+=8;
       h.extend+=4;
 
@@ -2499,8 +3316,66 @@ function calcHoursForMonth(y,m){
         h.night+=calculated.night;
       }
     }
+    else if(displayCode==='주간반차'){
+      h.workDays++;
+      h.attendanceDays++;
+      h.dayHalfDays++;
+      h.annualUsedUnits+=.5;
+
+      if(holiday){
+        h.holiday+=8;
+      }else{
+        h.normal+=8;
+      }
+    }
+    else if(displayCode==='야간반차'){
+      h.workDays++;
+      h.attendanceDays++;
+      h.nightHalfDays++;
+      h.annualUsedUnits+=.5;
+      h.night+=7;
+
+      if(holiday){
+        h.holiday+=8;
+      }else{
+        h.normal+=8;
+      }
+    }
+    else if(displayCode==='반반차'){
+      h.workDays++;
+      h.attendanceDays++;
+      h.quarterLeaveDays++;
+      h.annualUsedUnits+=.25;
+      h.normal+=8;
+
+      /*
+        반반차는 15:00 조기퇴근이지만,
+        일근07~17 및 일근+1 OT의 07:00~08:00 연장 1시간은
+        실제 근무했으므로 그대로 반영한다.
+      */
+      if(
+        scheduledCode==='일근07~17' ||
+        scheduledCode==='일근+1 OT'
+      ){
+        h.extend+=1;
+      }
+    }
     else if(displayCode==='연차'){
+      h.attendanceDays++;
       h.annualDays++;
+      h.annualUsedUnits+=
+        annualUsageUnitsFor_(
+          date,
+          displayCode
+        );
+    }
+    else if(displayCode==='공가'){
+      h.attendanceDays++;
+      h.publicLeaveDays++;
+    }
+    else if(displayCode==='스페셜데이'){
+      h.attendanceDays++;
+      h.specialLeaveDays++;
     }
   }
 
@@ -2696,16 +3571,25 @@ function renderCalendar(){
     const div=document.createElement('div');
     const isToday=c.date.toDateString()===today.toDateString();
 
-    div.className='cell'+(c.dim?' dim':'')+(isToday?' today':'');
+    const memo=getMemo(c.date);
+
+    div.className=
+      'cell'+
+      (c.dim?' dim':'')+
+      (isToday?' today':'')+
+      (memo?' has-memo':'');
 
     const shift=getMyDisplayShift(c.date);
     const style=getTypeStyle(shift);
     const holiday=getHoliday(c.date);
-    const memo=getMemo(c.date);
     const dayColor=c.dim?'#c9c9c9':getDayColor(c.date);
 
     const tag=document.createElement('span');
-    tag.className='tag';
+    tag.className=
+      'tag'+
+      (String(style.label||'').length>=3
+        ?' tag-long'
+        :'');
     tag.style.background=style.bg;
     tag.style.color=style.color;
     tag.textContent=style.label;
@@ -2713,10 +3597,11 @@ function renderCalendar(){
 
     if(holiday){
       const holidayEl=document.createElement('span');
-      holidayEl.style.fontSize='9px';
-      holidayEl.style.color=c.dim?'#d8a4a1':'#e5352b';
-      holidayEl.style.fontWeight='700';
-      holidayEl.style.lineHeight='1.2';
+      holidayEl.className='holiday-name';
+      holidayEl.style.color=
+        c.dim
+          ?'#d8a4a1'
+          :'';
       holidayEl.textContent=holiday;
       div.appendChild(holidayEl);
     }
@@ -2731,6 +3616,12 @@ function renderCalendar(){
       const memoEl=document.createElement('span');
       memoEl.className='memo';
       memoEl.textContent=memo;
+
+      applyMemoStyleToElement_(
+        memoEl,
+        getMemoStyle(c.date)
+      );
+
       div.appendChild(memoEl);
     }
 
@@ -2954,6 +3845,16 @@ function openMemoModal(date){
 
   memoText.value=getMemo(date);
 
+  const memoStyle=getMemoStyle(date);
+
+  memoBackgroundColor.value=
+    memoStyle.background;
+  memoTextColor.value=
+    memoStyle.color;
+  memoBackgroundEnabled.checked=
+    memoStyle.backgroundEnabled;
+
+  updateMemoStylePreview_();
   renderCallWorkFields_();
   memoModal.classList.remove('hidden');
 }
@@ -2994,6 +3895,12 @@ function openSettings(){
   renderUpdateStatus();
   renderTeamChangePreview_();
   applyMemoFontWeight_(memoFontWeight);
+  syncMemoDefaultControls_();
+  calendarEmphasis=applyCalendarEmphasis_(
+    calendarEmphasis,
+    {save:false}
+  );
+  syncAnnualLeaveSettingsForm_();
   syncThemeControls_();
 }
 
@@ -3206,6 +4113,7 @@ function renderTypes(){
       :getTypeStyle(key);
 
     const definition=getStatusDefinition_(key);
+    const followsOffColor=key==='연차';
     const row=document.createElement('div');
 
     row.className='type-row';
@@ -3221,9 +4129,14 @@ function renderTypes(){
           :`<div class="small">기본 제공</div>`
       )+
       `</div>`+
-      `<input type="color" value="${style.bg}">`;
+      `<input type="color" value="${style.bg}" `+
+      `${followsOffColor?'disabled title="휴무 색상을 사용합니다"':''}>`;
 
     row.querySelector('input').oninput=event=>{
+      if(followsOffColor){
+        return;
+      }
+
       if(isDefault){
         SHIFT_STYLE[key].bg=event.target.value;
       }else{
@@ -3237,6 +4150,7 @@ function renderTypes(){
       }
 
       saveTypeState();
+      renderTypes();
       renderCurrent();
     };
 
@@ -3851,22 +4765,150 @@ async function updateRemote(kind){
 }
 
 function renderDashboard(){
-  const y=viewYear,m=viewMonth+1,sal=calcSalary(y,m);let py=y,pm=m-1;if(pm<1){pm=12;py--}const prev=calcSalary(py,pm);
-  let payY=y,payM=m+1;if(payM>12){payM=1;payY++}
-  const ded=calcDeductions(sal.totalA,payY,payM),prevDed=calcDeductions(prev.totalA,y,m);
-  dashboardContent.innerHTML=`<div class="notice info">${y}년 ${m}월 근태 → ${payY}년 ${payM}월 21일 예상 지급</div>
-  <div class="stat-grid">
-    <div class="stat"><div class="k">이번달 예상 실수령</div><div class="v">${fmt(prevDed.netPay)}</div><div class="s">원</div></div>
-    <div class="stat"><div class="k">다음달 예상 실수령</div><div class="v">${fmt(ded.netPay)}</div><div class="s">원</div></div>
-    <div class="stat"><div class="k">통상시급</div><div class="v">${fmt(sal.hr)}</div><div class="s">원</div></div>
-    <div class="stat"><div class="k">실제 출근일수</div><div class="v">${sal.h.workDays}</div><div class="s">연차 ${sal.h.annualDays}일</div></div>
-  </div>
-  <div class="card"><div class="card-title">근무시간</div><table class="data-table">
-    <tr><td>정상근무</td><td>${sal.h.normal}h</td></tr><tr><td>심야</td><td>${sal.h.night}h</td></tr><tr><td>연장</td><td>${sal.h.extend}h</td></tr>
-    <tr><td>주휴/주휴연장</td><td>${sal.h.weekly}/${sal.h.weeklyExt}h</td></tr><tr><td>휴일/휴일연장</td><td>${sal.h.holiday}/${sal.h.holidayExt}h</td></tr>
-    <tr><td>명절 기본/연장</td><td>${sal.h.festBase}/${sal.h.festExt}h</td></tr>
-    <tr><td>교대조 OT</td><td>${sal.h.shiftOT.toFixed(2)}h</td></tr></table></div>
-  <div class="card"><div class="card-title">수당 예상액</div><table class="data-table">${Object.entries(sal.pay).filter(([k,v])=>v>0&&!['기본급1','기본급3','면허수당','고정상여'].includes(k)).map(([k,v])=>`<tr><td>${k}</td><td>${fmtW(v)}</td></tr>`).join('')}</table></div>`
+  const y=viewYear;
+  const m=viewMonth+1;
+  const sal=calcSalary(y,m);
+
+  let py=y;
+  let pm=m-1;
+
+  if(pm<1){
+    pm=12;
+    py--;
+  }
+
+  const prev=calcSalary(py,pm);
+
+  let payY=y;
+  let payM=m+1;
+
+  if(payM>12){
+    payM=1;
+    payY++;
+  }
+
+  const ded=calcDeductions(
+    sal.totalA,
+    payY,
+    payM
+  );
+
+  const prevDed=calcDeductions(
+    prev.totalA,
+    y,
+    m
+  );
+
+  const annual=calculateAnnualSummary_(
+    getAnnualAsOfForView_()
+  );
+
+  dashboardContent.innerHTML=`
+    <div class="notice info">
+      ${y}년 ${m}월 근태 → ${payY}년 ${payM}월 21일 예상 지급
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat">
+        <div class="k">이번달 예상 실수령</div>
+        <div class="v">${fmt(prevDed.netPay)}</div>
+        <div class="s">원</div>
+      </div>
+
+      <div class="stat">
+        <div class="k">다음달 예상 실수령</div>
+        <div class="v">${fmt(ded.netPay)}</div>
+        <div class="s">원</div>
+      </div>
+
+      <div class="stat">
+        <div class="k">통상시급</div>
+        <div class="v">${fmt(sal.hr)}</div>
+        <div class="s">원</div>
+      </div>
+
+      <div class="stat">
+        <div class="k">출근 인정일수</div>
+        <div class="v">${sal.h.attendanceDays}</div>
+        <div class="s">실제 근무 ${sal.h.workDays}일</div>
+      </div>
+
+      <div class="stat">
+        <div class="k">사용 연차</div>
+        <div class="v">${formatLeaveUnits_(annual.used)}</div>
+        <div class="s">${annual.asOf.getFullYear()}년 누적</div>
+      </div>
+
+      <div class="stat">
+        <div class="k">연차보상일수</div>
+        <div class="v">${formatLeaveUnits_(annual.compensationDays)}</div>
+        <div class="s">발생 ${formatLeaveUnits_(annual.entitlement)}개</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">휴가 현황</div>
+      <table class="data-table">
+        <tr>
+          <td>교대 연차</td>
+          <td>${annual.shiftAnnualCount}회 · ${formatLeaveUnits_(annual.shiftAnnualCount*1.5)}개</td>
+        </tr>
+        <tr>
+          <td>일근 연차</td>
+          <td>${annual.dayAnnualCount}회 · ${formatLeaveUnits_(annual.dayAnnualCount)}개</td>
+        </tr>
+        <tr>
+          <td>주간/야간 반차</td>
+          <td>${annual.dayHalfCount}/${annual.nightHalfCount}회</td>
+        </tr>
+        <tr>
+          <td>반반차</td>
+          <td>${annual.quarterCount}회 · ${formatLeaveUnits_(annual.quarterCount*.25)}개</td>
+        </tr>
+        <tr>
+          <td>공가/스페셜데이</td>
+          <td>${annual.publicCount}/${annual.specialCount}회</td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">근무시간</div>
+      <table class="data-table">
+        <tr><td>정상근무</td><td>${sal.h.normal}h</td></tr>
+        <tr><td>심야</td><td>${sal.h.night}h</td></tr>
+        <tr><td>연장</td><td>${sal.h.extend}h</td></tr>
+        <tr><td>주휴/주휴연장</td><td>${sal.h.weekly}/${sal.h.weeklyExt}h</td></tr>
+        <tr><td>휴일/휴일연장</td><td>${sal.h.holiday}/${sal.h.holidayExt}h</td></tr>
+        <tr><td>명절 기본/연장</td><td>${sal.h.festBase}/${sal.h.festExt}h</td></tr>
+        <tr><td>교대조 OT</td><td>${sal.h.shiftOT.toFixed(2)}h</td></tr>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">수당 예상액</div>
+      <table class="data-table">
+        ${
+          Object.entries(sal.pay)
+            .filter(
+              ([key,value])=>
+                value>0 &&
+                ![
+                  '기본급1',
+                  '기본급3',
+                  '면허수당',
+                  '고정상여'
+                ].includes(key)
+            )
+            .map(
+              ([key,value])=>
+                `<tr><td>${key}</td><td>${fmtW(value)}</td></tr>`
+            )
+            .join('')
+        }
+      </table>
+    </div>
+  `;
 }
 let salaryViewYear=today.getFullYear(),salaryViewMonth=today.getMonth()+1;
 function renderSalary(){
@@ -3906,9 +4948,9 @@ function renderSalary(){
         <div class="s">${SAL.hourlyMode==='auto'?'자동 계산':'직접 입력'}</div>
       </div>
       <div class="stat">
-        <div class="k">근무일수</div>
-        <div class="v">${sal.h.workDays}</div>
-        <div class="s">연차 ${sal.h.annualDays}일</div>
+        <div class="k">출근 인정일수</div>
+        <div class="v">${sal.h.attendanceDays}</div>
+        <div class="s">실제 ${sal.h.workDays}일 · 연차 ${formatLeaveUnits_(sal.h.annualUsedUnits)}개</div>
       </div>
       <div class="stat">
         <div class="k">지급총액</div>
@@ -4150,6 +5192,30 @@ memoModal.addEventListener('click',event=>{
 memoOverrideSelect.onchange=renderCallWorkFields_;
 callStartTime.oninput=renderCallWorkFields_;
 callEndTime.oninput=renderCallWorkFields_;
+memoText.oninput=updateMemoStylePreview_;
+memoBackgroundColor.oninput=updateMemoStylePreview_;
+memoTextColor.oninput=updateMemoStylePreview_;
+memoBackgroundEnabled.onchange=updateMemoStylePreview_;
+memoUseDefaultStyleBtn.onclick=()=>{
+  memoBackgroundColor.value=
+    memoDefaultStyle.background;
+  memoTextColor.value=
+    memoDefaultStyle.color;
+  memoBackgroundEnabled.checked=
+    memoDefaultStyle.backgroundEnabled;
+  updateMemoStylePreview_();
+};
+
+document
+  .querySelectorAll('[data-calendar-emphasis]')
+  .forEach(button=>{
+    button.onclick=()=>{
+      calendarEmphasis=applyCalendarEmphasis_(
+        button.dataset.calendarEmphasis
+      );
+      renderCurrent();
+    };
+  });
 
 memoSaveBtn.onclick=()=>{
   if(!memoTargetDate){
@@ -4186,6 +5252,22 @@ memoSaveBtn.onclick=()=>{
     memoText.value
   );
 
+  if(memoText.value.trim()){
+    setMemoStyle(
+      memoTargetDate,
+      {
+        backgroundEnabled:
+          memoBackgroundEnabled.checked,
+        background:
+          memoBackgroundColor.value,
+        color:
+          memoTextColor.value
+      }
+    );
+  }else{
+    removeMemoStyle(memoTargetDate);
+  }
+
   setOverride(
     memoTargetDate,
     selectedType
@@ -4201,6 +5283,7 @@ memoDeleteBtn.onclick=()=>{
   }
 
   setMemo(memoTargetDate,'');
+  removeMemoStyle(memoTargetDate);
   setOverride(memoTargetDate,'');
   setCallWork(memoTargetDate,null);
 
@@ -4400,6 +5483,67 @@ memoFontWeightSelect.onchange=()=>{
   renderCurrent();
 };
 
+memoDefaultBackgroundColor.oninput=
+  saveMemoDefaultStyle_;
+memoDefaultTextColor.oninput=
+  saveMemoDefaultStyle_;
+memoDefaultBackgroundEnabled.onchange=
+  saveMemoDefaultStyle_;
+
+saveAnnualLeaveSettingsBtn.onclick=()=>{
+  ANNUAL_LEAVE_SETTINGS=
+    normalizeAnnualLeaveSettings_({
+      joinDate:annualJoinDate.value,
+      baseDays:annualBaseDays.value,
+      maxDays:annualMaxDays.value,
+      increaseYears:
+        annualIncreaseYears.value,
+      increaseDays:
+        annualIncreaseDays.value,
+      adjustment:
+        annualAdjustment.value
+    });
+
+  store.set(
+    ANNUAL_LEAVE_SETTINGS_KEY,
+    ANNUAL_LEAVE_SETTINGS
+  );
+
+  syncAnnualLeaveSettingsForm_();
+  renderDashboard();
+  renderSalary();
+  alert('연차 설정 저장 완료');
+};
+
+[
+  annualJoinDate,
+  annualBaseDays,
+  annualMaxDays,
+  annualIncreaseYears,
+  annualIncreaseDays,
+  annualAdjustment
+].forEach(input=>{
+  input.oninput=()=>{
+    const previous=ANNUAL_LEAVE_SETTINGS;
+
+    ANNUAL_LEAVE_SETTINGS=
+      normalizeAnnualLeaveSettings_({
+        joinDate:annualJoinDate.value,
+        baseDays:annualBaseDays.value,
+        maxDays:annualMaxDays.value,
+        increaseYears:
+          annualIncreaseYears.value,
+        increaseDays:
+          annualIncreaseDays.value,
+        adjustment:
+          annualAdjustment.value
+      });
+
+    renderAnnualLeavePreview_();
+    ANNUAL_LEAVE_SETTINGS=previous;
+  };
+});
+
 saveSalaryBtn.onclick=()=>{
   readSalaryForm_();
   store.set('salarySettings',SAL);
@@ -4407,7 +5551,20 @@ saveSalaryBtn.onclick=()=>{
   alert('급여 설정 저장 완료');
 };
 updateHolidayBtn.onclick=()=>updateRemote('holiday');updateInsuranceBtn.onclick=()=>updateRemote('insurance');
-clearMemosBtn.onclick=()=>{Object.keys(localStorage).filter(k=>k.startsWith('memo-')).forEach(k=>localStorage.removeItem(k));renderCurrent();alert('메모 삭제 완료')};
+clearMemosBtn.onclick=()=>{
+  Object.keys(localStorage)
+    .filter(
+      key=>
+        key.startsWith('memo-') ||
+        key.startsWith('memo-style-')
+    )
+    .forEach(
+      key=>localStorage.removeItem(key)
+    );
+
+  renderCurrent();
+  alert('메모 삭제 완료');
+};
 salPrevBtn.onclick=()=>{salaryViewMonth--;if(salaryViewMonth<1){salaryViewMonth=12;salaryViewYear--}renderSalary()};salNextBtn.onclick=()=>{salaryViewMonth++;if(salaryViewMonth>12){salaryViewMonth=1;salaryViewYear++}renderSalary()};
 
 
@@ -5024,6 +6181,11 @@ if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   });
 }
 
+syncMemoDefaultControls_();
+calendarEmphasis=applyCalendarEmphasis_(
+  calendarEmphasis,
+  {save:false}
+);
 switchTab('My');
 autoLoadReferenceData();
 </script>
