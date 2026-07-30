@@ -6322,3 +6322,106 @@ async function autoLoadInsuranceData(){
       error
     );
   }
+}
+
+async function autoLoadReferenceData(){
+  await Promise.allSettled([
+    autoLoadHolidayData(),
+    autoLoadInsuranceData()
+  ]);
+
+  renderUpdateStatus();
+  renderCurrent();
+}
+
+
+// PWA 설치 및 서비스워커
+let deferredPwaInstallPrompt_=null;
+
+function isStandaloneMode_(){
+  return window.matchMedia('(display-mode: standalone)').matches ||
+    window.navigator.standalone === true;
+}
+
+function updatePwaInstallUi_(message){
+  const button=document.getElementById('pwaInstallBtn');
+  const status=document.getElementById('pwaInstallStatus');
+  if(!button||!status) return;
+
+  if(isStandaloneMode_()){
+    button.textContent='설치 완료';
+    button.disabled=true;
+    status.textContent='현재 홈 화면 앱으로 실행 중입니다.';
+    return;
+  }
+
+  button.disabled=false;
+  button.textContent='홈 화면에 앱 설치';
+  status.textContent=message||'설치 버튼을 누르세요.';
+}
+
+window.addEventListener('beforeinstallprompt',function(event){
+  event.preventDefault();
+  deferredPwaInstallPrompt_=event;
+  updatePwaInstallUi_('이 브라우저에서 바로 설치할 수 있습니다.');
+});
+
+window.addEventListener('appinstalled',function(){
+  deferredPwaInstallPrompt_=null;
+  updatePwaInstallUi_('앱 설치가 완료되었습니다.');
+});
+
+document.getElementById('pwaInstallBtn').onclick=async function(){
+  if(isStandaloneMode_()){
+    updatePwaInstallUi_();
+    return;
+  }
+
+  if(deferredPwaInstallPrompt_){
+    deferredPwaInstallPrompt_.prompt();
+    await deferredPwaInstallPrompt_.userChoice;
+    deferredPwaInstallPrompt_=null;
+    updatePwaInstallUi_();
+    return;
+  }
+
+  alert(
+    '아이폰 Safari:\n' +
+    '하단 공유 버튼 → 홈 화면에 추가\n\n' +
+    '안드로이드 Chrome:\n' +
+    '브라우저 메뉴 → 앱 설치 또는 홈 화면에 추가'
+  );
+};
+
+updatePwaInstallUi_();
+
+if('serviceWorker' in navigator && location.protocol.startsWith('http')){
+  window.addEventListener('load',function(){
+    navigator.serviceWorker.register('./service-worker.js').then(function(registration){
+      registration.update();
+    }).catch(function(error){
+      console.warn('서비스워커 등록 실패:',error);
+    });
+  });
+
+  navigator.serviceWorker.addEventListener('controllerchange',function(){
+    if(sessionStorage.getItem('pwa-sw-reloaded')) return;
+    sessionStorage.setItem('pwa-sw-reloaded','1');
+    location.reload();
+  });
+}
+
+syncMemoDefaultControls_();
+calendarEmphasis=applyCalendarEmphasis_(
+  calendarEmphasis,
+  {save:false}
+);
+calendarSizeSettings=applyCalendarSizeSettings_(
+  calendarSizeSettings,
+  {save:false}
+);
+switchTab('My');
+autoLoadReferenceData();
+</script>
+</body>
+</html>
