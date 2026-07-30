@@ -894,6 +894,27 @@ input[type="time"].form-input::-webkit-date-and-time-value{
   color:var(--accent-strong);
   font-weight:900;
 }
+.annual-cycle-section{padding:2px 0}
+.annual-cycle-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:6px;
+}
+.annual-cycle-total{
+  flex:0 0 auto;
+  color:var(--accent-strong);
+  font-size:12px;
+  font-weight:850;
+  line-height:1.5;
+  text-align:right;
+}
+.annual-cycle-divider{
+  height:1px;
+  margin:12px 0;
+  background:var(--line);
+}
 .notice{
   padding:10px 11px;
   margin-bottom:10px;
@@ -1732,7 +1753,15 @@ select option{
 </div>
 
 <div id="dashboardPanel" class="panel hidden">
-  <div class="panel-head"><button id="dashboardClose">✕</button><div class="panel-title">대시보드</div><div style="width:22px"></div></div>
+  <div class="panel-head">
+    <button id="dashboardClose">✕</button>
+    <div class="row" style="align-items:center">
+      <button id="dashboardPrevBtn" style="background:none;border:none;font-size:20px;color:var(--accent)">‹</button>
+      <div id="dashboardTitle" class="panel-title" style="min-width:120px;text-align:center"></div>
+      <button id="dashboardNextBtn" style="background:none;border:none;font-size:20px;color:var(--accent)">›</button>
+    </div>
+    <div style="width:22px"></div>
+  </div>
   <div id="dashboardContent" class="panel-body"></div>
 </div>
 
@@ -2024,6 +2053,9 @@ const insuranceUpdateStatus=document.getElementById('insuranceUpdateStatus');
 const clearMemosBtn=document.getElementById('clearMemosBtn');
 const dashboardPanel=document.getElementById('dashboardPanel');
 const dashboardClose=document.getElementById('dashboardClose');
+const dashboardPrevBtn=document.getElementById('dashboardPrevBtn');
+const dashboardTitle=document.getElementById('dashboardTitle');
+const dashboardNextBtn=document.getElementById('dashboardNextBtn');
 const dashboardContent=document.getElementById('dashboardContent');
 const salaryPanel=document.getElementById('salaryPanel');
 const salaryClose=document.getElementById('salaryClose');
@@ -2805,9 +2837,7 @@ function calculateAnnualUsage_(periodStart,throughDate){
     shiftAnnualCount:0,
     dayHalfCount:0,
     nightHalfCount:0,
-    quarterCount:0,
-    publicCount:0,
-    specialCount:0
+    quarterCount:0
   };
 
   Object.keys(localStorage)
@@ -2855,10 +2885,6 @@ function calculateAnnualUsage_(periodStart,throughDate){
         result.nightHalfCount++;
       }else if(status==='반반차'){
         result.quarterCount++;
-      }else if(status==='공가'){
-        result.publicCount++;
-      }else if(status==='스페셜데이'){
-        result.specialCount++;
       }
     });
 
@@ -2866,20 +2892,43 @@ function calculateAnnualUsage_(periodStart,throughDate){
   return result;
 }
 
-function calculateAnnualSummary_(asOf){
-  const period=getAnnualUsagePeriod_(asOf);
-  const usage=calculateAnnualUsage_(
-    period.start,
-    asOf
+function addCalendarDays_(date,days){
+  const result=new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate()
   );
+  result.setDate(result.getDate()+days);
+  return result;
+}
+
+function calculateAnnualCycleSummary_(
+  periodStart,
+  periodEnd,
+  asOf=periodEnd
+){
+  const effectiveAsOf=
+    asOf<periodEnd
+      ?asOf
+      :periodEnd;
+
+  const usage=calculateAnnualUsage_(
+    periodStart,
+    effectiveAsOf
+  );
+
+  /*
+    연차 발생 개수는 해당 연차연도의 마지막 날을 기준으로 계산한다.
+    같은 연차연도 안에서는 입사기념일 이후 발생 개수가 유지된다.
+  */
   const entitlement=
-    calculateAnnualEntitlement_(asOf);
+    calculateAnnualEntitlement_(periodEnd);
 
   return {
-    asOf,
-    periodStart:period.start,
-    nextReset:period.nextReset,
-    basedOnJoinDate:period.basedOnJoinDate,
+    asOf:effectiveAsOf,
+    periodStart,
+    periodEnd,
+    nextReset:addCalendarDays_(periodEnd,1),
     entitlement,
     ...usage,
     compensationDays:Math.max(
@@ -2889,6 +2938,93 @@ function calculateAnnualSummary_(asOf){
       )/100
     )
   };
+}
+
+function calculateAnnualSummary_(asOf){
+  const period=getAnnualUsagePeriod_(asOf);
+  const periodEnd=addCalendarDays_(
+    period.nextReset,
+    -1
+  );
+
+  return {
+    ...calculateAnnualCycleSummary_(
+      period.start,
+      periodEnd,
+      asOf
+    ),
+    basedOnJoinDate:period.basedOnJoinDate
+  };
+}
+
+function getAnnualDashboardSummaries_(
+  year,
+  month,
+  asOf
+){
+  const current=calculateAnnualSummary_(asOf);
+
+  if(!ANNUAL_LEAVE_SETTINGS.joinDate){
+    return [{
+      label:'현재 연차연도',
+      kind:'current',
+      summary:current
+    }];
+  }
+
+  const joinDate=new Date(
+    ANNUAL_LEAVE_SETTINGS.joinDate+'T00:00:00'
+  );
+  const anniversary=anniversaryDateForYear_(
+    joinDate,
+    year
+  );
+
+  /*
+    선택한 달이 입사월이고 입사기념일이 이미 지난 경우,
+    입사기념일 전날까지는 이전 연차연도,
+    입사기념일부터는 현재 연차연도로 나누어 보여준다.
+  */
+  if(
+    anniversary.getMonth()+1===month &&
+    anniversary<=asOf
+  ){
+    const previousStart=
+      anniversaryDateForYear_(
+        joinDate,
+        year-1
+      );
+    const previousEnd=
+      addCalendarDays_(
+        anniversary,
+        -1
+      );
+    const previous=
+      calculateAnnualCycleSummary_(
+        previousStart,
+        previousEnd,
+        previousEnd
+      );
+
+    return [
+      {
+        label:'이전 연차연도',
+        kind:'previous',
+        summary:previous
+      },
+      {
+        label:'현재 연차연도',
+        kind:'current',
+        summary:current
+      }
+    ];
+  }
+
+  return [{
+    label:'현재 연차연도',
+    kind:'current',
+    summary:current
+  }];
 }
 
 function formatLeaveUnits_(value){
@@ -2907,6 +3043,69 @@ function formatAnnualUsagePeriod_(summary){
     `${formatMonthDay_(summary.periodStart)}부터 `+
     `${summary.asOf.getFullYear()}년 `+
     `${formatMonthDay_(summary.asOf)}까지`;
+}
+
+function formatAnnualFullPeriod_(summary){
+  return `${summary.periodStart.getFullYear()}.`+
+    `${pad2(summary.periodStart.getMonth()+1)}.`+
+    `${pad2(summary.periodStart.getDate())} ~ `+
+    `${summary.periodEnd.getFullYear()}.`+
+    `${pad2(summary.periodEnd.getMonth()+1)}.`+
+    `${pad2(summary.periodEnd.getDate())}`;
+}
+
+function renderAnnualUsageRows_(summary){
+  return `
+    <tr>
+      <td>교대 연차</td>
+      <td>${summary.shiftAnnualCount}회 · ${formatLeaveUnits_(summary.shiftAnnualCount*1.5)}개</td>
+    </tr>
+    <tr>
+      <td>일근 연차</td>
+      <td>${summary.dayAnnualCount}회 · ${formatLeaveUnits_(summary.dayAnnualCount)}개</td>
+    </tr>
+    <tr>
+      <td>주간/야간 반차</td>
+      <td>${summary.dayHalfCount}/${summary.nightHalfCount}회 · ${formatLeaveUnits_((summary.dayHalfCount+summary.nightHalfCount)*.5)}개</td>
+    </tr>
+    <tr>
+      <td>반반차</td>
+      <td>${summary.quarterCount}회 · ${formatLeaveUnits_(summary.quarterCount*.25)}개</td>
+    </tr>
+  `;
+}
+
+function renderAnnualDashboardSections_(items){
+  return items.map((item,index)=>{
+    const summary=item.summary;
+    const valueLabel=
+      item.kind==='previous'
+        ?'연차보상일수'
+        :'현재 잔여';
+
+    return `
+      <div class="annual-cycle-section">
+        <div class="annual-cycle-head">
+          <div>
+            <b>${item.label}</b>
+            <div class="form-hint">${formatAnnualFullPeriod_(summary)}</div>
+          </div>
+          <div class="annual-cycle-total">
+            사용 ${formatLeaveUnits_(summary.used)}개<br>
+            ${valueLabel} ${formatLeaveUnits_(summary.compensationDays)}개
+          </div>
+        </div>
+        <table class="data-table">
+          ${renderAnnualUsageRows_(summary)}
+        </table>
+      </div>
+      ${
+        index<items.length-1
+          ?'<div class="annual-cycle-divider"></div>'
+          :''
+      }
+    `;
+  }).join('');
 }
 
 function getAnnualAsOfForView_(){
@@ -3109,9 +3308,6 @@ const WORK_STATUS_ORDER=[
  '연차',
  '주간반차',
  '야간반차',
- '반반차',
- '공가',
- '스페셜데이',
  '주OT',
  '야OT',
  '주+반OT',
@@ -3125,6 +3321,9 @@ const WORK_STATUS_ORDER=[
  '일근08~17',
  '교육',
  '출장',
+ '반반차',
+ '공가',
+ '스페셜데이',
  '휴무',
  '주간',
  '야간'
@@ -3507,6 +3706,124 @@ function roundPay(value){
   );
 }
 
+function nextMonthYear_(year,month){
+  let nextYear=year;
+  let nextMonth=month+1;
+
+  if(nextMonth>12){
+    nextMonth=1;
+    nextYear++;
+  }
+
+  return {
+    year:nextYear,
+    month:nextMonth
+  };
+}
+
+function calculateAnnualAllowanceForPayMonth_(
+  payYear,
+  payMonth,
+  hourly
+){
+  const empty={
+    amount:0,
+    compensationDays:0,
+    entitlement:0,
+    used:0,
+    periodStart:null,
+    periodEnd:null,
+    payYear,
+    payMonth
+  };
+
+  if(!ANNUAL_LEAVE_SETTINGS.joinDate){
+    return empty;
+  }
+
+  const joinDate=new Date(
+    ANNUAL_LEAVE_SETTINGS.joinDate+'T00:00:00'
+  );
+  const joinMonth=joinDate.getMonth()+1;
+
+  /*
+    입사기념일이 있는 달의 다음 달 급여명세서에서
+    직전 연차연도의 미사용 연차를 수당으로 지급한다.
+    예: 7월 16일 입사 → 8월 급여명세서.
+  */
+  let anniversaryYear;
+
+  if(joinMonth===12){
+    if(payMonth!==1){
+      return empty;
+    }
+    anniversaryYear=payYear-1;
+  }else{
+    if(payMonth!==joinMonth+1){
+      return empty;
+    }
+    anniversaryYear=payYear;
+  }
+
+  const anniversary=
+    anniversaryDateForYear_(
+      joinDate,
+      anniversaryYear
+    );
+  const periodStart=
+    anniversaryDateForYear_(
+      joinDate,
+      anniversaryYear-1
+    );
+  const periodEnd=
+    addCalendarDays_(
+      anniversary,
+      -1
+    );
+
+  const summary=
+    calculateAnnualCycleSummary_(
+      periodStart,
+      periodEnd,
+      periodEnd
+    );
+
+  const amount=roundPay(
+    (
+      (Number(hourly)||0)*
+      8*
+      1.5
+    )*
+    summary.compensationDays
+  );
+
+  return {
+    amount,
+    compensationDays:summary.compensationDays,
+    entitlement:summary.entitlement,
+    used:summary.used,
+    periodStart,
+    periodEnd,
+    payYear,
+    payMonth
+  };
+}
+
+function renderAnnualAllowanceNotice_(allowance){
+  if(!allowance||!allowance.amount){
+    return '';
+  }
+
+  return `
+    <div class="notice info">
+      <b>연차수당 ${fmtW(allowance.amount)}</b><br>
+      ${formatAnnualFullPeriod_(allowance)} ·
+      연차보상일수 ${formatLeaveUnits_(allowance.compensationDays)}개<br>
+      계산: (통상시급 × 8시간 × 1.5) × 연차보상일수
+    </div>
+  `;
+}
+
 function findRule(rules,dateStr){
   return (rules||[]).find(
     rule=>
@@ -3871,6 +4188,13 @@ function calcHoursForMonth(y,m){
 function calcSalary(y,m){
   const hr=getAppliedHourly_(SAL);
   const h=calcHoursForMonth(y,m);
+  const payPeriod=nextMonthYear_(y,m);
+  const annualAllowance=
+    calculateAnnualAllowanceForPayMonth_(
+      payPeriod.year,
+      payPeriod.month,
+      hr
+    );
   const pay={};
 
   pay['기본급1']=Number(SAL.base1)||0;
@@ -3887,6 +4211,7 @@ function calcSalary(y,m){
   pay['명절연장수당']=roundPay(hr*2.5*h.festExt);
   pay['심야수당']=roundPay(hr*.5*h.night);
   pay['교대조수당']=roundPay(hr*1.5*h.shiftOT);
+  pay['연차수당']=annualAllowance.amount;
 
   const extra={
     '중식비(기지급)':Number(SAL.meal)||0,
@@ -3907,6 +4232,9 @@ function calcSalary(y,m){
     hr,
     autoHr:calculateAutoHourly_(SAL),
     fixedBonus:calculateFixedBonus_(SAL),
+    payYear:payPeriod.year,
+    payMonth:payPeriod.month,
+    annualAllowance,
     h,
     pay,
     extra,
@@ -5336,10 +5664,16 @@ async function updateRemote(kind){
   }catch(e){alert('업데이트 실패: '+e.message+'\n기존 데이터를 계속 사용합니다.')}
 }
 
+let dashboardViewYear=today.getFullYear();
+let dashboardViewMonth=today.getMonth()+1;
+
 function renderDashboard(){
-  const y=viewYear;
-  const m=viewMonth+1;
+  const y=dashboardViewYear;
+  const m=dashboardViewMonth;
   const sal=calcSalary(y,m);
+
+  dashboardTitle.textContent=
+    `${y}년 ${m}월`;
 
   let py=y;
   let pm=m-1;
@@ -5371,9 +5705,32 @@ function renderDashboard(){
     m
   );
 
+  const dashboardAsOf=(()=>{
+    const monthEnd=new Date(
+      y,
+      m,
+      0
+    );
+
+    if(
+      y===today.getFullYear() &&
+      m===today.getMonth()+1
+    ){
+      return stripTime(today);
+    }
+
+    return monthEnd;
+  })();
+
   const annual=calculateAnnualSummary_(
-    getAnnualAsOfForView_()
+    dashboardAsOf
   );
+  const annualSections=
+    getAnnualDashboardSummaries_(
+      y,
+      m,
+      dashboardAsOf
+    );
 
   const allowanceEntries=Object.entries(sal.pay)
     .filter(
@@ -5396,6 +5753,8 @@ function renderDashboard(){
     <div class="notice info">
       ${y}년 ${m}월 근태 → ${payY}년 ${payM}월 21일 예상 지급
     </div>
+
+    ${renderAnnualAllowanceNotice_(sal.annualAllowance)}
 
     <div class="stat-grid">
       <div class="stat">
@@ -5437,31 +5796,7 @@ function renderDashboard(){
 
     <div class="card">
       <div class="card-title">휴가 현황</div>
-      <div class="form-hint" style="margin:0 0 8px">
-        ${formatAnnualUsagePeriod_(annual)}
-      </div>
-      <table class="data-table">
-        <tr>
-          <td>교대 연차</td>
-          <td>${annual.shiftAnnualCount}회 · ${formatLeaveUnits_(annual.shiftAnnualCount*1.5)}개</td>
-        </tr>
-        <tr>
-          <td>일근 연차</td>
-          <td>${annual.dayAnnualCount}회 · ${formatLeaveUnits_(annual.dayAnnualCount)}개</td>
-        </tr>
-        <tr>
-          <td>주간/야간 반차</td>
-          <td>${annual.dayHalfCount}/${annual.nightHalfCount}회</td>
-        </tr>
-        <tr>
-          <td>반반차</td>
-          <td>${annual.quarterCount}회 · ${formatLeaveUnits_(annual.quarterCount*.25)}개</td>
-        </tr>
-        <tr>
-          <td>공가/스페셜데이</td>
-          <td>${annual.publicCount}/${annual.specialCount}회</td>
-        </tr>
-      </table>
+      ${renderAnnualDashboardSections_(annualSections)}
     </div>
 
     <div class="card">
@@ -5528,6 +5863,8 @@ function renderSalary(){
       근태 반영월: ${by}년 ${bm}월 · 지급일: ${salaryViewYear}년 ${salaryViewMonth}월 21일<br>
       소득세와 보험료 자동값은 예상치입니다. 실제 명세서가 나오면 아래에 직접 입력할 수 있습니다.
     </div>
+
+    ${renderAnnualAllowanceNotice_(sal.annualAllowance)}
 
     <div class="stat-grid">
       <div class="stat">
@@ -5703,7 +6040,14 @@ function activateNav(btn){
 navMy.onclick=()=>{closeAllPanels();switchTab('My');activateNav(navMy)};
 navAll.onclick=()=>{closeAllPanels();switchTab('All');activateNav(navAll)};
 navWith.onclick=()=>{closeAllPanels();switchTab('With');activateNav(navWith)};
-navDashboard.onclick=()=>{closeAllPanels();dashboardPanel.classList.remove('hidden');renderDashboard();activateNav(navDashboard)};
+navDashboard.onclick=()=>{
+  closeAllPanels();
+  dashboardViewYear=viewYear;
+  dashboardViewMonth=viewMonth+1;
+  dashboardPanel.classList.remove('hidden');
+  renderDashboard();
+  activateNav(navDashboard);
+};
 navSalary.onclick=()=>{closeAllPanels();salaryPanel.classList.remove('hidden');renderSalary();activateNav(navSalary)};
 navSetting.onclick=()=>{closeAllPanels();openSettings();activateNav(navSetting)};
 settingsBtn.onclick=()=>{closeAllPanels();openSettings();activateNav(navSetting)};
@@ -6181,6 +6525,28 @@ clearMemosBtn.onclick=()=>{
   renderCurrent();
   alert('메모 삭제 완료');
 };
+dashboardPrevBtn.onclick=()=>{
+  dashboardViewMonth--;
+
+  if(dashboardViewMonth<1){
+    dashboardViewMonth=12;
+    dashboardViewYear--;
+  }
+
+  renderDashboard();
+};
+
+dashboardNextBtn.onclick=()=>{
+  dashboardViewMonth++;
+
+  if(dashboardViewMonth>12){
+    dashboardViewMonth=1;
+    dashboardViewYear++;
+  }
+
+  renderDashboard();
+};
+
 salPrevBtn.onclick=()=>{salaryViewMonth--;if(salaryViewMonth<1){salaryViewMonth=12;salaryViewYear--}renderSalary()};salNextBtn.onclick=()=>{salaryViewMonth++;if(salaryViewMonth>12){salaryViewMonth=1;salaryViewYear++}renderSalary()};
 
 
