@@ -165,8 +165,32 @@ button{cursor:pointer}
   border-bottom:1px solid var(--line);
 }
 .header-month{
-  font-size:34px;line-height:1;font-weight:850;letter-spacing:.5px;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  min-width:0;
+  margin:0;
+  padding:4px 2px;
+  color:var(--text);
+  font-size:34px;
+  line-height:1;
+  font-weight:850;
+  letter-spacing:.5px;
   white-space:nowrap;
+  background:transparent;
+  border:0;
+  border-radius:8px;
+}
+.header-month::after{
+  content:'⌄';
+  position:relative;
+  top:-2px;
+  color:var(--muted);
+  font-size:.48em;
+  font-weight:900;
+}
+.header-month:active{
+  background:var(--surface-muted);
 }
 .header-actions{display:flex;align-items:center;gap:4px}
 .header-icon-btn{
@@ -1023,6 +1047,99 @@ input[type="time"].form-input::-webkit-date-and-time-value{
 }
 .modal{position:fixed;inset:0;z-index:10000;background:var(--modal-backdrop);display:flex;align-items:center;justify-content:center}
 .modal-box{background:var(--surface);border:1px solid var(--line);border-radius:14px;width:88%;max-width:360px;padding:18px}
+.month-picker-box{
+  width:min(92vw,380px);
+  padding:16px;
+}
+.month-picker-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:14px;
+}
+.month-picker-title{
+  font-size:17px;
+  font-weight:900;
+}
+.month-picker-close{
+  width:36px;
+  height:36px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:0;
+  color:var(--text-soft);
+  font-size:24px;
+  line-height:1;
+  background:transparent;
+  border:0;
+  border-radius:8px;
+}
+.month-picker-close:active{
+  background:var(--surface-muted);
+}
+.month-picker-year-row{
+  display:grid;
+  grid-template-columns:48px minmax(0,1fr) 48px;
+  align-items:center;
+  gap:8px;
+  margin-bottom:14px;
+}
+.month-picker-year-button{
+  height:44px;
+  color:var(--accent-strong);
+  font-size:26px;
+  font-weight:800;
+  background:var(--surface-muted);
+  border:1px solid var(--line);
+  border-radius:10px;
+}
+.month-picker-year-button:active{
+  transform:scale(.97);
+}
+.month-picker-year{
+  text-align:center;
+  font-size:24px;
+  font-weight:900;
+}
+.month-picker-grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:8px;
+}
+.month-picker-month{
+  min-height:44px;
+  padding:8px 4px;
+  color:var(--text);
+  font-size:14px;
+  font-weight:800;
+  background:var(--surface-muted);
+  border:1px solid var(--line);
+  border-radius:10px;
+}
+.month-picker-month.active{
+  color:#fff;
+  background:var(--accent);
+  border-color:var(--accent);
+}
+.month-picker-month.today-month:not(.active){
+  color:var(--accent-strong);
+  border:2px solid var(--accent);
+}
+.month-picker-actions{
+  display:grid;
+  grid-template-columns:1fr;
+  margin-top:14px;
+}
+.month-picker-today{
+  min-height:46px;
+  color:#fff;
+  font-weight:850;
+  background:var(--accent);
+  border:1px solid var(--accent);
+  border-radius:10px;
+}
 hr.sep{border:0;border-top:1px solid var(--line);margin:18px 0}
 
 input,
@@ -1202,7 +1319,14 @@ select option{
 <body>
 <div id="app">
 <header class="main-header">
-  <div id="headerMonthLabel" class="header-month" aria-live="polite"></div>
+  <button
+    id="headerMonthLabel"
+    class="header-month"
+    type="button"
+    aria-live="polite"
+    aria-haspopup="dialog"
+    aria-controls="monthPickerModal"
+  ></button>
   <div class="header-actions">
     <button id="shareBtn" class="header-icon-btn" aria-label="현재 교대달력 주소 공유">
       <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -1313,6 +1437,58 @@ select option{
           </svg>
         </span>
       </button>
+    </div>
+  </section>
+</div>
+
+
+<div id="monthPickerModal" class="modal hidden" aria-hidden="true">
+  <section
+    class="modal-box month-picker-box"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="monthPickerTitle"
+  >
+    <div class="month-picker-head">
+      <div id="monthPickerTitle" class="month-picker-title">연·월 선택</div>
+      <button
+        id="monthPickerClose"
+        class="month-picker-close"
+        type="button"
+        aria-label="연·월 선택창 닫기"
+      >×</button>
+    </div>
+
+    <div class="month-picker-year-row">
+      <button
+        id="monthPickerPrevYear"
+        class="month-picker-year-button"
+        type="button"
+        aria-label="이전 연도"
+      >‹</button>
+
+      <div id="monthPickerYear" class="month-picker-year"></div>
+
+      <button
+        id="monthPickerNextYear"
+        class="month-picker-year-button"
+        type="button"
+        aria-label="다음 연도"
+      >›</button>
+    </div>
+
+    <div
+      id="monthPickerGrid"
+      class="month-picker-grid"
+      aria-label="월 선택"
+    ></div>
+
+    <div class="month-picker-actions">
+      <button
+        id="monthPickerToday"
+        class="month-picker-today"
+        type="button"
+      >오늘로 이동</button>
     </div>
   </section>
 </div>
@@ -1970,6 +2146,13 @@ const themeSheet=document.getElementById('themeSheet');
 const themeSheetClose=document.getElementById('themeSheetClose');
 const themeSheetCurrent=document.getElementById('themeSheetCurrent');
 const themeSettingsCurrent=document.getElementById('themeSettingsCurrent');
+const monthPickerModal=document.getElementById('monthPickerModal');
+const monthPickerClose=document.getElementById('monthPickerClose');
+const monthPickerPrevYear=document.getElementById('monthPickerPrevYear');
+const monthPickerYearLabel=document.getElementById('monthPickerYear');
+const monthPickerNextYear=document.getElementById('monthPickerNextYear');
+const monthPickerGrid=document.getElementById('monthPickerGrid');
+const monthPickerToday=document.getElementById('monthPickerToday');
 const prevMonthBtn=document.getElementById('prevMonthBtn');
 const teamBadge=document.getElementById('teamBadge');
 const nextMonthBtn=document.getElementById('nextMonthBtn');
@@ -2076,7 +2259,7 @@ const dateKey=d=>`${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())
 const stripTime=d=>new Date(d.getFullYear(),d.getMonth(),d.getDate());
 const fmt=n=>Math.round(n||0).toLocaleString('ko-KR');
 const fmtW=n=>fmt(n)+'원';
-const today=new Date();
+let today=new Date();
 
 const THEME_PREFERENCE_KEY='themePreference';
 const THEME_PREFERENCES=['system','light','dark'];
@@ -4364,10 +4547,99 @@ function calcDeductions(totalA,salY,salM){
   };
 }
 
-let viewYear=store.get('viewYear',today.getFullYear()),viewMonth=store.get('viewMonth',today.getMonth()),currentTab='My';
+/*
+  조회 중인 연·월은 현재 실행 세션에서만 유지한다.
+  앱을 완전히 종료한 뒤 다시 실행하거나 웹페이지를 새로 불러오면
+  항상 오늘이 포함된 달에서 시작한다.
+*/
+localStorage.removeItem('viewYear');
+localStorage.removeItem('viewMonth');
+
+let viewYear=today.getFullYear();
+let viewMonth=today.getMonth();
+let currentTab='My';
+
+let monthPickerYear=viewYear;
+let monthPickerMonth=viewMonth;
 function buildCalendarCells(y,m){const first=new Date(y,m,1),off=first.getDay(),prevDays=new Date(y,m,0).getDate(),cells=[];for(let i=off-1;i>=0;i--)cells.push({date:new Date(y,m-1,prevDays-i),dim:true});for(let d=1;d<=new Date(y,m+1,0).getDate();d++)cells.push({date:new Date(y,m,d),dim:false});while(cells.length<42){const last=cells[cells.length-1].date,next=new Date(last);next.setDate(next.getDate()+1);cells.push({date:next,dim:next.getMonth()!==m})}return cells}
+
+function renderMonthPicker_(){
+  monthPickerYearLabel.textContent=
+    `${monthPickerYear}년`;
+
+  const now=new Date();
+  monthPickerGrid.innerHTML='';
+
+  for(let month=0;month<12;month++){
+    const button=document.createElement('button');
+    const isSelected=
+      monthPickerYear===viewYear &&
+      month===viewMonth;
+    const isTodayMonth=
+      monthPickerYear===now.getFullYear() &&
+      month===now.getMonth();
+
+    button.type='button';
+    button.className=
+      'month-picker-month'+
+      (isSelected?' active':'')+
+      (isTodayMonth?' today-month':'');
+    button.textContent=`${month+1}월`;
+    button.setAttribute(
+      'aria-label',
+      `${monthPickerYear}년 ${month+1}월로 이동`
+    );
+
+    if(isSelected){
+      button.setAttribute('aria-current','date');
+    }
+
+    button.onclick=()=>{
+      monthPickerMonth=month;
+      viewYear=monthPickerYear;
+      viewMonth=monthPickerMonth;
+      closeMonthPicker_();
+      renderCurrent();
+    };
+
+    monthPickerGrid.appendChild(button);
+  }
+}
+
+function openMonthPicker_(){
+  monthPickerYear=viewYear;
+  monthPickerMonth=viewMonth;
+  renderMonthPicker_();
+  monthPickerModal.classList.remove('hidden');
+  monthPickerModal.setAttribute('aria-hidden','false');
+}
+
+function closeMonthPicker_(){
+  monthPickerModal.classList.add('hidden');
+  monthPickerModal.setAttribute('aria-hidden','true');
+}
+
+function moveMonthPickerYear_(delta){
+  monthPickerYear+=delta;
+  renderMonthPicker_();
+}
+
+function moveToToday_(){
+  today=new Date();
+  viewYear=today.getFullYear();
+  viewMonth=today.getMonth();
+  monthPickerYear=viewYear;
+  monthPickerMonth=viewMonth;
+  closeMonthPicker_();
+  renderCurrent();
+}
+
 function renderMonthLabel(){
   headerMonthLabel.textContent=`${viewYear}. ${pad2(viewMonth+1)}`;
+  headerMonthLabel.setAttribute(
+    'aria-label',
+    `${viewYear}년 ${viewMonth+1}월, 연월 선택`
+  );
 
   teamBadge.textContent=TEAMS[
     getTeamIndexForDate(
@@ -6024,13 +6296,34 @@ function renderSalary(){
   }
 }
 
-function changeMonth(delta){viewMonth+=delta;if(viewMonth<0){viewMonth=11;viewYear--}if(viewMonth>11){viewMonth=0;viewYear++}store.set('viewYear',viewYear);store.set('viewMonth',viewMonth);renderCurrent()}
-(function attachSwipe(){let sx=0,sy=0,tracking=false;app.addEventListener('pointerdown',e=>{if(!settingsPanel.classList.contains('hidden')||!memoModal.classList.contains('hidden')||!dashboardPanel.classList.contains('hidden')||!salaryPanel.classList.contains('hidden'))return;tracking=true;sx=e.clientX;sy=e.clientY});app.addEventListener('pointerup',e=>{if(!tracking)return;tracking=false;const dx=e.clientX-sx,dy=e.clientY-sy;if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy))changeMonth(dx>0?-1:1)})})();
+function changeMonth(delta){
+  viewMonth+=delta;
+
+  if(viewMonth<0){
+    viewMonth=11;
+    viewYear--;
+  }
+
+  if(viewMonth>11){
+    viewMonth=0;
+    viewYear++;
+  }
+
+  renderCurrent();
+}
+(function attachSwipe(){let sx=0,sy=0,tracking=false;app.addEventListener('pointerdown',e=>{if(
+  !settingsPanel.classList.contains('hidden') ||
+  !memoModal.classList.contains('hidden') ||
+  !monthPickerModal.classList.contains('hidden') ||
+  !dashboardPanel.classList.contains('hidden') ||
+  !salaryPanel.classList.contains('hidden')
+)return;tracking=true;sx=e.clientX;sy=e.clientY});app.addEventListener('pointerup',e=>{if(!tracking)return;tracking=false;const dx=e.clientX-sx,dy=e.clientY-sy;if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy))changeMonth(dx>0?-1:1)})})();
 
 function closeAllPanels(){
   settingsPanel.classList.add('hidden');
   dashboardPanel.classList.add('hidden');
   salaryPanel.classList.add('hidden');
+  closeMonthPicker_();
 }
 function activateNav(btn){
   [navMy,navAll,navWith,navDashboard,navSalary,navSetting].forEach(b=>b.classList.remove('active'));
@@ -6051,6 +6344,18 @@ navDashboard.onclick=()=>{
 navSalary.onclick=()=>{closeAllPanels();salaryPanel.classList.remove('hidden');renderSalary();activateNav(navSalary)};
 navSetting.onclick=()=>{closeAllPanels();openSettings();activateNav(navSetting)};
 settingsBtn.onclick=()=>{closeAllPanels();openSettings();activateNav(navSetting)};
+
+headerMonthLabel.onclick=openMonthPicker_;
+monthPickerClose.onclick=closeMonthPicker_;
+monthPickerPrevYear.onclick=()=>moveMonthPickerYear_(-1);
+monthPickerNextYear.onclick=()=>moveMonthPickerYear_(1);
+monthPickerToday.onclick=moveToToday_;
+
+monthPickerModal.onclick=event=>{
+  if(event.target===monthPickerModal){
+    closeMonthPicker_();
+  }
+};
 
 themeBtn.onclick=openThemeSheet_;
 themeSheetClose.onclick=closeThemeSheet_;
@@ -6096,10 +6401,16 @@ if(systemThemeQuery.addEventListener){
 }
 
 document.addEventListener('keydown',event=>{
-  if(
-    event.key==='Escape' &&
-    !themeSheet.classList.contains('hidden')
-  ){
+  if(event.key!=='Escape'){
+    return;
+  }
+
+  if(!monthPickerModal.classList.contains('hidden')){
+    closeMonthPicker_();
+    return;
+  }
+
+  if(!themeSheet.classList.contains('hidden')){
     closeThemeSheet_();
   }
 });
@@ -6108,6 +6419,17 @@ applyThemePreference_(
   themePreference,
   {save:false}
 );
+
+/*
+  백그라운드에서 다시 돌아올 때는 사용자가 보던 연·월을 유지한다.
+  날짜가 바뀌었을 수 있으므로 '오늘' 강조 기준만 새로 갱신한다.
+*/
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible'){
+    today=new Date();
+    renderCurrent();
+  }
+});
 
 settingsClose.onclick=()=>{settingsPanel.classList.add('hidden');switchTab('My');activateNav(navMy)};
 dashboardClose.onclick=()=>{dashboardPanel.classList.add('hidden');switchTab('My');activateNav(navMy)};
