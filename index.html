@@ -1411,6 +1411,33 @@ select option{
 
 @media(max-width:390px){.header-month{font-size:30px}.header-icon-btn{width:38px;height:38px;padding:7px}}
 @media(min-width:700px){.stat-grid{grid-template-columns:repeat(4,1fr)}.slip-grid{grid-template-columns:1fr 1fr}}
+
+/* v28: 사용자 작업 결과 토스트 */
+.app-toast{
+  position:fixed;
+  left:50%;
+  bottom:calc(var(--nav-total-height,88px) + 16px);
+  transform:translate(-50%,18px);
+  z-index:100000;
+  max-width:min(88vw,520px);
+  padding:12px 16px;
+  border-radius:14px;
+  background:rgba(30,39,46,.94);
+  color:#fff;
+  font-size:14px;
+  font-weight:700;
+  line-height:1.45;
+  text-align:center;
+  box-shadow:0 10px 28px rgba(0,0,0,.24);
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .18s ease,transform .18s ease;
+}
+.app-toast.show{opacity:1;transform:translate(-50%,0)}
+.app-toast.success{background:rgba(47,111,88,.96)}
+.app-toast.error{background:rgba(176,54,45,.96)}
+.app-toast.info{background:rgba(39,96,126,.96)}
+
 </style>
 </head>
 <body>
@@ -8058,6 +8085,31 @@ let cloudBackupConflict_=false;
 let cloudBackupBusy_=false;
 let cloudBackupStatusMessage_='';
 let cloudBackupInitialized_=false;
+let appToastTimer_=null;
+
+function showAppToast_(message,type='info',duration=2200){
+  const toast=document.getElementById('appToast');
+  if(!toast) return;
+
+  clearTimeout(appToastTimer_);
+  toast.textContent=String(message||'');
+  toast.className='app-toast '+String(type||'info');
+
+  requestAnimationFrame(()=>{
+    toast.classList.add('show');
+  });
+
+  appToastTimer_=setTimeout(()=>{
+    toast.classList.remove('show');
+  },Math.max(1200,Number(duration)||2200));
+}
+
+function formatCloudBackupSize_(bytes){
+  const size=Math.max(0,Number(bytes)||0);
+  if(size<1024) return size+'B';
+  if(size<1024*1024) return Math.max(1,Math.round(size/1024))+'KB';
+  return (size/(1024*1024)).toFixed(1)+'MB';
+}
 
 function defaultCloudBackupConfig_(){
   return {
@@ -8070,6 +8122,7 @@ function defaultCloudBackupConfig_(){
     lastPayloadHash:'',
     lastBackupAt:'',
     lastServerCreatedAt:0,
+    lastBackupSizeBytes:0,
     connectedAt:''
   };
 }
@@ -8183,7 +8236,7 @@ function renderCloudBackupUi_(){
         `승인 대기 · ${config.displayName||'이름 없음'} · 사용자 ID ${config.userId||'확인 중'}`;
     }else if(approved){
       elements.userInfo.textContent=
-        `연결됨 · ${config.displayName||'사용자'} · 사용자 ID ${config.userId||''}`;
+        `승인된 사용자 · ${config.displayName||'사용자'} · 사용자 ID ${config.userId||''}`;
     }else if(config.status==='blocked'){
       elements.userInfo.textContent='클라우드 사용이 중지된 계정입니다.';
     }else{
@@ -8194,8 +8247,14 @@ function renderCloudBackupUi_(){
   if(cloudBackupStatusMessage_){
     elements.status.textContent=cloudBackupStatusMessage_;
   }else if(config.lastBackupAt){
+    const sizeText=config.lastBackupSizeBytes
+      ?` · ${formatCloudBackupSize_(config.lastBackupSizeBytes)}`
+      :'';
+    const autoText=config.autoBackup===false
+      ?' · 자동백업 꺼짐'
+      :' · 자동백업 사용 중';
     elements.status.textContent=
-      `마지막 클라우드 백업: ${formatCloudBackupTime_(config.lastBackupAt)}`;
+      `최근 백업: ${formatCloudBackupTime_(config.lastBackupAt)}${sizeText}${autoText}`;
   }else if(config.status==='pending'){
     elements.status.textContent='관리자 승인 후 “연결 코드 저장·승인 확인”을 다시 누르세요.';
   }else if(approved){
@@ -8592,6 +8651,7 @@ async function registerCloudBackup_(){
     }
 
     setCloudBackupStatus_('연결 신청 완료 · 관리자 승인 대기 · 연결 코드를 외부에 보관하세요.');
+    showAppToast_('연결 신청이 완료되었습니다. 관리자 승인 대기 중입니다.','success',3000);
     alert(
       '클라우드 연결 신청이 완료되었습니다.\n\n'+
       '연결 코드를 클립보드에 복사했습니다. 메모장이나 비밀번호 관리 앱 등 다른 곳에도 반드시 보관하세요.\n\n'+
@@ -8607,25 +8667,40 @@ async function registerCloudBackup_(){
 }
 
 async function copyTextSafely_(text){
+  const value=String(text||'');
+
   if(navigator.clipboard&&window.isSecureContext){
-    await navigator.clipboard.writeText(text);
-    return;
+    try{
+      await navigator.clipboard.writeText(value);
+      return true;
+    }catch(error){
+      console.warn('Clipboard API 복사 실패, 대체 방식 사용',error);
+    }
   }
 
   const textarea=document.createElement('textarea');
-  textarea.value=text;
-  textarea.style.position='fixed';
-  textarea.style.opacity='0';
+  textarea.value=value;
+  textarea.setAttribute('readonly','');
+  textarea.style.cssText=
+    'position:fixed;left:-9999px;top:0;width:1px;height:1px;'+
+    'font-size:16px;opacity:.01;';
   document.body.appendChild(textarea);
   textarea.focus();
   textarea.select();
+  textarea.setSelectionRange(0,value.length);
 
-  const copied=document.execCommand('copy');
-  textarea.remove();
+  let copied=false;
+  try{
+    copied=document.execCommand('copy');
+  }finally{
+    textarea.remove();
+  }
 
   if(!copied){
     throw new Error('클립보드 복사 실패');
   }
+
+  return true;
 }
 
 async function copyCloudCredential_(){
@@ -8641,7 +8716,16 @@ async function copyCloudCredential_(){
   }
 
   await copyTextSafely_(credential);
-  setCloudBackupStatus_('연결 코드를 복사했습니다. 다른 안전한 곳에 보관하세요.');
+  setCloudBackupStatus_('연결 코드 복사 완료 · 다른 안전한 곳에도 보관하세요.');
+  showAppToast_('연결 코드가 복사되었습니다.','success');
+
+  if(elements.copy){
+    const original=elements.copy.textContent;
+    elements.copy.textContent='복사 완료';
+    setTimeout(()=>{
+      elements.copy.textContent=original||'복사';
+    },1100);
+  }
 }
 
 function saveCloudCredentialFromUi_(){
@@ -8734,8 +8818,11 @@ async function connectAndReconcileCloudBackup_(interactive=true){
       });
 
       setCloudBackupStatus_(
-        `클라우드와 같은 데이터입니다 · 마지막 백업 ${formatCloudBackupTime_(remote.serverCreatedAt)}`
+        `승인된 사용자입니다 · 클라우드와 동기화됨 · 최근 백업 ${formatCloudBackupTime_(remote.serverCreatedAt)}`
       );
+      if(interactive){
+        showAppToast_('승인된 사용자입니다. 클라우드 백업이 연결되었습니다.','success',2800);
+      }
       return;
     }
 
@@ -8775,7 +8862,10 @@ async function connectAndReconcileCloudBackup_(interactive=true){
     }
   }catch(error){
     if(error&&error.code==='account_pending'){
-      setCloudBackupStatus_('관리자 승인 대기 중입니다.');
+      setCloudBackupStatus_('관리자 승인 대기 중입니다. 승인 후 다시 확인해 주세요.');
+      if(interactive){
+        showAppToast_('아직 관리자 승인 대기 중입니다.','info');
+      }
     }else{
       if(error&&error.code==='account_blocked'){
         saveCloudBackupConfig_({status:'blocked'});
@@ -8811,7 +8901,9 @@ async function uploadCurrentCloudBackup_(options={}){
     setCloudBackupStatus_(
       options.initial
         ?'최초 클라우드 백업을 만드는 중입니다...'
-        :'클라우드에 백업하는 중입니다...'
+        :options.auto
+          ?'변경사항을 자동으로 백업하는 중입니다...'
+          :'클라우드에 백업하는 중입니다...'
     );
 
     const snapshot=options.snapshot||await createCloudBackupSnapshot_();
@@ -8822,7 +8914,10 @@ async function uploadCurrentCloudBackup_(options={}){
       config.lastPayloadHash===snapshot.payloadHash &&
       cloudBackupReady_
     ){
-      setCloudBackupStatus_('변경사항이 없어 클라우드 백업을 생략했습니다.');
+      setCloudBackupStatus_('이미 최신 백업 상태입니다. 자동백업은 계속 작동합니다.');
+      if(!options.silent){
+        showAppToast_('이미 최신 백업 상태입니다.','info');
+      }
       return null;
     }
 
@@ -8861,15 +8956,18 @@ async function uploadCurrentCloudBackup_(options={}){
       status:'approved',
       lastPayloadHash:snapshot.payloadHash,
       lastBackupAt:new Date(serverCreatedAt).toISOString(),
-      lastServerCreatedAt:serverCreatedAt
+      lastServerCreatedAt:serverCreatedAt,
+      lastBackupSizeBytes:snapshot.sizeBytes
     });
 
-    setCloudBackupStatus_(
-      `클라우드 백업 완료 · ${formatCloudBackupTime_(serverCreatedAt)}`
-    );
+    const completedMessage=options.auto
+      ?`자동백업 완료 · ${formatCloudBackupTime_(serverCreatedAt)} · ${formatCloudBackupSize_(snapshot.sizeBytes)}`
+      :`클라우드 백업 완료 · ${formatCloudBackupTime_(serverCreatedAt)} · ${formatCloudBackupSize_(snapshot.sizeBytes)}`;
+
+    setCloudBackupStatus_(completedMessage);
 
     if(!options.silent){
-      alert('클라우드 백업이 완료되었습니다.');
+      showAppToast_('클라우드 백업이 완료되었습니다.','success');
     }
 
     return result;
@@ -9024,6 +9122,7 @@ function scheduleCloudBackup_(){
   }
 
   clearTimeout(cloudBackupTimer_);
+  setCloudBackupStatus_('변경사항 감지 · 잠시 후 자동백업합니다.');
 
   cloudBackupTimer_=setTimeout(
     ()=>{
@@ -9057,6 +9156,7 @@ async function flushCloudBackup_(){
 
     await uploadCurrentCloudBackup_({
       silent:true,
+      auto:true,
       snapshot
     });
   }catch(error){
@@ -9110,6 +9210,8 @@ cloudElements_.register.onclick=registerCloudBackup_;
 cloudElements_.connect.onclick=()=>connectAndReconcileCloudBackup_(true);
 cloudElements_.copy.onclick=()=>{
   copyCloudCredential_().catch(error=>{
+    showAppToast_('자동 복사가 되지 않았습니다. 표시 버튼 후 길게 눌러 복사해 주세요.','error',3200);
+    showAppToast_('복사에 실패했습니다. 표시 버튼 후 길게 눌러 복사해 주세요.','error',3200);
     alert('연결 코드 복사 실패: '+error.message);
   });
 };
@@ -9146,10 +9248,12 @@ cloudElements_.auto.onchange=()=>{
 
   if(cloudElements_.auto.checked){
     scheduleCloudBackup_();
-    setCloudBackupStatus_('변경사항 자동백업을 사용합니다.');
+    setCloudBackupStatus_('자동백업 사용 중 · 변경사항은 자동으로 저장됩니다.');
+    showAppToast_('자동백업이 활성화되었습니다.','success');
   }else{
     clearTimeout(cloudBackupTimer_);
-    setCloudBackupStatus_('자동백업을 중지했습니다. 수동 백업은 계속 사용할 수 있습니다.');
+    setCloudBackupStatus_('자동백업 꺼짐 · 수동 백업은 계속 사용할 수 있습니다.');
+    showAppToast_('자동백업이 비활성화되었습니다.','info');
   }
 };
 cloudElements_.disconnect.onclick=()=>{
@@ -9625,5 +9729,6 @@ autoLoadReferenceData().finally(()=>{
   initializeCloudBackup_();
 });
 </script>
+<div id="appToast" class="app-toast" role="status" aria-live="polite"></div>
 </body>
 </html>
