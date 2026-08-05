@@ -1459,6 +1459,15 @@ select option{
 .retirement-custom-row input[type="checkbox"]{width:22px;height:22px}
 .retirement-result{border:2px solid #2f6a86;border-radius:18px;padding:16px;margin-top:12px;background:color-mix(in srgb,#2f6a86 8%,var(--card))}
 .retirement-result .amount{font-size:28px;font-weight:950;margin-top:6px}
+.salary-accordion{padding:0;overflow:hidden}
+.salary-accordion>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 20px;cursor:pointer;font-size:20px;font-weight:900;user-select:none}
+.salary-accordion>summary::-webkit-details-marker{display:none}
+.salary-accordion>summary::after{content:'⌄';font-size:24px;line-height:1;transition:transform .18s ease;color:var(--muted)}
+.salary-accordion[open]>summary::after{transform:rotate(180deg)}
+.salary-accordion[open]>summary{border-bottom:1px solid var(--border)}
+.salary-accordion-body{padding:18px 20px 20px}
+.salary-accordion-body>.form-hint:first-child{margin-top:0}
+.salary-accordion .accordion-content{padding:0}
 .actual-work-fields{margin-top:10px;padding:12px;border:1px solid var(--border);border-radius:14px;background:var(--soft)}
 @media(max-width:520px){.ot-preview-grid{grid-template-columns:1fr}.retirement-custom-row{grid-template-columns:1fr 105px auto}.retirement-custom-row label{grid-column:1/3}.retirement-item-row{grid-template-columns:minmax(0,1fr) 118px}}
 
@@ -7053,7 +7062,7 @@ function renderRetirementCalculator_(){
   const retireDate=new Date(retirementDate+'T00:00:00');
   const serviceDays=joinDate&&retireDate>=joinDate?Math.floor((stripTime(retireDate)-stripTime(joinDate))/86400000)+1:0;
   const severance=average*30*(serviceDays/365);
-  return `<div class="card" id="retirementCalculatorCard"><div class="card-title">퇴직금 계산기</div><div class="notice warn">최근 3개 급여명세서를 활용한 예상 계산입니다. 실제 산정기간과 임금 포함 여부에 따라 달라질 수 있습니다.</div><div class="row"><div class="grow"><label class="form-label">입사일</label><input class="form-input" value="${join}" readonly></div><div class="grow"><label class="form-label">퇴직 기준일</label><input id="retirementDateInput" class="form-input" type="date" value="${retirementDate}"></div></div>${monthHtml}<div class="retirement-month"><div class="card-title">직전 1년 반영액</div><label class="form-label">명절상여 등 연간 상여 총액</label><input id="retirementAnnualBonus" class="form-input" type="number" value="${Number(RETIREMENT_STATE.annualBonus||0)}"><div class="mode-switch" style="margin-top:10px"><button type="button" data-retirement-leave-mode="auto" class="${RETIREMENT_STATE.annualLeaveMode==='auto'?'active':''}">연차수당 자동</button><button type="button" data-retirement-leave-mode="manual" class="${RETIREMENT_STATE.annualLeaveMode==='manual'?'active':''}">직접 입력</button></div><div class="small" style="margin:8px 0">자동 계산 ${fmtW(autoLeave)}</div><input id="retirementAnnualLeaveManual" class="form-input" type="number" value="${Number(RETIREMENT_STATE.annualLeaveManual||0)}" ${RETIREMENT_STATE.annualLeaveMode==='manual'?'':'disabled'}></div><div class="retirement-result"><div>예상 퇴직금</div><div class="amount">${fmtW(severance)}</div><div class="small">1일 평균임금 ${fmtW(average)} · 재직일수 ${serviceDays.toLocaleString()}일 · 3개월 산정일수 ${daysTotal}일</div></div></div>`;
+  return `<div id="retirementCalculatorCard" class="accordion-content"><div class="notice warn">최근 3개 급여명세서를 활용한 예상 계산입니다. 실제 산정기간과 임금 포함 여부에 따라 달라질 수 있습니다.</div><div class="row"><div class="grow"><label class="form-label">입사일</label><input class="form-input" value="${join}" readonly></div><div class="grow"><label class="form-label">퇴직 기준일</label><input id="retirementDateInput" class="form-input" type="date" value="${retirementDate}"></div></div>${monthHtml}<div class="retirement-month"><div class="card-title">직전 1년 반영액</div><label class="form-label">명절상여 등 연간 상여 총액</label><input id="retirementAnnualBonus" class="form-input" type="number" value="${Number(RETIREMENT_STATE.annualBonus||0)}"><div class="mode-switch" style="margin-top:10px"><button type="button" data-retirement-leave-mode="auto" class="${RETIREMENT_STATE.annualLeaveMode==='auto'?'active':''}">연차수당 자동</button><button type="button" data-retirement-leave-mode="manual" class="${RETIREMENT_STATE.annualLeaveMode==='manual'?'active':''}">직접 입력</button></div><div class="small" style="margin:8px 0">자동 계산 ${fmtW(autoLeave)}</div><input id="retirementAnnualLeaveManual" class="form-input" type="number" value="${Number(RETIREMENT_STATE.annualLeaveManual||0)}" ${RETIREMENT_STATE.annualLeaveMode==='manual'?'':'disabled'}></div><div class="retirement-result"><div>예상 퇴직금</div><div class="amount">${fmtW(severance)}</div><div class="small">1일 평균임금 ${fmtW(average)} · 재직일수 ${serviceDays.toLocaleString()}일 · 3개월 산정일수 ${daysTotal}일</div></div></div>`;
 }
 function bindRetirementCalculator_(){
   const dateInput=document.getElementById('retirementDateInput');
@@ -7235,6 +7244,8 @@ function renderDashboard(){
   `;
 }
 let salaryViewYear=today.getFullYear(),salaryViewMonth=today.getMonth()+1;
+let salaryAccordionState_={ot:false,retirement:false};
+
 function renderSalary(){
   let by=salaryViewYear;
   let bm=salaryViewMonth-1;
@@ -7291,9 +7302,7 @@ function renderSalary(){
       </div>
     </div>
 
-    ${(()=>{const ot=calculateDailyOtPreview_(sal.hr);return `<div class="card"><div class="card-title">하루 OT 예상 수당</div><div class="form-hint">현재 적용 통상시급과 급여 계산식을 그대로 사용한 안내 금액입니다.</div><div class="ot-preview-grid"><div class="ot-preview-card"><div class="ot-name">주간 OT</div><div class="ot-hours">정상 8시간 + 연장 4시간</div><div class="ot-amount">${fmtW(ot.day)}</div></div><div class="ot-preview-card"><div class="ot-name">야간 OT</div><div class="ot-hours">정상 8시간 + 연장 4시간 + 심야 8시간</div><div class="ot-amount">${fmtW(ot.night)}</div></div></div></div>`})()}
-
-    ${renderRetirementCalculator_()}
+    ${(()=>{const ot=calculateDailyOtPreview_(sal.hr);return `<details id="dailyOtAccordion" class="card salary-accordion" ${salaryAccordionState_.ot?'open':''}><summary>하루 OT 예상 수당</summary><div class="salary-accordion-body"><div class="form-hint">현재 적용 통상시급과 급여 계산식을 그대로 사용한 안내 금액입니다.</div><div class="ot-preview-grid"><div class="ot-preview-card"><div class="ot-name">주간 OT</div><div class="ot-hours">정상 8시간 + 연장 4시간</div><div class="ot-amount">${fmtW(ot.day)}</div></div><div class="ot-preview-card"><div class="ot-name">야간 OT</div><div class="ot-hours">정상 8시간 + 연장 4시간 + 심야 8시간</div><div class="ot-amount">${fmtW(ot.night)}</div></div></div></div></details>`})()}
 
     <div class="slip-grid">
       <div class="card">
@@ -7417,7 +7426,28 @@ function renderSalary(){
     <button class="btn primary" style="width:100%" onclick="window.print()">
       인쇄 / PDF 저장
     </button>
+
+    <details id="retirementAccordion" class="card salary-accordion" ${salaryAccordionState_.retirement?'open':''}>
+      <summary>퇴직금 계산기</summary>
+      <div class="salary-accordion-body">
+        ${renderRetirementCalculator_()}
+      </div>
+    </details>
   `;
+
+  const dailyOtAccordion=document.getElementById('dailyOtAccordion');
+  if(dailyOtAccordion){
+    dailyOtAccordion.addEventListener('toggle',()=>{
+      salaryAccordionState_.ot=dailyOtAccordion.open;
+    });
+  }
+
+  const retirementAccordion=document.getElementById('retirementAccordion');
+  if(retirementAccordion){
+    retirementAccordion.addEventListener('toggle',()=>{
+      salaryAccordionState_.retirement=retirementAccordion.open;
+    });
+  }
 
   const saveActualButton=
     document.getElementById('saveActualDeductionBtn');
