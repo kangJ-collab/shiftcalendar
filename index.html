@@ -10,7 +10,7 @@
 <meta name="color-scheme" content="light dark">
 <meta name="application-name" content="교대달력">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="교대달력">
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
@@ -780,6 +780,29 @@ input[type="date"].form-input::-webkit-calendar-picker-indicator{
   font-size:14px;
   font-weight:800;
   text-align:right;
+}
+
+
+.pattern-editor-card{overflow:hidden}
+.pattern-name-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-bottom:14px}
+.pattern-assignment-list{display:grid;gap:10px}
+.pattern-assignment-row{display:grid;grid-template-columns:minmax(92px,128px) 1fr;gap:10px;align-items:center}
+.pattern-assignment-select{min-width:0}
+.pattern-preview-cells{display:grid;grid-template-columns:repeat(8,minmax(24px,1fr));gap:4px;min-width:0}
+.pattern-preview-cell{display:flex;align-items:center;justify-content:center;min-height:34px;border-radius:8px;font-size:12px;font-weight:800;border:1px solid var(--line);background:var(--surface-muted);color:var(--text)}
+.pattern-preview-cell.day{background:#f2e79a;color:#3a3a1a;border-color:#eadf8a}
+.pattern-preview-cell.night{background:#2b2b2b;color:#fff;border-color:#2b2b2b}
+.pattern-preview-cell.off{background:#e5352b;color:#fff;border-color:#e5352b}
+.pattern-editor-actions{display:flex;gap:8px;margin-top:12px}
+.pattern-editor-actions .btn{flex:1}
+.pattern-validation{margin-top:9px;font-size:12px;font-weight:700;color:var(--muted)}
+.pattern-validation.ok{color:var(--green)}
+.pattern-validation.warn{color:var(--red)}
+@media(max-width:560px){
+  .pattern-name-grid{grid-template-columns:1fr 1fr}
+  .pattern-assignment-row{grid-template-columns:92px minmax(0,1fr);gap:7px}
+  .pattern-preview-cells{gap:3px}
+  .pattern-preview-cell{min-height:31px;font-size:11px;border-radius:7px}
 }
 
 .team-change-form{
@@ -1729,6 +1752,33 @@ select option{
       </div>
     </div>
 
+
+    <div class="section-label settings-section-anchor">근무 패턴 배치</div>
+    <div class="card pattern-editor-card">
+      <div class="form-hint" style="margin-top:0;margin-bottom:12px">
+        네 가지 8일 패턴은 그대로 두고, 각 패턴을 어느 조에 적용할지만 바꿉니다.
+        조 이름도 회사에 맞게 수정할 수 있습니다.
+      </div>
+
+      <div class="form-label">조 이름</div>
+      <div id="patternTeamNameGrid" class="pattern-name-grid"></div>
+
+      <div class="form-group">
+        <label class="form-label" for="patternReferenceDate">패턴 1번 칸 기준일</label>
+        <input id="patternReferenceDate" type="date" class="form-input">
+        <div class="form-hint">선택한 날짜에는 아래 각 행의 첫 번째 칸이 적용됩니다.</div>
+      </div>
+
+      <div class="form-label">패턴별 조 배정</div>
+      <div id="patternAssignmentList" class="pattern-assignment-list"></div>
+      <div id="patternValidation" class="pattern-validation"></div>
+
+      <div class="pattern-editor-actions">
+        <button id="patternResetBtn" type="button" class="btn">현재 회사 기본값</button>
+        <button id="patternSaveBtn" type="button" class="btn primary">패턴 설정 저장</button>
+      </div>
+    </div>
+
     <div id="settingsTeamSection" class="section-label settings-section-anchor">내 근무조</div>
     <div class="card">
       <div class="form-group">
@@ -1967,7 +2017,65 @@ select option{
 
 
 
-    <div id="settingsBackupSection" class="section-label settings-section-anchor">기기 JSON 백업</div>
+    <div id="settingsBackupSection" class="section-label settings-section-anchor">Cloudflare 클라우드 백업</div>
+    <div class="card">
+      <div class="notice info">
+        승인된 사용자만 사용할 수 있는 선택형 백업입니다.
+        현재 기기의 전체 교대달력 데이터를 Cloudflare D1에 보관하며,
+        기존 JSON 백업과 Google Sheets/GAS 백업은 그대로 함께 사용할 수 있습니다.<br>
+        <b>연결 코드는 기기 데이터가 삭제된 뒤 다시 복원할 때 필요하므로 반드시 메모장 등 다른 곳에도 보관하세요.</b>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="cloudBackupDisplayName">연결 신청 이름</label>
+        <input id="cloudBackupDisplayName" class="form-input" maxlength="60" placeholder="관리자가 알아볼 이름" autocomplete="name">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="cloudBackupContact">연락 메모 (선택)</label>
+        <input id="cloudBackupContact" class="form-input" maxlength="120" placeholder="승인 확인용 연락처 또는 메모" autocomplete="off">
+      </div>
+
+      <button id="cloudBackupRegisterBtn" class="btn green" style="width:100%">새 사용자 연결 신청</button>
+
+      <hr class="sep">
+
+      <div class="form-group">
+        <label class="form-label" for="cloudBackupCredential">연결 코드</label>
+        <input id="cloudBackupCredential" type="password" class="form-input" placeholder="발급받은 연결 코드를 붙여넣으세요" autocomplete="off" autocapitalize="none" spellcheck="false">
+      </div>
+
+      <div class="row" style="flex-wrap:wrap">
+        <button id="cloudBackupConnectBtn" class="btn primary" style="flex:1">연결 코드 저장·승인 확인</button>
+        <button id="cloudBackupRevealBtn" class="btn">표시</button>
+        <button id="cloudBackupCopyBtn" class="btn">복사</button>
+      </div>
+
+      <div class="row" style="flex-wrap:wrap;margin-top:8px">
+        <button id="cloudBackupNowBtn" class="btn primary" style="flex:1">지금 클라우드 백업</button>
+        <button id="cloudRestoreBtn" class="btn" style="flex:1">클라우드 백업 복원</button>
+      </div>
+
+      <label style="display:flex;align-items:center;gap:7px;font-size:13px;margin-top:10px">
+        <input id="cloudAutoBackupEnabled" type="checkbox" checked>
+        변경사항 자동백업 사용
+      </label>
+
+      <div id="cloudBackupConflictBox" class="notice warn hidden" style="margin-top:10px;margin-bottom:0">
+        <b>현재 기기와 클라우드 데이터가 서로 다릅니다.</b><br>
+        자동으로 덮어쓰지 않았습니다. 사용할 데이터를 직접 선택하세요.
+        <div class="row" style="flex-wrap:wrap;margin-top:8px">
+          <button id="cloudBackupUseLocalBtn" class="btn primary" style="flex:1">현재 기기 데이터 사용</button>
+          <button id="cloudBackupUseCloudBtn" class="btn" style="flex:1">클라우드 데이터 사용</button>
+        </div>
+      </div>
+
+      <div id="cloudBackupUserInfo" class="small" style="margin-top:10px">미연결</div>
+      <div id="cloudBackupStatus" class="small" style="margin-top:5px">클라우드 백업 상태 확인 중</div>
+      <button id="cloudBackupDisconnectBtn" class="btn red" style="width:100%;margin-top:10px">이 기기에서 클라우드 연결 해제</button>
+    </div>
+
+    <div class="section-label">기기 JSON 백업</div>
     <div class="card">
       <div class="notice info">
         지원되는 안드로이드 브라우저에서는 백업 파일을 한 번 연결한 뒤
@@ -2415,6 +2523,13 @@ const settingsClose=document.getElementById('settingsClose');
 const currentTeamBadge=document.getElementById('currentTeamBadge');
 const settingsRefDateText=document.getElementById('settingsRefDateText');
 const teamChangePreview=document.getElementById('teamChangePreview');
+const patternTeamNameGrid=document.getElementById('patternTeamNameGrid');
+const patternReferenceDate=document.getElementById('patternReferenceDate');
+const patternAssignmentList=document.getElementById('patternAssignmentList');
+const patternValidation=document.getElementById('patternValidation');
+const patternResetBtn=document.getElementById('patternResetBtn');
+const patternSaveBtn=document.getElementById('patternSaveBtn');
+
 const teamSelectRow=document.getElementById('teamSelectRow');
 const settingsRefDate=document.getElementById('settingsRefDate');
 const teamHistoryList=document.getElementById('teamHistoryList');
@@ -2466,7 +2581,50 @@ const navDashboard=document.getElementById('navDashboard');
 const navSalary=document.getElementById('navSalary');
 const navSetting=document.getElementById('navSetting');
 
-const store={get(k,d){try{const v=localStorage.getItem(k);return v===null?d:JSON.parse(v)}catch(e){return d}},set(k,v){localStorage.setItem(k,JSON.stringify(v))}};
+function notifyCloudStorageMutation_(key){
+  if(
+    typeof window.shiftcalendarCloudMarkDirty==='function'
+  ){
+    window.shiftcalendarCloudMarkDirty(key);
+  }
+}
+
+const store={
+  get(k,d){
+    try{
+      const value=localStorage.getItem(k);
+      return value===null?d:JSON.parse(value);
+    }catch(error){
+      return d;
+    }
+  },
+  set(k,v){
+    const nextValue=JSON.stringify(v);
+    const previousValue=localStorage.getItem(k);
+    localStorage.setItem(k,nextValue);
+
+    if(previousValue!==nextValue){
+      notifyCloudStorageMutation_(k);
+    }
+  },
+  setRaw(k,v){
+    const nextValue=String(v);
+    const previousValue=localStorage.getItem(k);
+    localStorage.setItem(k,nextValue);
+
+    if(previousValue!==nextValue){
+      notifyCloudStorageMutation_(k);
+    }
+  },
+  remove(k){
+    const existed=localStorage.getItem(k)!==null;
+    localStorage.removeItem(k);
+
+    if(existed){
+      notifyCloudStorageMutation_(k);
+    }
+  }
+};
 const pad2=n=>n<10?'0'+n:''+n;
 const dateKey=d=>`${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
 const stripTime=d=>new Date(d.getFullYear(),d.getMonth(),d.getDate());
@@ -2943,7 +3101,7 @@ function setMemoStyle(d,style){
 }
 
 function removeMemoStyle(d){
-  localStorage.removeItem(
+  store.remove(
     'memo-style-'+dateKey(d)
   );
 }
@@ -3601,19 +3759,55 @@ function isPayHoliday(date){
 function isMajorDay(date){return (HOLIDAY_DATA.majorDays||[]).includes(dateKey(date))}
 function getDayColor(d){if(getHoliday(d))return 'var(--sunday-color)';if(d.getDay()===0)return 'var(--sunday-color)';if(d.getDay()===6)return 'var(--saturday-color)';return 'var(--calendar-text)'}
 
-const CYCLE=['주간','주간','휴무','휴무','야간','야간','휴무','휴무'];
-const TEAMS=['A조','B조','C조','D조'];
-
-// 2026-07-15에 C조가 주간 첫날인 실제 교대 패턴 계산 기준
-const REF_TEAM_INDEX=2;
 const DEFAULT_REF_DATE='2026-07-15';
+const DEFAULT_TEAM_NAMES=['A조','B조','C조','D조'];
+const FIXED_SHIFT_PATTERNS=[
+ ['주간','주간','휴무','휴무','야간','야간','휴무','휴무'],
+ ['휴무','휴무','주간','주간','휴무','휴무','야간','야간'],
+ ['야간','야간','휴무','휴무','주간','주간','휴무','휴무'],
+ ['휴무','휴무','야간','야간','휴무','휴무','주간','주간']
+];
+// 친구근무 신규 항목의 기존 기본 주기는 계속 유지합니다.
+const CYCLE=[...FIXED_SHIFT_PATTERNS[0]];
+// 기존 계산을 그대로 보존하는 기본 배정: 기준일에 C조 주간 첫날.
+const DEFAULT_PATTERN_TEAM_ORDER=[2,3,0,1];
+const SHIFT_PATTERN_CONFIG_KEY='shiftTeamPatternConfig';
+
+function normalizeShiftPatternConfig_(raw){
+  const source=raw&&typeof raw==='object'?raw:{};
+  const rawNames=Array.isArray(source.teamNames)?source.teamNames:DEFAULT_TEAM_NAMES;
+  const teamNames=DEFAULT_TEAM_NAMES.map((fallback,index)=>{
+    const value=String(rawNames[index]??fallback).trim();
+    return value.slice(0,12)||fallback;
+  });
+  const rawOrder=Array.isArray(source.patternTeamOrder)
+    ?source.patternTeamOrder.map(Number)
+    :DEFAULT_PATTERN_TEAM_ORDER;
+  const validOrder=
+    rawOrder.length===4 &&
+    rawOrder.every(value=>Number.isInteger(value)&&value>=0&&value<4) &&
+    new Set(rawOrder).size===4;
+  const referenceDate=/^\d{4}-\d{2}-\d{2}$/.test(String(source.referenceDate||''))
+    ?String(source.referenceDate)
+    :DEFAULT_REF_DATE;
+  return {
+    schemaVersion:1,
+    teamNames,
+    patternTeamOrder:validOrder?rawOrder:[...DEFAULT_PATTERN_TEAM_ORDER],
+    referenceDate
+  };
+}
+
+let SHIFT_PATTERN_CONFIG=normalizeShiftPatternConfig_(
+  store.get(SHIFT_PATTERN_CONFIG_KEY,null)
+);
+let TEAMS=[...SHIFT_PATTERN_CONFIG.teamNames];
+let refDate=new Date(SHIFT_PATTERN_CONFIG.referenceDate+'T00:00:00');
 
 // 신규 사용자의 기본 조.
 // 실제 변경 이력 날짜는 사용자가 입력하기 전까지 만들지 않는다.
 const DEFAULT_TEAM_INDEX=2;
 const TEAM_HISTORY_SCHEMA_VERSION=4;
-
-let refDate=new Date(DEFAULT_REF_DATE+'T00:00:00');
 
 let baseTeamIndex=Number(
   store.get(
@@ -3664,11 +3858,12 @@ if(
 
 store.set('baseTeamIndex',baseTeamIndex);
 
-// 기준일은 회사 고정값으로 유지
-store.set('refDate',DEFAULT_REF_DATE);
+// 신규 패턴 설정을 저장하되 기존 refDate 키도 호환용으로 유지
+store.set(SHIFT_PATTERN_CONFIG_KEY,SHIFT_PATTERN_CONFIG);
+store.set('refDate',SHIFT_PATTERN_CONFIG.referenceDate);
 
 // 과거 회사명 저장값 제거
-localStorage.removeItem('companyName');
+store.remove('companyName');
 
 let SHIFT_STYLE=store.get('shiftStyle',{
  '주간':{label:'주',bg:'#f2e79a',color:'#3a3a1a'},
@@ -3802,13 +3997,13 @@ function getTypeStyle(key){
   return {label:key.slice(0,3),bg:`hsl(${hash},55%,55%)`,color:'#fff'};
 }
 const getMemo=d=>store.get('memo-'+dateKey(d),'');
-function setMemo(d,text){if(text&&text.trim())store.set('memo-'+dateKey(d),text.trim());else localStorage.removeItem('memo-'+dateKey(d))}
+function setMemo(d,text){if(text&&text.trim())store.set('memo-'+dateKey(d),text.trim());else store.remove('memo-'+dateKey(d))}
 const getOverride=d=>store.get('override-'+dateKey(d),null);
 function setOverride(d,key){
   if(key){
     store.set('override-'+dateKey(d),key);
   }else{
-    localStorage.removeItem('override-'+dateKey(d));
+    store.remove('override-'+dateKey(d));
   }
 }
 
@@ -3830,22 +4025,22 @@ function setCallWork(d,data){
       end:data.end
     });
   }else{
-    localStorage.removeItem(key);
+    store.remove(key);
   }
 }
 
 function getShiftForTeam(date,teamIndex){
-  const diffDays=Math.floor((stripTime(date)-stripTime(refDate))/86400000);
-
-  // 실제 근무 순환: A조 → B조 → C조 → D조 → A조
-  // 다음 조가 같은 근무를 2일 뒤에 이어받도록 패턴을 반대 방향으로 이동한다.
-  // 예: C조 주간 이후 D조가 주간을 이어받음.
-  const teamDistance=teamIndex-REF_TEAM_INDEX;
-  const offset=-(teamDistance*2);
-
-  let idx=(diffDays+offset)%CYCLE.length;
-  if(idx<0)idx+=CYCLE.length;
-  return CYCLE[idx];
+  const normalizedTeamIndex=Number(teamIndex);
+  const patternSlot=SHIFT_PATTERN_CONFIG.patternTeamOrder.indexOf(
+    normalizedTeamIndex
+  );
+  const safeSlot=patternSlot>=0?patternSlot:0;
+  const diffDays=Math.floor(
+    (stripTime(date)-stripTime(refDate))/86400000
+  );
+  let index=diffDays%8;
+  if(index<0)index+=8;
+  return FIXED_SHIFT_PATTERNS[safeSlot][index];
 }
 function getTeamIndexForDate(date){
   const key=dateKey(date);
@@ -4876,8 +5071,8 @@ function calcDeductions(totalA,salY,salM){
   앱을 완전히 종료한 뒤 다시 실행하거나 웹페이지를 새로 불러오면
   항상 오늘이 포함된 달에서 시작한다.
 */
-localStorage.removeItem('viewYear');
-localStorage.removeItem('viewMonth');
+store.remove('viewYear');
+store.remove('viewMonth');
 
 let viewYear=today.getFullYear();
 let viewMonth=today.getMonth();
@@ -5274,16 +5469,192 @@ function closeMemoModal(){
   memoTargetDate=null;
 }
 
+
+function renderPatternEditor_(){
+  if(!patternTeamNameGrid||!patternAssignmentList){
+    return;
+  }
+
+  patternTeamNameGrid.innerHTML='';
+  TEAMS.forEach((teamName,index)=>{
+    const wrap=document.createElement('div');
+    const label=document.createElement('label');
+    const input=document.createElement('input');
+    label.className='form-label';
+    label.textContent='조 '+(index+1);
+    input.type='text';
+    input.className='form-input pattern-team-name-input';
+    input.maxLength=12;
+    input.value=teamName;
+    input.dataset.teamIndex=String(index);
+    input.addEventListener('input',renderPatternAssignmentOptions_);
+    wrap.append(label,input);
+    patternTeamNameGrid.appendChild(wrap);
+  });
+
+  patternReferenceDate.value=SHIFT_PATTERN_CONFIG.referenceDate;
+  renderPatternAssignmentOptions_();
+}
+
+function getPatternEditorNames_(){
+  const inputs=[...document.querySelectorAll('.pattern-team-name-input')];
+  return DEFAULT_TEAM_NAMES.map((fallback,index)=>{
+    const input=inputs.find(node=>Number(node.dataset.teamIndex)===index);
+    return String(input?.value||fallback).trim().slice(0,12)||fallback;
+  });
+}
+
+function renderPatternAssignmentOptions_(){
+  if(!patternAssignmentList){
+    return;
+  }
+
+  const names=getPatternEditorNames_();
+  const previousValues=[...patternAssignmentList.querySelectorAll('select')]
+    .map(select=>Number(select.value));
+  const selectedOrder=previousValues.length===4
+    ?previousValues
+    :SHIFT_PATTERN_CONFIG.patternTeamOrder;
+
+  patternAssignmentList.innerHTML='';
+
+  FIXED_SHIFT_PATTERNS.forEach((patternItems,slot)=>{
+    const row=document.createElement('div');
+    row.className='pattern-assignment-row';
+
+    const select=document.createElement('select');
+    select.className='form-input pattern-assignment-select';
+    select.dataset.patternSlot=String(slot);
+
+    names.forEach((name,index)=>{
+      const option=document.createElement('option');
+      option.value=String(index);
+      option.textContent=name;
+      select.appendChild(option);
+    });
+
+    select.value=String(selectedOrder[slot]??slot);
+    select.addEventListener('change',()=>{
+      enforceUniquePatternAssignment_(select);
+      updatePatternValidation_();
+    });
+
+    const preview=document.createElement('div');
+    preview.className='pattern-preview-cells';
+    patternItems.forEach(status=>{
+      const cell=document.createElement('span');
+      const className=status==='주간'?'day':status==='야간'?'night':'off';
+      cell.className='pattern-preview-cell '+className;
+      cell.textContent=status==='주간'?'주':status==='야간'?'야':'휴';
+      preview.appendChild(cell);
+    });
+
+    row.append(select,preview);
+    patternAssignmentList.appendChild(row);
+  });
+
+  updatePatternValidation_();
+}
+
+function enforceUniquePatternAssignment_(changedSelect){
+  const selects=[...patternAssignmentList.querySelectorAll('select')];
+  const changedValue=changedSelect.value;
+  const duplicate=selects.find(
+    select=>select!==changedSelect&&select.value===changedValue
+  );
+
+  if(!duplicate){
+    return;
+  }
+
+  const used=new Set(selects.map(select=>select.value));
+  const available=['0','1','2','3'].find(value=>!used.has(value));
+  if(available!==undefined){
+    duplicate.value=available;
+  }
+}
+
+function getPatternEditorOrder_(){
+  return [...patternAssignmentList.querySelectorAll('select')]
+    .map(select=>Number(select.value));
+}
+
+function updatePatternValidation_(){
+  if(!patternValidation){
+    return false;
+  }
+  const names=getPatternEditorNames_();
+  const order=getPatternEditorOrder_();
+  const validNames=names.every(Boolean)&&new Set(names).size===4;
+  const validOrder=order.length===4&&new Set(order).size===4;
+  const validDate=/^\d{4}-\d{2}-\d{2}$/.test(patternReferenceDate.value);
+  const valid=validNames&&validOrder&&validDate;
+  patternValidation.className='pattern-validation '+(valid?'ok':'warn');
+  patternValidation.textContent=valid
+    ?'네 개 조가 네 가지 패턴에 한 번씩 배정되었습니다.'
+    :'조 이름 중복, 패턴 배정 중복 또는 기준일을 확인하세요.';
+  return valid;
+}
+
+function savePatternEditor_(){
+  if(!updatePatternValidation_()){
+    alert('패턴 설정을 확인하세요.');
+    return;
+  }
+
+  const previousNames=[...TEAMS];
+  const nextNames=getPatternEditorNames_();
+  const nextOrder=getPatternEditorOrder_();
+  const nextReferenceDate=patternReferenceDate.value;
+
+  SHIFT_PATTERN_CONFIG=normalizeShiftPatternConfig_({
+    teamNames:nextNames,
+    patternTeamOrder:nextOrder,
+    referenceDate:nextReferenceDate
+  });
+  TEAMS=[...SHIFT_PATTERN_CONFIG.teamNames];
+  refDate=new Date(SHIFT_PATTERN_CONFIG.referenceDate+'T00:00:00');
+  store.set(SHIFT_PATTERN_CONFIG_KEY,SHIFT_PATTERN_CONFIG);
+  store.set('refDate',SHIFT_PATTERN_CONFIG.referenceDate);
+
+  renderPatternEditor_();
+  renderTeamSelect();
+  renderTeamHistory();
+  renderCurrent();
+  renderPatternEditor_();
+  alert('근무 패턴과 조 이름을 저장했습니다.');
+}
+
+function resetPatternEditor_(){
+  if(!confirm('현재 회사 기본 패턴 배정과 조 이름으로 되돌릴까요?')){
+    return;
+  }
+  SHIFT_PATTERN_CONFIG=normalizeShiftPatternConfig_({
+    teamNames:DEFAULT_TEAM_NAMES,
+    patternTeamOrder:DEFAULT_PATTERN_TEAM_ORDER,
+    referenceDate:DEFAULT_REF_DATE
+  });
+  TEAMS=[...SHIFT_PATTERN_CONFIG.teamNames];
+  refDate=new Date(SHIFT_PATTERN_CONFIG.referenceDate+'T00:00:00');
+  store.set(SHIFT_PATTERN_CONFIG_KEY,SHIFT_PATTERN_CONFIG);
+  store.set('refDate',SHIFT_PATTERN_CONFIG.referenceDate);
+  renderPatternEditor_();
+  renderTeamSelect();
+  renderTeamHistory();
+  renderCurrent();
+}
+
 function openSettings(){
   settingsPanel.classList.remove('hidden');
 
-  settingsRefDate.value=DEFAULT_REF_DATE;
+  settingsRefDate.value=SHIFT_PATTERN_CONFIG.referenceDate;
 
-  const basisDate=new Date(DEFAULT_REF_DATE+'T00:00:00');
+  const basisDate=new Date(SHIFT_PATTERN_CONFIG.referenceDate+'T00:00:00');
+  const firstPatternTeam=TEAMS[SHIFT_PATTERN_CONFIG.patternTeamOrder[0]]||TEAMS[0];
   settingsRefDateText.textContent=
     basisDate.getFullYear()+'. '+
     (basisDate.getMonth()+1)+'. '+
-    basisDate.getDate()+'. · C조 주간 시작';
+    basisDate.getDate()+'. · '+firstPatternTeam+' 패턴 첫날';
 
   holidayDataUrl.value=store.get(
     'holidayDataUrl',
@@ -7018,6 +7389,10 @@ document.addEventListener('visibilitychange',()=>{
   }
 });
 
+if(patternSaveBtn){patternSaveBtn.onclick=savePatternEditor_;}
+if(patternResetBtn){patternResetBtn.onclick=resetPatternEditor_;}
+if(patternReferenceDate){patternReferenceDate.onchange=updatePatternValidation_;}
+
 settingsClose.onclick=()=>{settingsPanel.classList.add('hidden');switchTab('My');activateNav(navMy)};
 dashboardClose.onclick=()=>{dashboardPanel.classList.add('hidden');switchTab('My');activateNav(navMy)};
 salaryClose.onclick=()=>{salaryPanel.classList.add('hidden');switchTab('My');activateNav(navMy)};
@@ -7428,7 +7803,7 @@ clearMemosBtn.onclick=()=>{
         key.startsWith('memo-style-')
     )
     .forEach(
-      key=>localStorage.removeItem(key)
+      key=>store.remove(key)
     );
 
   renderCurrent();
@@ -7461,6 +7836,8 @@ salPrevBtn.onclick=()=>{salaryViewMonth--;if(salaryViewMonth<1){salaryViewMonth=
 
 /* ===== 선택형 Google Spreadsheet + GAS 백업 ===== */
 const GAS_CONFIG_KEY='shiftcalendarGasConfig';
+const CLOUD_BACKUP_CONFIG_KEY='shiftcalendarCloudBackupConfig';
+const CLOUD_BACKUP_API_URL='https://shiftcalendar-backup-api.efde234.workers.dev';
 const GAS_SERVER_CODE=String.raw`const DB_NAME = '교대달력 급여 데이터베이스';
 
 function setupDatabase() {
@@ -7609,7 +7986,16 @@ async function copyGasCode_(){
 }
 function collectBackupData_(){
   const local={};
-  for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k!==GAS_CONFIG_KEY)local[k]=localStorage.getItem(k)}
+  for(let i=0;i<localStorage.length;i++){
+    const key=localStorage.key(i);
+    if(
+      key &&
+      key!==GAS_CONFIG_KEY &&
+      key!==CLOUD_BACKUP_CONFIG_KEY
+    ){
+      local[key]=localStorage.getItem(key);
+    }
+  }
   return {schemaVersion:1,exportedAt:new Date().toISOString(),localStorage:local,salarySettings:SAL,teamHistory:TEAM_HISTORY,salaryOverrides:salOvr,companyHolidays:COMPANY_HOLIDAYS}
 }
 async function gasGet_(action){
@@ -7653,6 +8039,1159 @@ document.getElementById('gasTestBtn').onclick=testGasConnection_;
 document.getElementById('gasBackupBtn').onclick=backupToGas_;
 document.getElementById('gasRestoreBtn').onclick=restoreFromGas_;
 document.getElementById('gasGuideModal').onclick=e=>{if(e.target.id==='gasGuideModal')e.currentTarget.classList.add('hidden')};
+
+
+/* ===== 선택형 Cloudflare Worker + D1 클라우드 백업 ===== */
+const CLOUD_BACKUP_SCHEMA_VERSION=2;
+const CLOUD_BACKUP_MAX_CHUNK_BYTES=380*1024;
+const CLOUD_BACKUP_MAX_CHUNKS=16;
+const CLOUD_BACKUP_DEBOUNCE_MS=12000;
+const CLOUD_BACKUP_PERIODIC_MS=60000;
+
+let cloudAccessToken_=null;
+let cloudAccessTokenExpiresAt_=0;
+let cloudBackupTimer_=null;
+let cloudBackupPeriodicTimer_=null;
+let cloudBackupInFlight_=null;
+let cloudBackupReady_=false;
+let cloudBackupConflict_=false;
+let cloudBackupBusy_=false;
+let cloudBackupStatusMessage_='';
+let cloudBackupInitialized_=false;
+
+function defaultCloudBackupConfig_(){
+  return {
+    credential:'',
+    userId:'',
+    displayName:'',
+    contact:'',
+    status:'disconnected',
+    autoBackup:true,
+    lastPayloadHash:'',
+    lastBackupAt:'',
+    lastServerCreatedAt:0,
+    connectedAt:''
+  };
+}
+
+function getCloudBackupConfig_(){
+  const saved=store.get(
+    CLOUD_BACKUP_CONFIG_KEY,
+    {}
+  );
+
+  return {
+    ...defaultCloudBackupConfig_(),
+    ...(saved&&typeof saved==='object'?saved:{})
+  };
+}
+
+function saveCloudBackupConfig_(patch){
+  const next={
+    ...getCloudBackupConfig_(),
+    ...(patch&&typeof patch==='object'?patch:{})
+  };
+
+  store.set(
+    CLOUD_BACKUP_CONFIG_KEY,
+    next
+  );
+
+  return next;
+}
+
+function cloudBackupElements_(){
+  return {
+    displayName:document.getElementById('cloudBackupDisplayName'),
+    contact:document.getElementById('cloudBackupContact'),
+    credential:document.getElementById('cloudBackupCredential'),
+    register:document.getElementById('cloudBackupRegisterBtn'),
+    connect:document.getElementById('cloudBackupConnectBtn'),
+    reveal:document.getElementById('cloudBackupRevealBtn'),
+    copy:document.getElementById('cloudBackupCopyBtn'),
+    backup:document.getElementById('cloudBackupNowBtn'),
+    restore:document.getElementById('cloudRestoreBtn'),
+    auto:document.getElementById('cloudAutoBackupEnabled'),
+    conflict:document.getElementById('cloudBackupConflictBox'),
+    useLocal:document.getElementById('cloudBackupUseLocalBtn'),
+    useCloud:document.getElementById('cloudBackupUseCloudBtn'),
+    userInfo:document.getElementById('cloudBackupUserInfo'),
+    status:document.getElementById('cloudBackupStatus'),
+    disconnect:document.getElementById('cloudBackupDisconnectBtn')
+  };
+}
+
+function setCloudBackupStatus_(message){
+  cloudBackupStatusMessage_=String(message||'');
+  renderCloudBackupUi_();
+}
+
+function formatCloudBackupTime_(value){
+  if(!value) return '';
+
+  const date=new Date(value);
+  if(Number.isNaN(date.getTime())) return '';
+
+  return date.toLocaleString('ko-KR');
+}
+
+function renderCloudBackupUi_(){
+  const elements=cloudBackupElements_();
+  if(!elements.status) return;
+
+  const config=getCloudBackupConfig_();
+  const hasCredential=Boolean(config.credential);
+  const approved=config.status==='approved';
+
+  if(
+    elements.displayName &&
+    document.activeElement!==elements.displayName
+  ){
+    elements.displayName.value=config.displayName||'';
+  }
+
+  if(
+    elements.contact &&
+    document.activeElement!==elements.contact
+  ){
+    elements.contact.value=config.contact||'';
+  }
+
+  if(
+    elements.credential &&
+    document.activeElement!==elements.credential
+  ){
+    elements.credential.value=config.credential||'';
+  }
+
+  if(elements.auto){
+    elements.auto.checked=config.autoBackup!==false;
+  }
+
+  if(elements.conflict){
+    elements.conflict.classList.toggle(
+      'hidden',
+      !cloudBackupConflict_
+    );
+  }
+
+  if(elements.userInfo){
+    if(!hasCredential){
+      elements.userInfo.textContent='미연결 · 현재 로컬 저장과 기존 백업 기능은 그대로 사용 중';
+    }else if(config.status==='pending'){
+      elements.userInfo.textContent=
+        `승인 대기 · ${config.displayName||'이름 없음'} · 사용자 ID ${config.userId||'확인 중'}`;
+    }else if(approved){
+      elements.userInfo.textContent=
+        `연결됨 · ${config.displayName||'사용자'} · 사용자 ID ${config.userId||''}`;
+    }else if(config.status==='blocked'){
+      elements.userInfo.textContent='클라우드 사용이 중지된 계정입니다.';
+    }else{
+      elements.userInfo.textContent='연결 코드 저장됨 · 승인 상태 확인 필요';
+    }
+  }
+
+  if(cloudBackupStatusMessage_){
+    elements.status.textContent=cloudBackupStatusMessage_;
+  }else if(config.lastBackupAt){
+    elements.status.textContent=
+      `마지막 클라우드 백업: ${formatCloudBackupTime_(config.lastBackupAt)}`;
+  }else if(config.status==='pending'){
+    elements.status.textContent='관리자 승인 후 “연결 코드 저장·승인 확인”을 다시 누르세요.';
+  }else if(approved){
+    elements.status.textContent=cloudBackupReady_
+      ?'클라우드와 연결되었습니다.'
+      :'클라우드 데이터 상태를 확인하는 중입니다.';
+  }else{
+    elements.status.textContent='연결 신청 또는 기존 연결 코드 입력이 필요합니다.';
+  }
+
+  if(elements.reveal){
+    elements.reveal.disabled=!hasCredential&&!(elements.credential&&elements.credential.value);
+    elements.reveal.textContent=
+      elements.credential&&elements.credential.type==='text'
+        ?'숨기기'
+        :'표시';
+  }
+
+  if(elements.copy){
+    elements.copy.disabled=!hasCredential&&!(elements.credential&&elements.credential.value);
+  }
+
+  if(elements.backup){
+    elements.backup.disabled=cloudBackupBusy_||!approved;
+  }
+
+  if(elements.restore){
+    elements.restore.disabled=cloudBackupBusy_||!approved;
+  }
+
+  if(elements.connect){
+    elements.connect.disabled=cloudBackupBusy_;
+  }
+
+  if(elements.register){
+    elements.register.disabled=cloudBackupBusy_;
+  }
+
+  if(elements.disconnect){
+    elements.disconnect.disabled=cloudBackupBusy_||!hasCredential;
+  }
+}
+
+function cloudStableValue_(value){
+  if(Array.isArray(value)){
+    return value.map(cloudStableValue_);
+  }
+
+  if(value&&typeof value==='object'){
+    const result={};
+
+    Object.keys(value)
+      .sort()
+      .forEach(key=>{
+        result[key]=cloudStableValue_(value[key]);
+      });
+
+    return result;
+  }
+
+  return value;
+}
+
+function cloudStableStringify_(value){
+  return JSON.stringify(
+    cloudStableValue_(value)
+  );
+}
+
+async function cloudSha256_(text){
+  const webCrypto=window.crypto;
+
+  if(!webCrypto||!webCrypto.subtle){
+    throw new Error('이 브라우저에서는 안전한 해시 계산을 지원하지 않습니다.');
+  }
+
+  const bytes=new TextEncoder().encode(text);
+  const digest=await webCrypto.subtle.digest(
+    'SHA-256',
+    bytes
+  );
+
+  return 'sha256:'+Array.from(
+    new Uint8Array(digest)
+  ).map(byte=>byte.toString(16).padStart(2,'0')).join('');
+}
+
+async function createCloudBackupSnapshot_(){
+  const data=collectBackupData_();
+  const content={...data};
+  delete content.exportedAt;
+
+  const contentJson=cloudStableStringify_(content);
+  const payloadHash=await cloudSha256_(contentJson);
+  const exportedAt=new Date().toISOString();
+
+  data.exportedAt=exportedAt;
+
+  const envelope={
+    app:'교대달력',
+    formatVersion:2,
+    exportedAt,
+    data
+  };
+
+  const payloadJson=cloudStableStringify_(envelope);
+
+  return {
+    data,
+    envelope,
+    payloadJson,
+    payloadHash,
+    sizeBytes:new TextEncoder().encode(payloadJson).byteLength
+  };
+}
+
+function splitCloudBackupChunks_(text){
+  const encoder=new TextEncoder();
+  const chunks=[];
+  let start=0;
+
+  while(start<text.length){
+    let low=start+1;
+    let high=Math.min(
+      text.length,
+      start+CLOUD_BACKUP_MAX_CHUNK_BYTES
+    );
+    let best=start;
+
+    while(low<=high){
+      const middle=Math.floor((low+high)/2);
+      const size=encoder.encode(
+        text.slice(start,middle)
+      ).byteLength;
+
+      if(size<=CLOUD_BACKUP_MAX_CHUNK_BYTES){
+        best=middle;
+        low=middle+1;
+      }else{
+        high=middle-1;
+      }
+    }
+
+    if(best<=start){
+      throw new Error('클라우드 백업 데이터를 안전하게 나눌 수 없습니다.');
+    }
+
+    if(
+      best<text.length &&
+      /[\uD800-\uDBFF]/.test(text.charAt(best-1)) &&
+      /[\uDC00-\uDFFF]/.test(text.charAt(best))
+    ){
+      best-=1;
+    }
+
+    chunks.push(
+      text.slice(start,best)
+    );
+    start=best;
+  }
+
+  if(chunks.length>CLOUD_BACKUP_MAX_CHUNKS){
+    throw new Error('클라우드 백업 데이터가 허용된 크기를 초과했습니다. JSON 백업을 사용하세요.');
+  }
+
+  return chunks;
+}
+
+function cloudApiError_(response,data){
+  const error=new Error(
+    data&&data.error&&data.error.message
+      ?data.error.message
+      :`클라우드 요청 실패 · HTTP ${response.status}`
+  );
+
+  error.status=response.status;
+  error.code=
+    data&&data.error&&data.error.code
+      ?data.error.code
+      :'request_failed';
+
+  return error;
+}
+
+async function cloudRawRequest_(path,options={}){
+  const controller=new AbortController();
+  const timeout=setTimeout(
+    ()=>controller.abort(),
+    20000
+  );
+
+  const headers={
+    Accept:'application/json',
+    ...(options.headers||{})
+  };
+
+  if(options.body!==undefined){
+    headers['Content-Type']='application/json';
+  }
+
+  if(options.token){
+    headers.Authorization='Bearer '+options.token;
+  }
+
+  try{
+    const response=await fetch(
+      CLOUD_BACKUP_API_URL+path,
+      {
+        method:options.method||'GET',
+        headers,
+        body:options.body===undefined
+          ?undefined
+          :JSON.stringify(options.body),
+        cache:'no-store',
+        signal:controller.signal
+      }
+    );
+
+    const text=await response.text();
+    let data=null;
+
+    try{
+      data=text?JSON.parse(text):{};
+    }catch(error){
+      throw new Error('클라우드 서버 응답을 읽을 수 없습니다.');
+    }
+
+    if(!response.ok){
+      throw cloudApiError_(response,data);
+    }
+
+    return data;
+  }catch(error){
+    if(error&&error.name==='AbortError'){
+      throw new Error('클라우드 서버 응답 시간이 초과되었습니다.');
+    }
+
+    if(error instanceof TypeError){
+      throw new Error('클라우드 서버에 연결할 수 없습니다. 네트워크 상태를 확인하세요.');
+    }
+
+    throw error;
+  }finally{
+    clearTimeout(timeout);
+  }
+}
+
+async function loginCloudBackup_(){
+  const config=getCloudBackupConfig_();
+
+  if(!config.credential){
+    throw new Error('연결 코드를 먼저 입력하세요.');
+  }
+
+  const result=await cloudRawRequest_(
+    '/v1/login',
+    {
+      method:'POST',
+      body:{credential:config.credential}
+    }
+  );
+
+  const user=result.user||{};
+
+  saveCloudBackupConfig_({
+    userId:user.userId||config.userId||'',
+    displayName:user.displayName||config.displayName||'',
+    status:user.status||'unknown',
+    connectedAt:config.connectedAt||new Date().toISOString()
+  });
+
+  if(user.status==='pending'||!result.accessToken){
+    cloudAccessToken_=null;
+    cloudAccessTokenExpiresAt_=0;
+    cloudBackupReady_=false;
+    setCloudBackupStatus_('승인 대기 중입니다. 관리자 승인 후 다시 확인하세요.');
+    return result;
+  }
+
+  cloudAccessToken_=result.accessToken;
+  cloudAccessTokenExpiresAt_=
+    Date.now()+Math.max(0,Number(result.expiresIn||0)-60)*1000;
+
+  return result;
+}
+
+async function ensureCloudAccessToken_(){
+  if(
+    cloudAccessToken_ &&
+    cloudAccessTokenExpiresAt_>Date.now()
+  ){
+    return cloudAccessToken_;
+  }
+
+  const result=await loginCloudBackup_();
+
+  if(!result.accessToken){
+    const error=new Error('관리자 승인 대기 중입니다.');
+    error.code='account_pending';
+    throw error;
+  }
+
+  return cloudAccessToken_;
+}
+
+async function cloudAuthorizedRequest_(path,options={},retry=true){
+  const token=await ensureCloudAccessToken_();
+
+  try{
+    return await cloudRawRequest_(
+      path,
+      {...options,token}
+    );
+  }catch(error){
+    if(
+      retry &&
+      error &&
+      error.status===401
+    ){
+      cloudAccessToken_=null;
+      cloudAccessTokenExpiresAt_=0;
+
+      return cloudAuthorizedRequest_(
+        path,
+        options,
+        false
+      );
+    }
+
+    throw error;
+  }
+}
+
+async function registerCloudBackup_(){
+  const elements=cloudBackupElements_();
+  const current=getCloudBackupConfig_();
+  const displayName=String(elements.displayName?.value||'').trim();
+  const contact=String(elements.contact?.value||'').trim();
+
+  if(!displayName){
+    alert('관리자가 알아볼 연결 신청 이름을 입력하세요.');
+    elements.displayName?.focus();
+    return;
+  }
+
+  if(
+    current.credential &&
+    !confirm('새 연결을 신청하면 이 기기의 기존 클라우드 연결정보가 새 코드로 교체됩니다. 계속할까요?')
+  ){
+    return;
+  }
+
+  cloudBackupBusy_=true;
+  setCloudBackupStatus_('새 사용자 연결을 신청하는 중입니다...');
+
+  try{
+    const result=await cloudRawRequest_(
+      '/v1/register',
+      {
+        method:'POST',
+        body:{displayName,contact}
+      }
+    );
+
+    const user=result.user||{};
+    const credential=String(result.credential||'');
+
+    saveCloudBackupConfig_({
+      credential,
+      userId:user.userId||'',
+      displayName:user.displayName||displayName,
+      contact,
+      status:user.status||'pending',
+      autoBackup:true,
+      lastPayloadHash:'',
+      lastBackupAt:'',
+      lastServerCreatedAt:0,
+      connectedAt:new Date().toISOString()
+    });
+
+    cloudAccessToken_=null;
+    cloudAccessTokenExpiresAt_=0;
+    cloudBackupReady_=false;
+    cloudBackupConflict_=false;
+
+    if(elements.credential){
+      elements.credential.value=credential;
+    }
+
+    try{
+      await copyCloudCredential_();
+    }catch(error){
+      console.warn('연결 코드 자동 복사 실패',error);
+    }
+
+    setCloudBackupStatus_('연결 신청 완료 · 관리자 승인 대기 · 연결 코드를 외부에 보관하세요.');
+    alert(
+      '클라우드 연결 신청이 완료되었습니다.\n\n'+
+      '연결 코드를 클립보드에 복사했습니다. 메모장이나 비밀번호 관리 앱 등 다른 곳에도 반드시 보관하세요.\n\n'+
+      '관리자 승인 후 “연결 코드 저장·승인 확인”을 다시 누르세요.'
+    );
+  }catch(error){
+    setCloudBackupStatus_('연결 신청 실패: '+error.message);
+    alert('클라우드 연결 신청 실패: '+error.message);
+  }finally{
+    cloudBackupBusy_=false;
+    renderCloudBackupUi_();
+  }
+}
+
+async function copyTextSafely_(text){
+  if(navigator.clipboard&&window.isSecureContext){
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textarea=document.createElement('textarea');
+  textarea.value=text;
+  textarea.style.position='fixed';
+  textarea.style.opacity='0';
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+
+  const copied=document.execCommand('copy');
+  textarea.remove();
+
+  if(!copied){
+    throw new Error('클립보드 복사 실패');
+  }
+}
+
+async function copyCloudCredential_(){
+  const elements=cloudBackupElements_();
+  const config=getCloudBackupConfig_();
+  const credential=String(
+    elements.credential?.value||config.credential||''
+  ).trim();
+
+  if(!credential){
+    alert('복사할 연결 코드가 없습니다.');
+    return;
+  }
+
+  await copyTextSafely_(credential);
+  setCloudBackupStatus_('연결 코드를 복사했습니다. 다른 안전한 곳에 보관하세요.');
+}
+
+function saveCloudCredentialFromUi_(){
+  const elements=cloudBackupElements_();
+  const credential=String(elements.credential?.value||'').trim();
+  const displayName=String(elements.displayName?.value||'').trim();
+  const contact=String(elements.contact?.value||'').trim();
+  const current=getCloudBackupConfig_();
+
+  if(!credential){
+    alert('연결 코드를 입력하세요.');
+    elements.credential?.focus();
+    return false;
+  }
+
+  saveCloudBackupConfig_({
+    credential,
+    displayName:displayName||current.displayName||'',
+    contact:contact||current.contact||'',
+    status:
+      credential===current.credential
+        ?current.status
+        :'unknown',
+    lastPayloadHash:
+      credential===current.credential
+        ?current.lastPayloadHash
+        :'',
+    lastBackupAt:
+      credential===current.credential
+        ?current.lastBackupAt
+        :'',
+    lastServerCreatedAt:
+      credential===current.credential
+        ?current.lastServerCreatedAt
+        :0,
+    connectedAt:current.connectedAt||new Date().toISOString()
+  });
+
+  cloudAccessToken_=null;
+  cloudAccessTokenExpiresAt_=0;
+  cloudBackupReady_=false;
+  cloudBackupConflict_=false;
+
+  return true;
+}
+
+async function connectAndReconcileCloudBackup_(interactive=true){
+  if(!saveCloudCredentialFromUi_()) return;
+
+  cloudBackupBusy_=true;
+  setCloudBackupStatus_('연결 코드와 승인 상태를 확인하는 중입니다...');
+
+  try{
+    const loginResult=await loginCloudBackup_();
+
+    if(!loginResult.accessToken){
+      if(interactive){
+        alert('아직 관리자 승인 대기 중입니다.');
+      }
+      return;
+    }
+
+    setCloudBackupStatus_('클라우드 백업 상태를 비교하는 중입니다...');
+
+    const [metaResult,localSnapshot]=await Promise.all([
+      cloudAuthorizedRequest_('/v1/backup/meta'),
+      createCloudBackupSnapshot_()
+    ]);
+
+    const remote=metaResult.backup;
+
+    if(!remote){
+      await uploadCurrentCloudBackup_({
+        silent:!interactive,
+        initial:true,
+        snapshot:localSnapshot
+      });
+      return;
+    }
+
+    if(remote.payloadHash===localSnapshot.payloadHash){
+      cloudBackupReady_=true;
+      cloudBackupConflict_=false;
+
+      saveCloudBackupConfig_({
+        status:'approved',
+        lastPayloadHash:remote.payloadHash,
+        lastBackupAt:new Date(remote.serverCreatedAt).toISOString(),
+        lastServerCreatedAt:remote.serverCreatedAt
+      });
+
+      setCloudBackupStatus_(
+        `클라우드와 같은 데이터입니다 · 마지막 백업 ${formatCloudBackupTime_(remote.serverCreatedAt)}`
+      );
+      return;
+    }
+
+    const syncedConfig=getCloudBackupConfig_();
+    const lastKnownHash=String(
+      syncedConfig.lastPayloadHash||''
+    );
+
+    /*
+      마지막 동기화 이후 클라우드는 그대로이고 이 기기만 변경된 경우에는
+      안전하게 현재 기기 데이터를 이어서 백업한다.
+      다른 기기에서 클라우드가 바뀌었거나 양쪽이 모두 바뀐 경우에는
+      어느 쪽도 자동으로 덮어쓰지 않고 사용자가 직접 선택한다.
+    */
+    if(
+      lastKnownHash &&
+      remote.payloadHash===lastKnownHash &&
+      localSnapshot.payloadHash!==lastKnownHash
+    ){
+      cloudBackupReady_=true;
+      cloudBackupConflict_=false;
+      setCloudBackupStatus_('이 기기의 미백업 변경사항을 클라우드에 반영하는 중입니다...');
+
+      await uploadCurrentCloudBackup_({
+        silent:!interactive,
+        snapshot:localSnapshot
+      });
+      return;
+    }
+
+    cloudBackupReady_=false;
+    cloudBackupConflict_=true;
+    setCloudBackupStatus_('현재 기기와 클라우드 데이터가 다릅니다. 사용할 데이터를 선택하세요.');
+
+    if(interactive){
+      alert('현재 기기와 클라우드 데이터가 서로 달라 자동으로 덮어쓰지 않았습니다. 설정의 선택 버튼에서 사용할 데이터를 정하세요.');
+    }
+  }catch(error){
+    if(error&&error.code==='account_pending'){
+      setCloudBackupStatus_('관리자 승인 대기 중입니다.');
+    }else{
+      if(error&&error.code==='account_blocked'){
+        saveCloudBackupConfig_({status:'blocked'});
+      }
+      setCloudBackupStatus_('클라우드 연결 실패: '+error.message);
+      if(interactive) alert('클라우드 연결 실패: '+error.message);
+    }
+  }finally{
+    cloudBackupBusy_=false;
+    renderCloudBackupUi_();
+  }
+}
+
+async function uploadCurrentCloudBackup_(options={}){
+  if(cloudBackupInFlight_){
+    return cloudBackupInFlight_;
+  }
+
+  cloudBackupInFlight_=(async()=>{
+    const config=getCloudBackupConfig_();
+
+    if(!config.credential){
+      if(!options.silent) alert('클라우드 연결 코드를 먼저 저장하세요.');
+      return null;
+    }
+
+    if(navigator.onLine===false){
+      if(!options.silent) alert('오프라인에서는 클라우드 백업을 할 수 없습니다.');
+      return null;
+    }
+
+    cloudBackupBusy_=true;
+    setCloudBackupStatus_(
+      options.initial
+        ?'최초 클라우드 백업을 만드는 중입니다...'
+        :'클라우드에 백업하는 중입니다...'
+    );
+
+    const snapshot=options.snapshot||await createCloudBackupSnapshot_();
+
+    if(
+      !options.force &&
+      config.lastPayloadHash &&
+      config.lastPayloadHash===snapshot.payloadHash &&
+      cloudBackupReady_
+    ){
+      setCloudBackupStatus_('변경사항이 없어 클라우드 백업을 생략했습니다.');
+      return null;
+    }
+
+    if(
+      cloudBackupConflict_ &&
+      !options.force
+    ){
+      setCloudBackupStatus_('데이터 충돌 선택이 끝날 때까지 자동백업을 중지했습니다.');
+      return null;
+    }
+
+    const chunks=splitCloudBackupChunks_(
+      snapshot.payloadJson
+    );
+
+    const result=await cloudAuthorizedRequest_(
+      '/v1/backup',
+      {
+        method:'POST',
+        body:{
+          payloadHash:snapshot.payloadHash,
+          schemaVersion:CLOUD_BACKUP_SCHEMA_VERSION,
+          clientUpdatedAt:Date.now(),
+          chunks
+        }
+      }
+    );
+
+    const backup=result.backup||{};
+    const serverCreatedAt=Number(backup.serverCreatedAt||Date.now());
+
+    cloudBackupReady_=true;
+    cloudBackupConflict_=false;
+
+    saveCloudBackupConfig_({
+      status:'approved',
+      lastPayloadHash:snapshot.payloadHash,
+      lastBackupAt:new Date(serverCreatedAt).toISOString(),
+      lastServerCreatedAt:serverCreatedAt
+    });
+
+    setCloudBackupStatus_(
+      `클라우드 백업 완료 · ${formatCloudBackupTime_(serverCreatedAt)}`
+    );
+
+    if(!options.silent){
+      alert('클라우드 백업이 완료되었습니다.');
+    }
+
+    return result;
+  })()
+    .catch(error=>{
+      setCloudBackupStatus_('클라우드 백업 실패: '+error.message);
+      if(!options.silent){
+        alert('클라우드 백업 실패: '+error.message);
+      }
+      return null;
+    })
+    .finally(()=>{
+      cloudBackupBusy_=false;
+      cloudBackupInFlight_=null;
+      renderCloudBackupUi_();
+    });
+
+  return cloudBackupInFlight_;
+}
+
+async function cloudBackupContentHash_(backupData){
+  const content={...(backupData||{})};
+  delete content.exportedAt;
+
+  return cloudSha256_(
+    cloudStableStringify_(content)
+  );
+}
+
+function restoreLocalBackupData_(backup){
+  if(!backup||!backup.localStorage){
+    throw new Error('교대달력 백업 데이터 형식이 올바르지 않습니다.');
+  }
+
+  const preserved={};
+
+  [
+    GAS_CONFIG_KEY,
+    CLOUD_BACKUP_CONFIG_KEY
+  ].forEach(key=>{
+    const value=localStorage.getItem(key);
+    if(value!==null) preserved[key]=value;
+  });
+
+  localStorage.clear();
+
+  Object.entries(backup.localStorage).forEach(([key,value])=>{
+    if(
+      key===GAS_CONFIG_KEY ||
+      key===CLOUD_BACKUP_CONFIG_KEY
+    ){
+      return;
+    }
+
+    localStorage.setItem(key,value);
+  });
+
+  Object.entries(preserved).forEach(([key,value])=>{
+    localStorage.setItem(key,value);
+  });
+}
+
+async function restoreFromCloudBackup_(interactive=true){
+  const config=getCloudBackupConfig_();
+
+  if(!config.credential){
+    if(interactive) alert('클라우드 연결 코드를 먼저 저장하세요.');
+    return;
+  }
+
+  cloudBackupBusy_=true;
+  setCloudBackupStatus_('클라우드 백업을 불러오는 중입니다...');
+
+  try{
+    const result=await cloudAuthorizedRequest_('/v1/backup');
+    const remote=result.backup;
+
+    if(!remote||!Array.isArray(remote.chunks)){
+      throw new Error('저장된 클라우드 백업이 없습니다.');
+    }
+
+    const payloadJson=remote.chunks.join('');
+    const parsed=JSON.parse(payloadJson);
+    const backup=normalizeDeviceBackup_(parsed);
+    const calculatedHash=await cloudBackupContentHash_(backup);
+
+    if(calculatedHash!==remote.payloadHash){
+      throw new Error('클라우드 백업 무결성 확인에 실패했습니다.');
+    }
+
+    const backupTime=formatCloudBackupTime_(remote.serverCreatedAt)||'날짜 정보 없음';
+
+    if(
+      interactive &&
+      !confirm(
+        `클라우드 백업으로 현재 기기 데이터를 덮어씁니다.\n백업 일시: ${backupTime}\n\n기존 GAS 연결정보와 클라우드 연결 코드는 유지됩니다. 계속할까요?`
+      )
+    ){
+      return;
+    }
+
+    restoreLocalBackupData_(backup);
+
+    const nextConfig={
+      ...getCloudBackupConfig_(),
+      status:'approved',
+      lastPayloadHash:remote.payloadHash,
+      lastBackupAt:new Date(remote.serverCreatedAt).toISOString(),
+      lastServerCreatedAt:remote.serverCreatedAt
+    };
+
+    localStorage.setItem(
+      CLOUD_BACKUP_CONFIG_KEY,
+      JSON.stringify(nextConfig)
+    );
+
+    alert('클라우드 백업을 복원했습니다. 앱을 다시 시작합니다.');
+    location.reload();
+  }catch(error){
+    setCloudBackupStatus_('클라우드 복원 실패: '+error.message);
+    if(interactive) alert('클라우드 복원 실패: '+error.message);
+  }finally{
+    cloudBackupBusy_=false;
+    renderCloudBackupUi_();
+  }
+}
+
+async function useLocalDataForCloud_(){
+  if(
+    !confirm('현재 기기 데이터로 클라우드 백업을 교체할까요? 기존 클라우드 버전은 최근 3개 범위에서 보관됩니다.')
+  ){
+    return;
+  }
+
+  await uploadCurrentCloudBackup_({
+    force:true,
+    silent:false
+  });
+}
+
+function scheduleCloudBackup_(){
+  const config=getCloudBackupConfig_();
+
+  if(
+    !cloudBackupInitialized_ ||
+    !config.credential ||
+    config.status!=='approved' ||
+    config.autoBackup===false ||
+    cloudBackupConflict_
+  ){
+    return;
+  }
+
+  clearTimeout(cloudBackupTimer_);
+
+  cloudBackupTimer_=setTimeout(
+    ()=>{
+      flushCloudBackup_();
+    },
+    CLOUD_BACKUP_DEBOUNCE_MS
+  );
+}
+
+async function flushCloudBackup_(){
+  const config=getCloudBackupConfig_();
+
+  if(
+    !cloudBackupInitialized_ ||
+    !cloudBackupReady_ ||
+    !config.credential ||
+    config.status!=='approved' ||
+    config.autoBackup===false ||
+    cloudBackupConflict_ ||
+    navigator.onLine===false
+  ){
+    return;
+  }
+
+  try{
+    const snapshot=await createCloudBackupSnapshot_();
+
+    if(snapshot.payloadHash===config.lastPayloadHash){
+      return;
+    }
+
+    await uploadCurrentCloudBackup_({
+      silent:true,
+      snapshot
+    });
+  }catch(error){
+    console.warn('자동 클라우드 백업 실패',error);
+    setCloudBackupStatus_('자동백업 실패: '+error.message);
+  }
+}
+
+window.shiftcalendarCloudMarkDirty=function(storageKey){
+  if(
+    storageKey===CLOUD_BACKUP_CONFIG_KEY ||
+    storageKey===GAS_CONFIG_KEY
+  ){
+    return;
+  }
+
+  scheduleCloudBackup_();
+};
+
+async function initializeCloudBackup_(){
+  if(cloudBackupInitialized_) return;
+
+  cloudBackupInitialized_=true;
+  renderCloudBackupUi_();
+
+  if(!cloudBackupPeriodicTimer_){
+    cloudBackupPeriodicTimer_=setInterval(
+      flushCloudBackup_,
+      CLOUD_BACKUP_PERIODIC_MS
+    );
+  }
+
+  const config=getCloudBackupConfig_();
+
+  if(!config.credential){
+    setCloudBackupStatus_('클라우드 미연결 · 로컬·JSON·GAS 백업은 그대로 사용할 수 있습니다.');
+    return;
+  }
+
+  const elements=cloudBackupElements_();
+  if(elements.credential){
+    elements.credential.value=config.credential;
+  }
+
+  await connectAndReconcileCloudBackup_(false);
+}
+
+const cloudElements_=cloudBackupElements_();
+
+cloudElements_.register.onclick=registerCloudBackup_;
+cloudElements_.connect.onclick=()=>connectAndReconcileCloudBackup_(true);
+cloudElements_.copy.onclick=()=>{
+  copyCloudCredential_().catch(error=>{
+    alert('연결 코드 복사 실패: '+error.message);
+  });
+};
+cloudElements_.reveal.onclick=()=>{
+  const input=cloudElements_.credential;
+  input.type=input.type==='password'?'text':'password';
+  renderCloudBackupUi_();
+};
+cloudElements_.backup.onclick=async()=>{
+  const config=getCloudBackupConfig_();
+
+  if(!config.credential){
+    alert('클라우드 연결 코드를 먼저 저장하세요.');
+    return;
+  }
+
+  if(cloudBackupConflict_){
+    await useLocalDataForCloud_();
+    return;
+  }
+
+  await uploadCurrentCloudBackup_({
+    silent:false,
+    force:false
+  });
+};
+cloudElements_.restore.onclick=()=>restoreFromCloudBackup_(true);
+cloudElements_.useLocal.onclick=useLocalDataForCloud_;
+cloudElements_.useCloud.onclick=()=>restoreFromCloudBackup_(true);
+cloudElements_.auto.onchange=()=>{
+  saveCloudBackupConfig_({
+    autoBackup:cloudElements_.auto.checked
+  });
+
+  if(cloudElements_.auto.checked){
+    scheduleCloudBackup_();
+    setCloudBackupStatus_('변경사항 자동백업을 사용합니다.');
+  }else{
+    clearTimeout(cloudBackupTimer_);
+    setCloudBackupStatus_('자동백업을 중지했습니다. 수동 백업은 계속 사용할 수 있습니다.');
+  }
+};
+cloudElements_.disconnect.onclick=()=>{
+  if(
+    !confirm('이 기기에서 클라우드 연결 코드만 삭제할까요? 현재 기기 데이터와 서버에 저장된 백업은 삭제되지 않습니다.')
+  ){
+    return;
+  }
+
+  clearTimeout(cloudBackupTimer_);
+  store.remove(CLOUD_BACKUP_CONFIG_KEY);
+  cloudAccessToken_=null;
+  cloudAccessTokenExpiresAt_=0;
+  cloudBackupReady_=false;
+  cloudBackupConflict_=false;
+  cloudBackupStatusMessage_='클라우드 연결정보를 이 기기에서 삭제했습니다.';
+
+  if(cloudElements_.credential){
+    cloudElements_.credential.value='';
+    cloudElements_.credential.type='password';
+  }
+
+  renderCloudBackupUi_();
+};
+
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='hidden'){
+    flushCloudBackup_();
+  }else if(document.visibilityState==='visible'){
+    renderCloudBackupUi_();
+    flushCloudBackup_();
+  }
+});
+
+window.addEventListener('online',()=>{
+  setCloudBackupStatus_('네트워크가 연결되어 클라우드 상태를 확인합니다.');
+  flushCloudBackup_();
+});
+
+window.addEventListener('pagehide',()=>{
+  flushCloudBackup_();
+});
 
 
 // 현재 페이지 URL 공유
@@ -7755,7 +9294,7 @@ async function writeDeviceBackupHandle_(handle){
   const writable=await handle.createWritable();
   await writable.write(deviceBackupJson_());
   await writable.close();
-  localStorage.setItem('deviceBackupLastSavedAt',new Date().toISOString());
+  store.setRaw('deviceBackupLastSavedAt',new Date().toISOString());
   setDeviceBackupStatus_(`저장 완료: ${handle.name} · ${new Date().toLocaleString('ko-KR')}`);
 }
 
@@ -7816,7 +9355,7 @@ async function exportDeviceBackup_(){
       link.remove();
       setTimeout(()=>URL.revokeObjectURL(objectUrl),1000);
     }
-    localStorage.setItem('deviceBackupLastSavedAt',new Date().toISOString());
+    store.setRaw('deviceBackupLastSavedAt',new Date().toISOString());
     setDeviceBackupStatus_(`새 JSON 생성 완료 · ${new Date().toLocaleString('ko-KR')}`);
   }catch(error){
     if(error&&error.name!=='AbortError'){
@@ -7842,14 +9381,9 @@ async function restoreDeviceBackupFile_(file){
 
   if(!confirm(`백업 파일을 불러오면 현재 기기 데이터를 덮어씁니다.\n백업 일시: ${when}\n계속할까요?`)) return;
 
-  const gasConfig=getGasConfig_();
-  localStorage.clear();
-  Object.entries(backup.localStorage||{}).forEach(([key,value])=>{
-    localStorage.setItem(key,value);
-  });
-  if(gasConfig&&gasConfig.url) store.set(GAS_CONFIG_KEY,gasConfig);
+  restoreLocalBackupData_(backup);
 
-  alert('백업 파일을 불러왔습니다. 앱을 다시 시작합니다.');
+  alert('백업 파일을 불러왔습니다. GAS와 클라우드 연결정보는 유지됩니다. 앱을 다시 시작합니다.');
   location.reload();
 }
 
@@ -7892,8 +9426,13 @@ document.getElementById('deviceBackupFileInput').onchange=async event=>{
 initDeviceBackupUi_();
 
 const originalOpenSettings_=openSettings;
-openSettings=function(){originalOpenSettings_();loadGasConfigUI_()};
+openSettings=function(){
+  originalOpenSettings_();
+  loadGasConfigUI_();
+  renderCloudBackupUi_();
+};
 loadGasConfigUI_();
+renderCloudBackupUi_();
 
 
 async function autoLoadHolidayData(){
@@ -8082,7 +9621,9 @@ calendarSizeSettings=applyCalendarSizeSettings_(
   {save:false}
 );
 switchTab('My');
-autoLoadReferenceData();
+autoLoadReferenceData().finally(()=>{
+  initializeCloudBackup_();
+});
 </script>
 </body>
 </html>
