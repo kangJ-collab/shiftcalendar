@@ -1438,6 +1438,30 @@ select option{
 .app-toast.error{background:rgba(176,54,45,.96)}
 .app-toast.info{background:rgba(39,96,126,.96)}
 
+
+
+/* v29: OT 안내, 주 64시간, 퇴직금 계산기 */
+.ot-preview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.ot-preview-card{border:1px solid var(--border);border-radius:16px;padding:14px;background:var(--card)}
+.ot-preview-card .ot-name{font-weight:900;font-size:15px}
+.ot-preview-card .ot-hours{font-size:12px;color:var(--muted);margin-top:4px}
+.ot-preview-card .ot-amount{font-size:22px;font-weight:950;margin-top:10px}
+.week-hours-list{display:grid;gap:8px;margin-top:10px}
+.week-hours-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;border:1px solid var(--border);border-radius:14px;padding:12px;background:var(--card)}
+.week-hours-row .week-total{font-size:18px;font-weight:950;text-align:right}
+.week-hours-row.normal .week-total{color:#22734f}.week-hours-row.caution .week-total{color:#a56a00}.week-hours-row.warning .week-total{color:#d35400}.week-hours-row.over .week-total{color:#c0392b}
+.week-hours-breakdown{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.45}
+.retirement-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.retirement-month{border:1px solid var(--border);border-radius:16px;padding:12px;margin-top:10px;background:var(--card)}
+.retirement-item-row{display:grid;grid-template-columns:minmax(0,1fr) 128px;gap:8px;align-items:center;margin-top:7px}
+.retirement-item-row input{min-width:0;text-align:right}
+.retirement-custom-row{display:grid;grid-template-columns:minmax(0,1fr) 112px auto auto;gap:6px;align-items:center;margin-top:7px}
+.retirement-custom-row input[type="checkbox"]{width:22px;height:22px}
+.retirement-result{border:2px solid #2f6a86;border-radius:18px;padding:16px;margin-top:12px;background:color-mix(in srgb,#2f6a86 8%,var(--card))}
+.retirement-result .amount{font-size:28px;font-weight:950;margin-top:6px}
+.actual-work-fields{margin-top:10px;padding:12px;border:1px solid var(--border);border-radius:14px;background:var(--soft)}
+@media(max-width:520px){.ot-preview-grid{grid-template-columns:1fr}.retirement-custom-row{grid-template-columns:1fr 105px auto}.retirement-custom-row label{grid-column:1/3}.retirement-item-row{grid-template-columns:minmax(0,1fr) 118px}}
+
 </style>
 </head>
 <body>
@@ -1639,6 +1663,12 @@ select option{
       <div id="callTimePreview" class="call-time-preview">
         시간을 입력하면 총 근무시간과 야간시간을 자동 계산합니다.
       </div>
+    </div>
+
+    <div id="actualWorkFields" class="actual-work-fields hidden">
+      <label class="form-label" for="actualWorkHours">실제 인정 근무시간</label>
+      <input id="actualWorkHours" type="number" min="0" max="24" step="0.5" class="form-input" placeholder="예: 8">
+      <div class="form-hint">교육·출장의 주 64시간 계산에 반영됩니다.</div>
     </div>
 
     <label class="form-label" style="margin-top:10px">메모</label>
@@ -2515,6 +2545,8 @@ const callWorkFields=document.getElementById('callWorkFields');
 const callStartTime=document.getElementById('callStartTime');
 const callEndTime=document.getElementById('callEndTime');
 const callTimePreview=document.getElementById('callTimePreview');
+const actualWorkFields=document.getElementById('actualWorkFields');
+const actualWorkHours=document.getElementById('actualWorkHours');
 const memoText=document.getElementById('memoText');
 const memoBackgroundColor=document.getElementById('memoBackgroundColor');
 const memoTextColor=document.getElementById('memoTextColor');
@@ -4039,6 +4071,20 @@ const getCallWork=d=>store.get(
   null
 );
 
+function getActualWorkHours_(d){
+  const value=Number(store.get('actualwork-'+dateKey(d),0));
+  return Number.isFinite(value)&&value>=0?value:0;
+}
+function setActualWorkHours_(d,value){
+  const key='actualwork-'+dateKey(d);
+  const hours=Number(value);
+  if(Number.isFinite(hours)&&hours>0){
+    store.set(key,Math.min(24,Math.round(hours*2)/2));
+  }else{
+    store.remove(key);
+  }
+}
+
 function setCallWork(d,data){
   const key='callwork-'+dateKey(d);
 
@@ -5417,12 +5463,12 @@ function populateOverrideSelect(){
 }
 
 function renderCallWorkFields_(){
-  const isCall=memoOverrideSelect.value==='호출';
+  const selected=memoOverrideSelect.value;
+  const isCall=selected==='호출';
+  const needsActualHours=selected==='교육'||selected==='출장';
 
-  callWorkFields.classList.toggle(
-    'hidden',
-    !isCall
-  );
+  callWorkFields.classList.toggle('hidden',!isCall);
+  actualWorkFields.classList.toggle('hidden',!needsActualHours);
 
   if(!isCall){
     return;
@@ -5474,6 +5520,9 @@ function openMemoModal(date){
     callWork&&callWork.end
       ? callWork.end
       : '07:00';
+
+  const savedActualHours=getActualWorkHours_(date);
+  actualWorkHours.value=savedActualHours?String(savedActualHours):'';
 
   memoText.value=getMemo(date);
 
@@ -6863,6 +6912,161 @@ async function updateRemote(kind){
 let dashboardViewYear=today.getFullYear();
 let dashboardViewMonth=today.getMonth()+1;
 
+
+function getMonday_(date){
+  const result=new Date(date.getFullYear(),date.getMonth(),date.getDate());
+  const day=result.getDay();
+  result.setDate(result.getDate()-(day===0?6:day-1));
+  return result;
+}
+function addDays_(date,days){
+  return new Date(date.getFullYear(),date.getMonth(),date.getDate()+days);
+}
+function weeklyWorkHoursForDate_(date){
+  const displayCode=toPayCode(getMyDisplayShift(date));
+  const scheduledCode=toPayCode(getScheduledShift_(date));
+  const inDayWork=isInDayWorkPeriod_(date);
+  if(displayCode==='주'||displayCode==='야')return 12;
+  if(displayCode==='휴'||displayCode==='연차'||displayCode==='공가'||displayCode==='스페셜데이')return 0;
+  if(displayCode==='주간반차'||displayCode==='야간반차')return 8;
+  if(displayCode==='주OT'||displayCode==='야OT')return 12;
+  if(displayCode==='주+반OT'||displayCode==='야+반OT')return 16;
+  if(displayCode==='주8OT'||displayCode==='야8OT')return 8;
+  if(displayCode==='일근08~17')return 8;
+  if(displayCode==='일근07~17'||displayCode==='일근+1 OT')return 9;
+  if(displayCode==='일근휴일 OT')return 10;
+  if(displayCode==='교육'||displayCode==='출장')return getActualWorkHours_(date);
+  if(displayCode==='호출'){
+    const call=getCallWork(date);
+    const calculated=call?calculateCallWorkHours_(call.start,call.end):null;
+    return calculated?calculated.total:0;
+  }
+  if(displayCode==='반반차'){
+    if(inDayWork&&(scheduledCode==='일근07~17'||scheduledCode==='일근+1 OT'))return 7;
+    return 6;
+  }
+  return 0;
+}
+function weeklyWorkSummary_(monday){
+  let total=0;
+  const detail=[];
+  for(let i=0;i<7;i++){
+    const date=addDays_(monday,i);
+    const hours=weeklyWorkHoursForDate_(date);
+    total+=hours;
+    if(hours>0)detail.push(`${date.getMonth()+1}/${date.getDate()} ${hours}h`);
+  }
+  return {total:Math.round(total*10)/10,detail};
+}
+function renderWeeklyHoursCard_(year,month){
+  const first=new Date(year,month-1,1);
+  const last=new Date(year,month,0);
+  let monday=getMonday_(first);
+  const rows=[];
+  while(monday<=last){
+    const summary=weeklyWorkSummary_(monday);
+    const sunday=addDays_(monday,6);
+    const status=summary.total>64?'over':summary.total>=60?'warning':summary.total>=53?'caution':'normal';
+    const remain=Math.max(0,64-summary.total);
+    rows.push(`<div class="week-hours-row ${status}"><div><b>${monday.getMonth()+1}/${monday.getDate()}~${sunday.getMonth()+1}/${sunday.getDate()}</b><div class="week-hours-breakdown">${summary.detail.length?summary.detail.join(' · '):'근무 없음'}<br>${summary.total>64?`64시간 초과 ${formatNumber_(summary.total-64)}시간`:`64시간까지 ${formatNumber_(remain)}시간`}</div></div><div class="week-total">${formatNumber_(summary.total)}h</div></div>`);
+    monday=addDays_(monday,7);
+  }
+  return `<div class="card"><div class="card-title">주 64시간 관리</div><div class="form-hint">월요일~일요일 · 야간은 출근일 기준 · 일근 기간 여부를 자동 적용합니다.</div><div class="week-hours-list">${rows.join('')}</div></div>`;
+}
+function formatNumber_(value){
+  return Number(value||0).toFixed(1).replace(/\.0$/,'');
+}
+function calculateDailyOtPreview_(hourly){
+  const hr=Number(hourly)||0;
+  return {
+    day:roundPay(hr*1.5*8+hr*2*4),
+    night:roundPay(hr*1.5*8+hr*2*4+hr*.5*8)
+  };
+}
+
+let RETIREMENT_STATE=store.get('retirementCalculator',{
+  retirementDate:dateKey(today),
+  annualLeaveMode:'auto',
+  annualLeaveManual:0,
+  annualBonus:0,
+  monthOverrides:{},
+  customItems:{}
+});
+function saveRetirementState_(){store.set('retirementCalculator',RETIREMENT_STATE)}
+function retirementPayMonths_(retirementDate){
+  const base=new Date(retirementDate+'T00:00:00');
+  const result=[];
+  for(let offset=2;offset>=0;offset--){
+    const d=new Date(base.getFullYear(),base.getMonth()-offset,1);
+    result.push({year:d.getFullYear(),month:d.getMonth()+1,key:`${d.getFullYear()}-${pad2(d.getMonth()+1)}`});
+  }
+  return result;
+}
+function retirementStandardItems_(sal){
+  const wanted=['기본급1','기본급3','면허수당','연장수당','주휴수당','주휴연장수당','휴일수당','휴일연장수당','명절기본수당','명절연장수당','심야수당','교대조수당','고정상여'];
+  const items={};
+  wanted.forEach(key=>{items[key]=Number(sal.pay[key]||0)});
+  items['식비']=Number(sal.extra['중식비(기지급)']||0);
+  return items;
+}
+function retirementAutoAnnualLeave_(retirementDate){
+  const base=new Date(retirementDate+'T00:00:00');
+  let total=0;
+  for(let i=0;i<12;i++){
+    const payDate=new Date(base.getFullYear(),base.getMonth()-i,1);
+    let by=payDate.getFullYear(),bm=payDate.getMonth();
+    if(bm<1){bm=12;by--}
+    total+=Number(calcSalary(by,bm).pay['연차수당']||0);
+  }
+  return total;
+}
+function renderRetirementCalculator_(){
+  const join=ANNUAL_LEAVE_SETTINGS.joinDate||'';
+  const retirementDate=RETIREMENT_STATE.retirementDate||dateKey(today);
+  const months=retirementPayMonths_(retirementDate);
+  let threeMonthTotal=0;
+  let daysTotal=0;
+  const monthHtml=months.map(info=>{
+    let by=info.year,bm=info.month-1;if(bm<1){bm=12;by--}
+    const sal=calcSalary(by,bm);
+    const standard=retirementStandardItems_(sal);
+    const overrides=RETIREMENT_STATE.monthOverrides[info.key]||{};
+    let monthTotal=0;
+    const rows=Object.entries(standard).map(([name,auto])=>{
+      const value=overrides[name]!==undefined?Number(overrides[name]||0):auto;
+      monthTotal+=value;
+      return `<div class="retirement-item-row"><label>${name}<div class="small">자동 ${fmtW(auto)}</div></label><input class="form-input retirement-standard" type="number" data-month="${info.key}" data-name="${name}" value="${value}"></div>`;
+    }).join('');
+    const customs=Array.isArray(RETIREMENT_STATE.customItems[info.key])?RETIREMENT_STATE.customItems[info.key]:[];
+    const customRows=customs.map((item,index)=>{
+      if(item.include)monthTotal+=Number(item.amount||0);
+      return `<div class="retirement-custom-row"><input class="form-input retirement-custom-name" data-month="${info.key}" data-index="${index}" value="${String(item.name||'').replace(/"/g,'&quot;')}" placeholder="수당 이름"><input class="form-input retirement-custom-amount" type="number" data-month="${info.key}" data-index="${index}" value="${Number(item.amount||0)}"><label class="small"><input class="retirement-custom-include" type="checkbox" data-month="${info.key}" data-index="${index}" ${item.include?'checked':''}> 포함</label><button class="btn red retirement-custom-delete" type="button" data-month="${info.key}" data-index="${index}">삭제</button></div>`;
+    }).join('');
+    const days=new Date(info.year,info.month,0).getDate(); daysTotal+=days; threeMonthTotal+=monthTotal;
+    return `<div class="retirement-month"><div class="retirement-head"><b>${info.year}년 ${info.month}월 급여명세서</b><span>${fmtW(monthTotal)}</span></div>${rows}<div class="section-label" style="margin-top:12px">추가 지급항목</div>${customRows||'<div class="small">추가 항목 없음</div>'}<button class="btn retirement-add-item" type="button" data-month="${info.key}" style="width:100%;margin-top:8px">+ 수당 추가</button><div class="small" style="margin-top:8px">해당 월 일수 ${days}일</div></div>`;
+  }).join('');
+  const autoLeave=retirementAutoAnnualLeave_(retirementDate);
+  const annualLeave=RETIREMENT_STATE.annualLeaveMode==='manual'?Number(RETIREMENT_STATE.annualLeaveManual||0):autoLeave;
+  const proportional=(Number(RETIREMENT_STATE.annualBonus||0)+annualLeave)*3/12;
+  const average=(threeMonthTotal+proportional)/(daysTotal||1);
+  const joinDate=join?new Date(join+'T00:00:00'):null;
+  const retireDate=new Date(retirementDate+'T00:00:00');
+  const serviceDays=joinDate&&retireDate>=joinDate?Math.floor((stripTime(retireDate)-stripTime(joinDate))/86400000)+1:0;
+  const severance=average*30*(serviceDays/365);
+  return `<div class="card" id="retirementCalculatorCard"><div class="card-title">퇴직금 계산기</div><div class="notice warn">최근 3개 급여명세서를 활용한 예상 계산입니다. 실제 산정기간과 임금 포함 여부에 따라 달라질 수 있습니다.</div><div class="row"><div class="grow"><label class="form-label">입사일</label><input class="form-input" value="${join}" readonly></div><div class="grow"><label class="form-label">퇴직 기준일</label><input id="retirementDateInput" class="form-input" type="date" value="${retirementDate}"></div></div>${monthHtml}<div class="retirement-month"><div class="card-title">직전 1년 반영액</div><label class="form-label">명절상여 등 연간 상여 총액</label><input id="retirementAnnualBonus" class="form-input" type="number" value="${Number(RETIREMENT_STATE.annualBonus||0)}"><div class="mode-switch" style="margin-top:10px"><button type="button" data-retirement-leave-mode="auto" class="${RETIREMENT_STATE.annualLeaveMode==='auto'?'active':''}">연차수당 자동</button><button type="button" data-retirement-leave-mode="manual" class="${RETIREMENT_STATE.annualLeaveMode==='manual'?'active':''}">직접 입력</button></div><div class="small" style="margin:8px 0">자동 계산 ${fmtW(autoLeave)}</div><input id="retirementAnnualLeaveManual" class="form-input" type="number" value="${Number(RETIREMENT_STATE.annualLeaveManual||0)}" ${RETIREMENT_STATE.annualLeaveMode==='manual'?'':'disabled'}></div><div class="retirement-result"><div>예상 퇴직금</div><div class="amount">${fmtW(severance)}</div><div class="small">1일 평균임금 ${fmtW(average)} · 재직일수 ${serviceDays.toLocaleString()}일 · 3개월 산정일수 ${daysTotal}일</div></div></div>`;
+}
+function bindRetirementCalculator_(){
+  const dateInput=document.getElementById('retirementDateInput');
+  if(dateInput)dateInput.onchange=()=>{RETIREMENT_STATE.retirementDate=dateInput.value||dateKey(today);saveRetirementState_();renderSalary()};
+  const bonus=document.getElementById('retirementAnnualBonus');if(bonus)bonus.onchange=()=>{RETIREMENT_STATE.annualBonus=Number(bonus.value||0);saveRetirementState_();renderSalary()};
+  const leave=document.getElementById('retirementAnnualLeaveManual');if(leave)leave.onchange=()=>{RETIREMENT_STATE.annualLeaveManual=Number(leave.value||0);saveRetirementState_();renderSalary()};
+  document.querySelectorAll('[data-retirement-leave-mode]').forEach(button=>button.onclick=()=>{RETIREMENT_STATE.annualLeaveMode=button.dataset.retirementLeaveMode;saveRetirementState_();renderSalary()});
+  document.querySelectorAll('.retirement-standard').forEach(input=>input.onchange=()=>{const m=input.dataset.month,n=input.dataset.name;RETIREMENT_STATE.monthOverrides[m]=RETIREMENT_STATE.monthOverrides[m]||{};RETIREMENT_STATE.monthOverrides[m][n]=Number(input.value||0);saveRetirementState_();renderSalary()});
+  document.querySelectorAll('.retirement-add-item').forEach(button=>button.onclick=()=>{const m=button.dataset.month;RETIREMENT_STATE.customItems[m]=RETIREMENT_STATE.customItems[m]||[];RETIREMENT_STATE.customItems[m].push({name:'',amount:0,include:false});saveRetirementState_();renderSalary()});
+  document.querySelectorAll('.retirement-custom-name,.retirement-custom-amount,.retirement-custom-include').forEach(input=>input.onchange=()=>{const m=input.dataset.month,i=Number(input.dataset.index);const item=RETIREMENT_STATE.customItems[m][i];if(input.classList.contains('retirement-custom-name'))item.name=input.value;else if(input.classList.contains('retirement-custom-amount'))item.amount=Number(input.value||0);else item.include=input.checked;saveRetirementState_();renderSalary()});
+  document.querySelectorAll('.retirement-custom-delete').forEach(button=>button.onclick=()=>{const m=button.dataset.month,i=Number(button.dataset.index);RETIREMENT_STATE.customItems[m].splice(i,1);saveRetirementState_();renderSalary()});
+}
+
 function renderDashboard(){
   /*
     대시보드의 연·월은 근태월이 아니라 실제 급여 지급월이다.
@@ -6994,6 +7198,8 @@ function renderDashboard(){
       ${renderAnnualDashboardSections_(annualSections)}
     </div>
 
+    ${renderWeeklyHoursCard_(workY,workM)}
+
     <div class="card">
       <div class="card-title">근무시간</div>
       <table class="data-table">
@@ -7084,6 +7290,10 @@ function renderSalary(){
         <div class="s">원</div>
       </div>
     </div>
+
+    ${(()=>{const ot=calculateDailyOtPreview_(sal.hr);return `<div class="card"><div class="card-title">하루 OT 예상 수당</div><div class="form-hint">현재 적용 통상시급과 급여 계산식을 그대로 사용한 안내 금액입니다.</div><div class="ot-preview-grid"><div class="ot-preview-card"><div class="ot-name">주간 OT</div><div class="ot-hours">정상 8시간 + 연장 4시간</div><div class="ot-amount">${fmtW(ot.day)}</div></div><div class="ot-preview-card"><div class="ot-name">야간 OT</div><div class="ot-hours">정상 8시간 + 연장 4시간 + 심야 8시간</div><div class="ot-amount">${fmtW(ot.night)}</div></div></div></div>`})()}
+
+    ${renderRetirementCalculator_()}
 
     <div class="slip-grid">
       <div class="card">
@@ -7252,6 +7462,8 @@ function renderSalary(){
       renderSalary();
     };
   }
+
+  bindRetirementCalculator_();
 }
 
 function changeMonth(delta){
@@ -7517,6 +7729,12 @@ memoSaveBtn.onclick=()=>{
     setCallWork(memoTargetDate,null);
   }
 
+  if(selectedType==='교육'||selectedType==='출장'){
+    setActualWorkHours_(memoTargetDate,actualWorkHours.value);
+  }else{
+    setActualWorkHours_(memoTargetDate,0);
+  }
+
   setMemo(
     memoTargetDate,
     memoText.value
@@ -7556,6 +7774,7 @@ memoDeleteBtn.onclick=()=>{
   removeMemoStyle(memoTargetDate);
   setOverride(memoTargetDate,'');
   setCallWork(memoTargetDate,null);
+  setActualWorkHours_(memoTargetDate,0);
 
   closeMemoModal();
   renderCurrent();
