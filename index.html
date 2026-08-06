@@ -4675,23 +4675,70 @@ function salarySettingsForPayMonth_(year,month){
   const target=monthIndex_(monthKey_(year,month));
   let base1=applied[0].before.base1;
   let base3=applied[0].before.base3;
+  let manualHourly=Number(
+    applied[0].salarySnapshotBefore?.manualHourly
+  )||Number(SAL.manualHourly)||0;
 
   applied.forEach(record=>{
     if(target>=monthIndex_(record.paymentMonth)){
       base1=record.after.base1;
       base3=record.after.base3;
+
+      if(record.salarySnapshotAfter?.hourlyMode==='manual'){
+        manualHourly=Number(
+          record.salarySnapshotAfter.manualHourly
+        )||manualHourly;
+      }
     }
   });
 
   return {
     ...SAL,
     base1,
-    base3
+    base3,
+    manualHourly
   };
 }
 
-function allowancePayFromHours_(hours,settings){
-  const hourly=getAppliedHourly_(settings);
+function wageAgreementHourlyPair_(record){
+  const beforeSettings={
+    ...record.salarySnapshotBefore,
+    base1:record.before.base1,
+    base3:record.before.base3
+  };
+  const afterSettings={
+    ...record.salarySnapshotAfter,
+    base1:record.after.base1,
+    base3:record.after.base3
+  };
+
+  if(beforeSettings.hourlyMode==='manual'){
+    const before=Number(beforeSettings.manualHourly)||0;
+    const autoBefore=calculateAutoHourly_(beforeSettings);
+    const autoAfter=calculateAutoHourly_(afterSettings);
+    const after=Math.max(0,before+(autoAfter-autoBefore));
+
+    return {
+      before,
+      after,
+      difference:after-before
+    };
+  }
+
+  const before=getAppliedHourly_(beforeSettings);
+  const after=getAppliedHourly_(afterSettings);
+
+  return {
+    before,
+    after,
+    difference:after-before
+  };
+}
+
+function allowancePayFromHours_(hours,settings,hourlyOverride=null){
+  const hourly=hourlyOverride===null
+    ?getAppliedHourly_(settings)
+    :Math.max(0,Number(hourlyOverride)||0);
 
   return {
     extension:roundPay(hourly*1.5*hours.extend,settings),
@@ -4717,6 +4764,9 @@ function calculateWageAgreementRetro_(record){
     baseDifference:0,
     allowanceDifference:0,
     total:0,
+    hourlyBefore:0,
+    hourlyAfter:0,
+    hourlyDifference:0,
     months:[]
   };
 
@@ -4739,9 +4789,14 @@ function calculateWageAgreementRetro_(record){
     base1:record.after.base1,
     base3:record.after.base3
   };
+  const hourlyPair=wageAgreementHourlyPair_(record);
   const monthlyBaseDifference=
     (record.after.base1-record.before.base1)+
     (record.after.base3-record.before.base3);
+
+  result.hourlyBefore=hourlyPair.before;
+  result.hourlyAfter=hourlyPair.after;
+  result.hourlyDifference=hourlyPair.difference;
 
   for(let index=startIndex;index<=endIndex;index++){
     const pay=monthPartsFromIndex_(index);
@@ -4749,11 +4804,13 @@ function calculateWageAgreementRetro_(record){
     const hours=calcHoursForMonth(work.year,work.month);
     const beforeAllowances=allowancePayFromHours_(
       hours,
-      beforeSettings
+      beforeSettings,
+      hourlyPair.before
     );
     const afterAllowances=allowancePayFromHours_(
       hours,
-      afterSettings
+      afterSettings,
+      hourlyPair.after
     );
     const allowanceDifference=Object.keys(afterAllowances)
       .reduce(
@@ -7041,7 +7098,12 @@ function wagePreviewHtml_(){
     ?`임금협상 ${formatNumber_(record.rate)}% 미리보기`
     :'임금협상 미리보기';
 
-  return `<div class="wage-preview-card"><div class="wage-preview-head"><div><div class="wage-preview-title">${title}</div><div class="small">미리보기에서는 기존 기본급이 변경되지 않습니다.</div></div><span class="wage-status">미적용</span></div><div class="wage-preview-list"><div class="wage-preview-row"><span>인상률</span><strong>${validRate?formatNumber_(record.rate)+'%':'-'}</strong></div><div class="wage-preview-row"><span>소급 적용 시작 급여월</span><strong>${formatWageMonth_(record.retroStartMonth)}</strong></div><div class="wage-preview-row"><span>소급분 지급 급여월</span><strong>${formatWageMonth_(record.paymentMonth)}</strong></div><div class="wage-preview-row"><span>인상 기본급 정상 적용</span><strong>${formatWageMonth_(record.paymentMonth)}부터</strong></div><div class="wage-preview-row"><span>적용 전 기본급1</span><strong>${fmtW(record.before.base1)}</strong></div><div class="wage-preview-row"><span>적용 후 기본급1</span><strong>${validRate?fmtW(record.after.base1):'-'}</strong></div><div class="wage-preview-row"><span>적용 전 기본급3</span><strong>${fmtW(record.before.base3)}</strong></div><div class="wage-preview-row"><span>적용 후 기본급3</span><strong>${validRate?fmtW(record.after.base3):'-'}</strong></div><div class="wage-preview-row"><span>소급 대상 기간</span><strong>${validRate&&validMonths?wageRetroPeriodText_(retro):'-'}</strong></div><div class="wage-preview-row"><span>기본급 소급 차액</span><strong>${validRate&&validMonths?fmtW(retro.baseDifference):'-'}</strong></div><div class="wage-preview-row"><span>OT·심야·휴일 등 수당 차액</span><strong>${validRate&&validMonths?fmtW(retro.allowanceDifference):'-'}</strong></div></div><div class="wage-preview-total"><span>소급분 총액</span><strong>${validRate&&validMonths?fmtW(retro.total):'-'}</strong></div>${validRate&&validMonths?wageMonthlyDetailHtml_(retro):''}</div>`;
+  const hourlyNotice=
+    validRate&&validMonths&&retro.hourlyDifference===0
+      ?'<div class="form-hint" style="margin-top:10px">통상시급 차액이 0원입니다. 기본급1·기본급3의 통상임금 포함 설정을 확인하세요.</div>'
+      :'';
+
+  return `<div class="wage-preview-card"><div class="wage-preview-head"><div><div class="wage-preview-title">${title}</div><div class="small">미리보기에서는 기존 기본급이 변경되지 않습니다.</div></div><span class="wage-status">미적용</span></div><div class="wage-preview-list"><div class="wage-preview-row"><span>인상률</span><strong>${validRate?formatNumber_(record.rate)+'%':'-'}</strong></div><div class="wage-preview-row"><span>소급 적용 시작 급여월</span><strong>${formatWageMonth_(record.retroStartMonth)}</strong></div><div class="wage-preview-row"><span>소급분 지급 급여월</span><strong>${formatWageMonth_(record.paymentMonth)}</strong></div><div class="wage-preview-row"><span>인상 기본급 정상 적용</span><strong>${formatWageMonth_(record.paymentMonth)}부터</strong></div><div class="wage-preview-row"><span>적용 전 기본급1</span><strong>${fmtW(record.before.base1)}</strong></div><div class="wage-preview-row"><span>적용 후 기본급1</span><strong>${validRate?fmtW(record.after.base1):'-'}</strong></div><div class="wage-preview-row"><span>적용 전 기본급3</span><strong>${fmtW(record.before.base3)}</strong></div><div class="wage-preview-row"><span>적용 후 기본급3</span><strong>${validRate?fmtW(record.after.base3):'-'}</strong></div><div class="wage-preview-row"><span>적용 전 통상시급</span><strong>${validRate&&validMonths?fmtW(retro.hourlyBefore):'-'}</strong></div><div class="wage-preview-row"><span>적용 후 예상 통상시급</span><strong>${validRate&&validMonths?fmtW(retro.hourlyAfter):'-'}</strong></div><div class="wage-preview-row"><span>통상시급 차액</span><strong>${validRate&&validMonths?fmtW(retro.hourlyDifference):'-'}</strong></div><div class="wage-preview-row"><span>소급 대상 기간</span><strong>${validRate&&validMonths?wageRetroPeriodText_(retro):'-'}</strong></div><div class="wage-preview-row"><span>기본급 소급 차액</span><strong>${validRate&&validMonths?fmtW(retro.baseDifference):'-'}</strong></div><div class="wage-preview-row"><span>OT·심야·휴일 등 수당 차액</span><strong>${validRate&&validMonths?fmtW(retro.allowanceDifference):'-'}</strong></div></div><div class="wage-preview-total"><span>소급분 총액</span><strong>${validRate&&validMonths?fmtW(retro.total):'-'}</strong></div>${hourlyNotice}${validRate&&validMonths?wageMonthlyDetailHtml_(retro):''}</div>`;
 }
 
 function wageHistoryHtml_(){
@@ -7128,6 +7190,7 @@ function applyWageAgreement_(){
     `인상률: ${formatNumber_(preview.rate)}%\n`+
     `기본급1: ${fmtW(preview.before.base1)} → ${fmtW(preview.after.base1)}\n`+
     `기본급3: ${fmtW(preview.before.base3)} → ${fmtW(preview.after.base3)}\n`+
+    `통상시급: ${fmtW(retro.hourlyBefore)} → ${fmtW(retro.hourlyAfter)}\n`+
     `소급 대상: ${wageRetroPeriodText_(retro)}\n`+
     `예상 소급분: ${fmtW(retro.total)}\n\n`+
     `적용 후에는 기록에서 취소하여 이전 금액으로 복구할 수 있습니다.`
@@ -7138,18 +7201,30 @@ function applyWageAgreement_(){
   }
 
   const now=new Date().toISOString();
+  const hourlyPair=wageAgreementHourlyPair_(preview);
   const record={
     ...preview,
     id:`wage-${Date.now()}`,
     status:'applied',
     appliedAt:now,
     salarySnapshotBefore:{...SAL,...preview.before},
-    salarySnapshotAfter:{...SAL,...preview.after}
+    salarySnapshotAfter:{
+      ...SAL,
+      ...preview.after,
+      manualHourly:
+        SAL.hourlyMode==='manual'
+          ?hourlyPair.after
+          :SAL.manualHourly
+    }
   };
 
   WAGE_AGREEMENTS.push(record);
   SAL.base1=preview.after.base1;
   SAL.base3=preview.after.base3;
+
+  if(SAL.hourlyMode==='manual'){
+    SAL.manualHourly=hourlyPair.after;
+  }
   store.set('salarySettings',SAL);
   saveWageAgreements_();
 
@@ -7195,6 +7270,13 @@ function cancelWageAgreement_(id){
   record.cancelledAt=new Date().toISOString();
   SAL.base1=record.before.base1;
   SAL.base3=record.before.base3;
+
+  if(record.salarySnapshotBefore?.hourlyMode==='manual'){
+    SAL.manualHourly=Number(
+      record.salarySnapshotBefore.manualHourly
+    )||0;
+  }
+
   store.set('salarySettings',SAL);
   saveWageAgreements_();
   wageAgreementAccordionOpen_=true;
