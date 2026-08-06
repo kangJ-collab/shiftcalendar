@@ -1468,6 +1468,28 @@ select option{
 .salary-accordion-body{padding:18px 20px 20px}
 .salary-accordion-body>.form-hint:first-child{margin-top:0}
 .salary-accordion .accordion-content{padding:0}
+.wage-agreement-accordion{margin-bottom:18px;border:1px solid var(--border);border-radius:18px;background:var(--card);overflow:hidden}
+.wage-agreement-accordion>summary{font-size:17px;padding:15px 16px}
+.wage-agreement-accordion .salary-accordion-body{padding:16px}
+.wage-preview-card{border:1px solid var(--border);border-radius:16px;padding:14px;margin-top:12px;background:var(--soft)}
+.wage-preview-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:12px}
+.wage-preview-title{font-size:17px;font-weight:950}
+.wage-status{display:inline-flex;align-items:center;border-radius:999px;padding:5px 9px;font-size:11px;font-weight:900;white-space:nowrap;background:var(--soft);color:var(--muted)}
+.wage-status.applied{background:rgba(47,111,88,.14);color:#2f6f58}
+.wage-status.cancelled{background:rgba(176,54,45,.12);color:#a7342d}
+.wage-preview-list{display:grid;gap:8px}
+.wage-preview-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;font-size:13px}
+.wage-preview-row span{color:var(--muted)}
+.wage-preview-row strong{text-align:right}
+.wage-preview-total{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid var(--border);margin-top:12px;padding-top:12px;font-weight:950}
+.wage-preview-total strong{font-size:23px}
+.wage-retro-detail{margin-top:10px;border-top:1px dashed var(--border);padding-top:10px}
+.wage-retro-detail>summary{cursor:pointer;font-size:12px;font-weight:800;color:var(--muted)}
+.wage-retro-month{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px}
+.wage-history-list{display:grid;gap:10px;margin-top:10px}
+.wage-history-card{border:1px solid var(--border);border-radius:16px;padding:14px;background:var(--card)}
+.wage-history-card .wage-preview-row{font-size:12px}
+.wage-base-lock{margin:0 0 12px}
 .actual-work-fields{margin-top:10px;padding:12px;border:1px solid var(--border);border-radius:14px;background:var(--soft)}
 @media(max-width:520px){.ot-preview-grid{grid-template-columns:1fr}.retirement-custom-row{grid-template-columns:1fr 105px auto}.retirement-custom-row label{grid-column:1/3}.retirement-item-row{grid-template-columns:minmax(0,1fr) 118px}}
 
@@ -4279,6 +4301,15 @@ if(!SAL.shiftOtMode){
   SAL.shiftOtMode='auto';
 }
 
+const WAGE_AGREEMENTS_KEY='wageAgreements';
+const WAGE_AGREEMENT_DRAFT_KEY='wageAgreementDraft';
+let WAGE_AGREEMENTS=store.get(WAGE_AGREEMENTS_KEY,[]);
+let WAGE_AGREEMENT_DRAFT=normalizeWageAgreementDraft_(
+  store.get(WAGE_AGREEMENT_DRAFT_KEY,null)
+);
+let wageAgreementAccordionOpen_=false;
+normalizeWageAgreements_();
+
 let salOvr=store.get('salOvr',{});
 let ACTUAL_INSURANCE_HISTORY=store.get(
   'actualInsuranceHistory',
@@ -4452,10 +4483,10 @@ function autoUnion(settings=SAL){
   );
 }
 
-function roundPay(value){
+function roundPay(value,settings=SAL){
   return roundMoneyByMode_(
     value,
-    SAL.roundingMode
+    settings.roundingMode
   );
 }
 
@@ -4471,6 +4502,320 @@ function nextMonthYear_(year,month){
   return {
     year:nextYear,
     month:nextMonth
+  };
+}
+
+function monthKey_(year,month){
+  return `${year}-${pad2(month)}`;
+}
+
+function monthIndex_(value){
+  const match=/^(\d{4})-(\d{2})$/.exec(String(value||''));
+
+  if(!match){
+    return null;
+  }
+
+  const year=Number(match[1]);
+  const month=Number(match[2]);
+
+  if(month<1||month>12){
+    return null;
+  }
+
+  return year*12+(month-1);
+}
+
+function monthPartsFromIndex_(index){
+  const year=Math.floor(index/12);
+  const month=index-year*12+1;
+
+  return {year,month,key:monthKey_(year,month)};
+}
+
+function previousPayWorkMonth_(payYear,payMonth){
+  let year=payYear;
+  let month=payMonth-1;
+
+  if(month<1){
+    month=12;
+    year--;
+  }
+
+  return {year,month};
+}
+
+function normalizeWageAgreementDraft_(draft){
+  const currentMonth=monthKey_(
+    today.getFullYear(),
+    today.getMonth()+1
+  );
+  const january=monthKey_(today.getFullYear(),1);
+  const source=draft&&typeof draft==='object'?draft:{};
+
+  const numericRate=Number(source.rate);
+
+  return {
+    rate:
+      Number.isFinite(numericRate)&&numericRate>=0
+        ?String(source.rate)
+        :'',
+    retroStartMonth:
+      monthIndex_(source.retroStartMonth)!==null
+        ?source.retroStartMonth
+        :january,
+    paymentMonth:
+      monthIndex_(source.paymentMonth)!==null
+        ?source.paymentMonth
+        :currentMonth
+  };
+}
+
+function normalizeWageAgreements_(){
+  const normalized=[];
+
+  (Array.isArray(WAGE_AGREEMENTS)?WAGE_AGREEMENTS:[])
+    .forEach((record,index)=>{
+      if(!record||typeof record!=='object'){
+        return;
+      }
+
+      const retroStartMonth=String(record.retroStartMonth||'');
+      const paymentMonth=String(record.paymentMonth||'');
+      const before=record.before||{};
+      const after=record.after||{};
+
+      if(
+        monthIndex_(retroStartMonth)===null||
+        monthIndex_(paymentMonth)===null
+      ){
+        return;
+      }
+
+      normalized.push({
+        ...record,
+        id:String(record.id||`wage-${Date.now()}-${index}`),
+        status:record.status==='cancelled'?'cancelled':'applied',
+        rate:Math.max(0,Number(record.rate)||0),
+        retroStartMonth,
+        paymentMonth,
+        before:{
+          base1:Math.max(0,Number(before.base1)||0),
+          base3:Math.max(0,Number(before.base3)||0)
+        },
+        after:{
+          base1:Math.max(0,Number(after.base1)||0),
+          base3:Math.max(0,Number(after.base3)||0)
+        },
+        salarySnapshotBefore:{
+          ...SAL,
+          ...(record.salarySnapshotBefore&&
+            typeof record.salarySnapshotBefore==='object'
+              ?record.salarySnapshotBefore
+              :{}),
+          base1:Math.max(0,Number(before.base1)||0),
+          base3:Math.max(0,Number(before.base3)||0)
+        },
+        salarySnapshotAfter:{
+          ...SAL,
+          ...(record.salarySnapshotAfter&&
+            typeof record.salarySnapshotAfter==='object'
+              ?record.salarySnapshotAfter
+              :{}),
+          base1:Math.max(0,Number(after.base1)||0),
+          base3:Math.max(0,Number(after.base3)||0)
+        }
+      });
+    });
+
+  WAGE_AGREEMENTS=normalized;
+  store.set(WAGE_AGREEMENTS_KEY,WAGE_AGREEMENTS);
+}
+
+function saveWageAgreementDraft_(){
+  store.set(
+    WAGE_AGREEMENT_DRAFT_KEY,
+    WAGE_AGREEMENT_DRAFT
+  );
+}
+
+function saveWageAgreements_(){
+  store.set(WAGE_AGREEMENTS_KEY,WAGE_AGREEMENTS);
+}
+
+function appliedWageAgreements_(){
+  return WAGE_AGREEMENTS
+    .filter(record=>record.status==='applied')
+    .sort((a,b)=>{
+      const monthCompare=
+        monthIndex_(a.paymentMonth)-
+        monthIndex_(b.paymentMonth);
+
+      if(monthCompare!==0){
+        return monthCompare;
+      }
+
+      return String(a.appliedAt||'')
+        .localeCompare(String(b.appliedAt||''));
+    });
+}
+
+function latestAppliedWageAgreement_(){
+  const applied=appliedWageAgreements_();
+  return applied[applied.length-1]||null;
+}
+
+function salarySettingsForPayMonth_(year,month){
+  const applied=appliedWageAgreements_();
+
+  if(!applied.length){
+    return {...SAL};
+  }
+
+  const target=monthIndex_(monthKey_(year,month));
+  let base1=applied[0].before.base1;
+  let base3=applied[0].before.base3;
+
+  applied.forEach(record=>{
+    if(target>=monthIndex_(record.paymentMonth)){
+      base1=record.after.base1;
+      base3=record.after.base3;
+    }
+  });
+
+  return {
+    ...SAL,
+    base1,
+    base3
+  };
+}
+
+function allowancePayFromHours_(hours,settings){
+  const hourly=getAppliedHourly_(settings);
+
+  return {
+    extension:roundPay(hourly*1.5*hours.extend,settings),
+    weekly:roundPay(hourly*1.5*hours.weekly,settings),
+    weeklyExtension:roundPay(hourly*2*hours.weeklyExt,settings),
+    holiday:roundPay(hourly*1.5*hours.holiday,settings),
+    holidayExtension:roundPay(hourly*2*hours.holidayExt,settings),
+    festivalBase:roundPay(hourly*2*hours.festBase,settings),
+    festivalExtension:roundPay(hourly*2.5*hours.festExt,settings),
+    night:roundPay(hourly*.5*hours.night,settings),
+    shift:roundPay(hourly*1.5*hours.shiftOT,settings)
+  };
+}
+
+function calculateWageAgreementRetro_(record){
+  const startIndex=monthIndex_(record.retroStartMonth);
+  const paymentIndex=monthIndex_(record.paymentMonth);
+  const endIndex=paymentIndex===null?null:paymentIndex-1;
+  const result={
+    startMonth:record.retroStartMonth,
+    endMonth:endIndex===null?null:monthPartsFromIndex_(endIndex).key,
+    monthCount:0,
+    baseDifference:0,
+    allowanceDifference:0,
+    total:0,
+    months:[]
+  };
+
+  if(
+    startIndex===null||
+    endIndex===null||
+    startIndex>endIndex
+  ){
+    result.endMonth=null;
+    return result;
+  }
+
+  const beforeSettings={
+    ...record.salarySnapshotBefore,
+    base1:record.before.base1,
+    base3:record.before.base3
+  };
+  const afterSettings={
+    ...record.salarySnapshotAfter,
+    base1:record.after.base1,
+    base3:record.after.base3
+  };
+  const monthlyBaseDifference=
+    (record.after.base1-record.before.base1)+
+    (record.after.base3-record.before.base3);
+
+  for(let index=startIndex;index<=endIndex;index++){
+    const pay=monthPartsFromIndex_(index);
+    const work=previousPayWorkMonth_(pay.year,pay.month);
+    const hours=calcHoursForMonth(work.year,work.month);
+    const beforeAllowances=allowancePayFromHours_(
+      hours,
+      beforeSettings
+    );
+    const afterAllowances=allowancePayFromHours_(
+      hours,
+      afterSettings
+    );
+    const allowanceDifference=Object.keys(afterAllowances)
+      .reduce(
+        (sum,key)=>
+          sum+
+          (Number(afterAllowances[key])||0)-
+          (Number(beforeAllowances[key])||0),
+        0
+      );
+    const monthTotal=
+      monthlyBaseDifference+
+      allowanceDifference;
+
+    result.baseDifference+=monthlyBaseDifference;
+    result.allowanceDifference+=allowanceDifference;
+    result.total+=monthTotal;
+    result.monthCount++;
+    result.months.push({
+      key:pay.key,
+      baseDifference:monthlyBaseDifference,
+      allowanceDifference,
+      total:monthTotal
+    });
+  }
+
+  return result;
+}
+
+function retroPayForMonth_(year,month){
+  const target=monthKey_(year,month);
+
+  return appliedWageAgreements_()
+    .filter(record=>record.paymentMonth===target)
+    .reduce(
+      (total,record)=>
+        total+calculateWageAgreementRetro_(record).total,
+      0
+    );
+}
+
+function buildWageAgreementPreviewRecord_(){
+  const rate=Number(WAGE_AGREEMENT_DRAFT.rate);
+  const before={
+    base1:Math.max(0,Number(SAL.base1)||0),
+    base3:Math.max(0,Number(SAL.base3)||0)
+  };
+  const multiplier=1+(Number.isFinite(rate)?rate:0)/100;
+  const after={
+    base1:Math.round(before.base1*multiplier),
+    base3:Math.round(before.base3*multiplier)
+  };
+
+  return {
+    id:'preview',
+    status:'preview',
+    rate:Number.isFinite(rate)?rate:0,
+    retroStartMonth:WAGE_AGREEMENT_DRAFT.retroStartMonth,
+    paymentMonth:WAGE_AGREEMENT_DRAFT.paymentMonth,
+    before,
+    after,
+    salarySnapshotBefore:{...SAL,...before},
+    salarySnapshotAfter:{...SAL,...after}
   };
 }
 
@@ -4939,9 +5284,13 @@ function calcHoursForMonth(y,m){
 }
 
 function calcSalary(y,m){
-  const hr=getAppliedHourly_(SAL);
-  const h=calcHoursForMonth(y,m);
   const payPeriod=nextMonthYear_(y,m);
+  const salarySettings=salarySettingsForPayMonth_(
+    payPeriod.year,
+    payPeriod.month
+  );
+  const hr=getAppliedHourly_(salarySettings);
+  const h=calcHoursForMonth(y,m);
   const annualAllowance=
     calculateAnnualAllowanceForPayMonth_(
       payPeriod.year,
@@ -4950,25 +5299,61 @@ function calcSalary(y,m){
     );
   const pay={};
 
-  pay['기본급1']=Number(SAL.base1)||0;
-  pay['기본급3']=Number(SAL.base3)||0;
-  pay['면허수당']=Number(SAL.license)||0;
-  pay['고정상여']=calculateFixedBonus_(SAL);
+  pay['기본급1']=Number(salarySettings.base1)||0;
+  pay['기본급3']=Number(salarySettings.base3)||0;
+  pay['면허수당']=Number(salarySettings.license)||0;
+  pay['고정상여']=calculateFixedBonus_(salarySettings);
 
-  pay['연장수당']=roundPay(hr*1.5*h.extend);
-  pay['주휴수당']=roundPay(hr*1.5*h.weekly);
-  pay['주휴연장수당']=roundPay(hr*2*h.weeklyExt);
-  pay['휴일수당']=roundPay(hr*1.5*h.holiday);
-  pay['휴일연장수당']=roundPay(hr*2*h.holidayExt);
-  pay['명절기본수당']=roundPay(hr*2*h.festBase);
-  pay['명절연장수당']=roundPay(hr*2.5*h.festExt);
-  pay['심야수당']=roundPay(hr*.5*h.night);
-  pay['교대조수당']=roundPay(hr*1.5*h.shiftOT);
+  pay['연장수당']=roundPay(
+    hr*1.5*h.extend,
+    salarySettings
+  );
+  pay['주휴수당']=roundPay(
+    hr*1.5*h.weekly,
+    salarySettings
+  );
+  pay['주휴연장수당']=roundPay(
+    hr*2*h.weeklyExt,
+    salarySettings
+  );
+  pay['휴일수당']=roundPay(
+    hr*1.5*h.holiday,
+    salarySettings
+  );
+  pay['휴일연장수당']=roundPay(
+    hr*2*h.holidayExt,
+    salarySettings
+  );
+  pay['명절기본수당']=roundPay(
+    hr*2*h.festBase,
+    salarySettings
+  );
+  pay['명절연장수당']=roundPay(
+    hr*2.5*h.festExt,
+    salarySettings
+  );
+  pay['심야수당']=roundPay(
+    hr*.5*h.night,
+    salarySettings
+  );
+  pay['교대조수당']=roundPay(
+    hr*1.5*h.shiftOT,
+    salarySettings
+  );
   pay['연차수당']=annualAllowance.amount;
 
+  const retroPay=retroPayForMonth_(
+    payPeriod.year,
+    payPeriod.month
+  );
+
+  if(retroPay!==0){
+    pay['임금인상 소급분']=retroPay;
+  }
+
   const extra={
-    '중식비(기지급)':Number(SAL.meal)||0,
-    '개인연금2(회사분·기지급)':Number(SAL.pensionSup)||0
+    '중식비(기지급)':Number(salarySettings.meal)||0,
+    '개인연금2(회사분·기지급)':Number(salarySettings.pensionSup)||0
   };
 
   const totalPay=Object.values(pay).reduce(
@@ -4983,8 +5368,9 @@ function calcSalary(y,m){
 
   return {
     hr,
-    autoHr:calculateAutoHourly_(SAL),
-    fixedBonus:calculateFixedBonus_(SAL),
+    autoHr:calculateAutoHourly_(salarySettings),
+    fixedBonus:calculateFixedBonus_(salarySettings),
+    salarySettings,
     payYear:payPeriod.year,
     payMonth:payPeriod.month,
     annualAllowance,
@@ -5096,7 +5482,9 @@ function calcDeductions(totalA,salY,salM){
     '고용보험':employVal,
     '소득세':incomeTax,
     '지방소득세':localTax,
-    '노조비':autoUnion(SAL),
+    '노조비':autoUnion(
+      salarySettingsForPayMonth_(salY,salM)
+    ),
     '매칭그랜트':Number(SAL.matching)||0,
     '사택료':ovr.house??(Number(SAL.house)||0),
     '개인연금2(사원분)':Number(SAL.pension2)||0,
@@ -6491,6 +6879,8 @@ function updateSalaryPreviews_(){
         ?(Number(SAL.shiftH)||0).toFixed(2)+'시간'
         :'월별 교대 적용일수로 자동 계산';
   }
+
+  renderWageAgreementPreview_();
 }
 
 function formatInsuranceRuleValue_(value){
@@ -6611,6 +7001,251 @@ function saveActualInsuranceRule_(){
   alert(`${from.replace('-','년 ')}월부터 적용할 보험료를 저장했습니다.`);
 }
 
+function formatWageMonth_(value){
+  const index=monthIndex_(value);
+
+  if(index===null){
+    return '-';
+  }
+
+  const parts=monthPartsFromIndex_(index);
+  return `${parts.year}년 ${parts.month}월`;
+}
+
+function wageRetroPeriodText_(retro){
+  if(!retro.monthCount||!retro.endMonth){
+    return '소급 대상 없음';
+  }
+
+  return `${formatWageMonth_(retro.startMonth)}~${formatWageMonth_(retro.endMonth)} · ${retro.monthCount}개월`;
+}
+
+function wageMonthlyDetailHtml_(retro){
+  if(!retro.months.length){
+    return '';
+  }
+
+  return `<details class="wage-retro-detail"><summary>월별 소급 차액 보기</summary>${retro.months.map(item=>`<div class="wage-retro-month"><span>${formatWageMonth_(item.key)}</span><strong>${fmtW(item.total)}</strong></div>`).join('')}</details>`;
+}
+
+function wagePreviewHtml_(){
+  const record=buildWageAgreementPreviewRecord_();
+  const retro=calculateWageAgreementRetro_(record);
+  const validRate=record.rate>0;
+  const validMonths=
+    monthIndex_(record.retroStartMonth)!==null&&
+    monthIndex_(record.paymentMonth)!==null&&
+    monthIndex_(record.retroStartMonth)<=
+      monthIndex_(record.paymentMonth);
+  const title=validRate
+    ?`임금협상 ${formatNumber_(record.rate)}% 미리보기`
+    :'임금협상 미리보기';
+
+  return `<div class="wage-preview-card"><div class="wage-preview-head"><div><div class="wage-preview-title">${title}</div><div class="small">미리보기에서는 기존 기본급이 변경되지 않습니다.</div></div><span class="wage-status">미적용</span></div><div class="wage-preview-list"><div class="wage-preview-row"><span>인상률</span><strong>${validRate?formatNumber_(record.rate)+'%':'-'}</strong></div><div class="wage-preview-row"><span>소급 적용 시작 급여월</span><strong>${formatWageMonth_(record.retroStartMonth)}</strong></div><div class="wage-preview-row"><span>소급분 지급 급여월</span><strong>${formatWageMonth_(record.paymentMonth)}</strong></div><div class="wage-preview-row"><span>인상 기본급 정상 적용</span><strong>${formatWageMonth_(record.paymentMonth)}부터</strong></div><div class="wage-preview-row"><span>적용 전 기본급1</span><strong>${fmtW(record.before.base1)}</strong></div><div class="wage-preview-row"><span>적용 후 기본급1</span><strong>${validRate?fmtW(record.after.base1):'-'}</strong></div><div class="wage-preview-row"><span>적용 전 기본급3</span><strong>${fmtW(record.before.base3)}</strong></div><div class="wage-preview-row"><span>적용 후 기본급3</span><strong>${validRate?fmtW(record.after.base3):'-'}</strong></div><div class="wage-preview-row"><span>소급 대상 기간</span><strong>${validRate&&validMonths?wageRetroPeriodText_(retro):'-'}</strong></div><div class="wage-preview-row"><span>기본급 소급 차액</span><strong>${validRate&&validMonths?fmtW(retro.baseDifference):'-'}</strong></div><div class="wage-preview-row"><span>OT·심야·휴일 등 수당 차액</span><strong>${validRate&&validMonths?fmtW(retro.allowanceDifference):'-'}</strong></div></div><div class="wage-preview-total"><span>소급분 총액</span><strong>${validRate&&validMonths?fmtW(retro.total):'-'}</strong></div>${validRate&&validMonths?wageMonthlyDetailHtml_(retro):''}</div>`;
+}
+
+function wageHistoryHtml_(){
+  if(!WAGE_AGREEMENTS.length){
+    return '<div class="form-hint">저장된 임금협상 기록이 없습니다.</div>';
+  }
+
+  const latest=latestAppliedWageAgreement_();
+
+  return `<div class="wage-history-list">${WAGE_AGREEMENTS.slice().reverse().map(record=>{
+    const retro=calculateWageAgreementRetro_(record);
+    const isLatest=
+      record.status==='applied'&&
+      latest&&
+      latest.id===record.id;
+    const statusText=
+      record.status==='cancelled'
+        ?'적용 취소'
+        :'적용 완료';
+
+    return `<div class="wage-history-card"><div class="wage-preview-head"><div><b>${formatWageMonth_(record.paymentMonth)} 임금협상</b><div class="small">${formatNumber_(record.rate)}% 인상</div></div><span class="wage-status ${record.status}">${statusText}</span></div><div class="wage-preview-list"><div class="wage-preview-row"><span>소급 적용 시작 급여월</span><strong>${formatWageMonth_(record.retroStartMonth)}</strong></div><div class="wage-preview-row"><span>소급분 지급 급여월</span><strong>${formatWageMonth_(record.paymentMonth)}</strong></div><div class="wage-preview-row"><span>인상 기본급 정상 적용</span><strong>${formatWageMonth_(record.paymentMonth)}부터</strong></div><div class="wage-preview-row"><span>기본급1</span><strong>${fmtW(record.before.base1)} → ${fmtW(record.after.base1)}</strong></div><div class="wage-preview-row"><span>기본급3</span><strong>${fmtW(record.before.base3)} → ${fmtW(record.after.base3)}</strong></div><div class="wage-preview-row"><span>소급 대상 기간</span><strong>${wageRetroPeriodText_(retro)}</strong></div><div class="wage-preview-row"><span>예상 소급분 총액</span><strong>${fmtW(retro.total)}</strong></div></div>${wageMonthlyDetailHtml_(retro)}${isLatest?'<button type="button" class="btn red wage-agreement-cancel" data-wage-id="'+record.id+'" style="width:100%;margin-top:12px">적용 취소 및 이전 금액 복구</button>':''}</div>`;
+  }).join('')}</div>`;
+}
+
+function renderWageAgreementSection_(){
+  return `<details id="wageAgreementAccordion" class="salary-accordion wage-agreement-accordion" ${wageAgreementAccordionOpen_?'open':''}><summary>임금협상 기록 및 미리보기</summary><div class="salary-accordion-body"><div class="notice info">인상률을 입력해 소급분을 먼저 확인한 뒤 적용하세요. 적용 버튼을 누르기 전에는 기본급과 급여 계산값이 바뀌지 않습니다.</div><div class="salary-two-col"><div class="form-group"><label class="form-label">인상률(%)</label><input id="wageAgreementRate" data-wage-draft="rate" type="number" min="0" step="0.01" class="form-input" value="${WAGE_AGREEMENT_DRAFT.rate}" placeholder="예: 3.5"></div><div class="form-group"><label class="form-label">소급 적용 시작 급여월</label><input id="wageAgreementRetroStart" data-wage-draft="retroStartMonth" type="month" class="form-input" value="${WAGE_AGREEMENT_DRAFT.retroStartMonth}"></div><div class="form-group"><label class="form-label">소급분 지급 급여월</label><input id="wageAgreementPaymentMonth" data-wage-draft="paymentMonth" type="month" class="form-input" value="${WAGE_AGREEMENT_DRAFT.paymentMonth}"></div></div><div id="wageAgreementPreview">${wagePreviewHtml_()}</div><button id="applyWageAgreementBtn" type="button" class="btn green" style="width:100%;margin-top:12px">임금협상 적용</button><hr class="sep"><div class="card-title">임금협상 기록</div><div id="wageAgreementHistory">${wageHistoryHtml_()}</div></div></details>`;
+}
+
+function renderWageAgreementPreview_(){
+  const preview=document.getElementById('wageAgreementPreview');
+  const applyButton=document.getElementById('applyWageAgreementBtn');
+  const record=buildWageAgreementPreviewRecord_();
+  const valid=
+    record.rate>0&&
+    monthIndex_(record.retroStartMonth)!==null&&
+    monthIndex_(record.paymentMonth)!==null&&
+    monthIndex_(record.retroStartMonth)<=
+      monthIndex_(record.paymentMonth);
+
+  if(preview){
+    preview.innerHTML=wagePreviewHtml_();
+  }
+
+  if(applyButton){
+    applyButton.disabled=!valid;
+  }
+}
+
+function applyWageAgreement_(){
+  readSalaryForm_();
+  const preview=buildWageAgreementPreviewRecord_();
+  const startIndex=monthIndex_(preview.retroStartMonth);
+  const paymentIndex=monthIndex_(preview.paymentMonth);
+
+  if(preview.rate<=0){
+    alert('0보다 큰 임금 인상률을 입력하세요.');
+    return;
+  }
+
+  if(
+    startIndex===null||
+    paymentIndex===null||
+    startIndex>paymentIndex
+  ){
+    alert('소급 적용 시작월과 지급월을 확인하세요.');
+    return;
+  }
+
+  const latestAgreement=latestAppliedWageAgreement_();
+
+  if(
+    latestAgreement&&
+    paymentIndex<=monthIndex_(latestAgreement.paymentMonth)
+  ){
+    alert(
+      `새 임금협상의 지급월은 최근 적용 기록(${formatWageMonth_(latestAgreement.paymentMonth)})보다 뒤여야 합니다.`
+    );
+    return;
+  }
+
+  const retro=calculateWageAgreementRetro_(preview);
+  const confirmed=confirm(
+    `임금협상 내용을 적용합니다.\n\n`+
+    `인상률: ${formatNumber_(preview.rate)}%\n`+
+    `기본급1: ${fmtW(preview.before.base1)} → ${fmtW(preview.after.base1)}\n`+
+    `기본급3: ${fmtW(preview.before.base3)} → ${fmtW(preview.after.base3)}\n`+
+    `소급 대상: ${wageRetroPeriodText_(retro)}\n`+
+    `예상 소급분: ${fmtW(retro.total)}\n\n`+
+    `적용 후에는 기록에서 취소하여 이전 금액으로 복구할 수 있습니다.`
+  );
+
+  if(!confirmed){
+    return;
+  }
+
+  const now=new Date().toISOString();
+  const record={
+    ...preview,
+    id:`wage-${Date.now()}`,
+    status:'applied',
+    appliedAt:now,
+    salarySnapshotBefore:{...SAL,...preview.before},
+    salarySnapshotAfter:{...SAL,...preview.after}
+  };
+
+  WAGE_AGREEMENTS.push(record);
+  SAL.base1=preview.after.base1;
+  SAL.base3=preview.after.base3;
+  store.set('salarySettings',SAL);
+  saveWageAgreements_();
+
+  WAGE_AGREEMENT_DRAFT={
+    rate:'',
+    retroStartMonth:monthKey_(today.getFullYear(),1),
+    paymentMonth:monthKey_(today.getFullYear(),today.getMonth()+1)
+  };
+  saveWageAgreementDraft_();
+  wageAgreementAccordionOpen_=true;
+
+  renderSalaryFields();
+  renderSalary();
+  renderDashboard();
+  showAppToast_('임금협상이 적용되었습니다.','success',2800);
+}
+
+function cancelWageAgreement_(id){
+  const record=WAGE_AGREEMENTS.find(item=>item.id===id);
+  const latest=latestAppliedWageAgreement_();
+
+  if(!record||record.status!=='applied'){
+    return;
+  }
+
+  if(!latest||latest.id!==record.id){
+    alert('가장 최근에 적용한 임금협상부터 취소할 수 있습니다.');
+    return;
+  }
+
+  const confirmed=confirm(
+    `임금협상 적용을 취소하고 이전 금액으로 복구할까요?\n\n`+
+    `기본급1: ${fmtW(record.after.base1)} → ${fmtW(record.before.base1)}\n`+
+    `기본급3: ${fmtW(record.after.base3)} → ${fmtW(record.before.base3)}\n\n`+
+    `지급월의 소급분 반영도 함께 취소됩니다.`
+  );
+
+  if(!confirmed){
+    return;
+  }
+
+  record.status='cancelled';
+  record.cancelledAt=new Date().toISOString();
+  SAL.base1=record.before.base1;
+  SAL.base3=record.before.base3;
+  store.set('salarySettings',SAL);
+  saveWageAgreements_();
+  wageAgreementAccordionOpen_=true;
+
+  renderSalaryFields();
+  renderSalary();
+  renderDashboard();
+  showAppToast_('임금협상 적용을 취소하고 이전 기본급으로 복구했습니다.','success',3000);
+}
+
+function bindWageAgreementSection_(){
+  const accordion=document.getElementById('wageAgreementAccordion');
+
+  if(accordion){
+    accordion.ontoggle=()=>{
+      wageAgreementAccordionOpen_=accordion.open;
+    };
+  }
+
+  document
+    .querySelectorAll('[data-wage-draft]')
+    .forEach(input=>{
+      const commit=()=>{
+        const field=input.dataset.wageDraft;
+        WAGE_AGREEMENT_DRAFT[field]=input.value;
+        saveWageAgreementDraft_();
+        renderWageAgreementPreview_();
+      };
+
+      input.oninput=commit;
+      input.onchange=commit;
+    });
+
+  const applyButton=document.getElementById(
+    'applyWageAgreementBtn'
+  );
+
+  if(applyButton){
+    applyButton.onclick=applyWageAgreement_;
+  }
+
+  document
+    .querySelectorAll('.wage-agreement-cancel')
+    .forEach(button=>{
+      button.onclick=()=>
+        cancelWageAgreement_(button.dataset.wageId);
+    });
+
+  renderWageAgreementPreview_();
+}
+
 function renderSalaryFields(){
   const latestInsurance=
     ACTUAL_INSURANCE_HISTORY[
@@ -6621,17 +7256,22 @@ function renderSalaryFields(){
     latestInsurance?.from||
     `${today.getFullYear()}-${pad2(today.getMonth()+1)}`;
 
+  const baseLocked=!!latestAppliedWageAgreement_();
+
   salaryFieldsGrid.innerHTML=`
+    ${renderWageAgreementSection_()}
+
     <div class="card-title">개인 급여항목</div>
+    ${baseLocked?'<div class="notice info wage-base-lock">임금협상 적용 기록이 있어 기본급1·기본급3을 보호하고 있습니다. 변경하려면 가장 최근 협상을 먼저 취소하세요.</div>':''}
 
     <div class="salary-two-col">
       <div class="form-group">
         <label class="form-label">기본급1</label>
-        <input id="sal-base1" type="number" class="form-input" value="${SAL.base1}">
+        <input id="sal-base1" type="number" class="form-input" value="${SAL.base1}" ${baseLocked?'disabled':''}>
       </div>
       <div class="form-group">
         <label class="form-label">기본급3</label>
-        <input id="sal-base3" type="number" class="form-input" value="${SAL.base3}">
+        <input id="sal-base3" type="number" class="form-input" value="${SAL.base3}" ${baseLocked?'disabled':''}>
       </div>
       <div class="form-group">
         <label class="form-label">면허수당</label>
@@ -6879,6 +7519,8 @@ function renderSalaryFields(){
       input.oninput=updateSalaryPreviews_;
       input.onchange=updateSalaryPreviews_;
     });
+
+  bindWageAgreementSection_();
 
   const saveInsuranceButton=
     document.getElementById(
