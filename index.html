@@ -7941,7 +7941,7 @@ function renderDashboard(){
         <tr><td>초과/주휴</td><td><strong>${formatNumber_(sal.h.weekly+sal.h.weeklyExt)}h</strong><div class="small">기본 ${formatNumber_(sal.h.weekly)}h · 연장 ${formatNumber_(sal.h.weeklyExt)}h</div></td></tr>
         <tr><td>휴일</td><td><strong>${formatNumber_(sal.h.holiday+sal.h.holidayExt)}h</strong><div class="small">기본 ${formatNumber_(sal.h.holiday)}h · 연장 ${formatNumber_(sal.h.holidayExt)}h</div></td></tr>
         <tr><td>명절</td><td><strong>${formatNumber_(sal.h.festBase+sal.h.festExt)}h</strong><div class="small">기본 ${formatNumber_(sal.h.festBase)}h · 연장 ${formatNumber_(sal.h.festExt)}h</div></td></tr>
-        <tr><td>교대조수당</td><td>${formatNumber_(sal.h.shiftOT)}h</td></tr>
+        <tr><td>교대조수당</td><td>${Number(sal.h.shiftOT||0).toFixed(2)}h</td></tr>
       </table>
     </div>
 
