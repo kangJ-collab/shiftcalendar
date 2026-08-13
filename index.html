@@ -1559,7 +1559,10 @@ select option{
 .wage-preview-title{font-size:17px;font-weight:950}
 .wage-status{display:inline-flex;align-items:center;border-radius:999px;padding:5px 9px;font-size:11px;font-weight:900;white-space:nowrap;background:var(--soft);color:var(--muted)}
 .wage-status.applied{background:rgba(47,111,88,.14);color:#2f6f58}
+.wage-status.scheduled{background:rgba(39,96,126,.13);color:#27607e}
 .wage-status.cancelled{background:rgba(176,54,45,.12);color:#a7342d}
+.wage-history-actions{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap}
+.wage-history-delete{padding:5px 8px;font-size:11px;line-height:1.1}
 .wage-preview-list{display:grid;gap:8px}
 .wage-preview-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;font-size:13px}
 .wage-preview-row span{color:var(--muted)}
@@ -4458,6 +4461,7 @@ let WAGE_AGREEMENT_DRAFT=normalizeWageAgreementDraft_(
   store.get(WAGE_AGREEMENT_DRAFT_KEY,null)
 );
 let wageAgreementAccordionOpen_=false;
+let wageAgreementActivationTimer_=null;
 normalizeWageAgreements_();
 
 let salOvr=store.get('salOvr',{});
@@ -4764,6 +4768,37 @@ function previousPayWorkMonth_(payYear,payMonth){
   return {year,month};
 }
 
+function parseWageEffectiveAt_(value){
+  if(!value){
+    return null;
+  }
+
+  const date=new Date(value);
+
+  if(Number.isNaN(date.getTime())){
+    return null;
+  }
+
+  return date;
+}
+
+function formatWageDateTime_(value){
+  const date=parseWageEffectiveAt_(value);
+
+  if(!date){
+    return '-';
+  }
+
+  return date.toLocaleString('ko-KR',{
+    year:'numeric',
+    month:'2-digit',
+    day:'2-digit',
+    hour:'2-digit',
+    minute:'2-digit',
+    hour12:false
+  });
+}
+
 function normalizeWageAgreementDraft_(draft){
   const currentMonth=monthKey_(
     today.getFullYear(),
@@ -4786,7 +4821,11 @@ function normalizeWageAgreementDraft_(draft){
     paymentMonth:
       monthIndex_(source.paymentMonth)!==null
         ?source.paymentMonth
-        :currentMonth
+        :currentMonth,
+    effectiveAt:
+      parseWageEffectiveAt_(source.effectiveAt)
+        ?String(source.effectiveAt)
+        :''
   };
 }
 
@@ -4811,10 +4850,23 @@ function normalizeWageAgreements_(){
         return;
       }
 
+      const normalizedStatus=
+        record.status==='cancelled'
+          ?'cancelled'
+          :record.status==='scheduled'
+            ?'scheduled'
+            :'applied';
+      const effectiveDate=parseWageEffectiveAt_(
+        record.effectiveAt||record.appliedAt
+      );
+
       normalized.push({
         ...record,
         id:String(record.id||`wage-${Date.now()}-${index}`),
-        status:record.status==='cancelled'?'cancelled':'applied',
+        status:normalizedStatus,
+        effectiveAt:effectiveDate
+          ?effectiveDate.toISOString()
+          :null,
         rate:Math.max(0,Number(record.rate)||0),
         retroStartMonth,
         paymentMonth,
@@ -4882,6 +4934,97 @@ function appliedWageAgreements_(){
 function latestAppliedWageAgreement_(){
   const applied=appliedWageAgreements_();
   return applied[applied.length-1]||null;
+}
+
+function scheduledWageAgreements_(){
+  return WAGE_AGREEMENTS
+    .filter(record=>record.status==='scheduled')
+    .sort((a,b)=>{
+      const left=parseWageEffectiveAt_(a.effectiveAt)?.getTime()||0;
+      const right=parseWageEffectiveAt_(b.effectiveAt)?.getTime()||0;
+      return left-right;
+    });
+}
+
+function latestScheduledWageAgreement_(){
+  const scheduled=scheduledWageAgreements_();
+  return scheduled[scheduled.length-1]||null;
+}
+
+function applyWageAgreementRecordToSalary_(record){
+  SAL.base1=record.after.base1;
+  SAL.base3=record.after.base3;
+
+  if(record.salarySnapshotAfter?.hourlyMode==='manual'){
+    SAL.manualHourly=Number(
+      record.salarySnapshotAfter.manualHourly
+    )||0;
+  }
+
+  store.set('salarySettings',SAL);
+}
+
+function activateDueWageAgreements_(){
+  const now=Date.now();
+  const activated=[];
+
+  scheduledWageAgreements_().forEach(record=>{
+    const effectiveDate=parseWageEffectiveAt_(record.effectiveAt);
+
+    if(!effectiveDate||effectiveDate.getTime()>now){
+      return;
+    }
+
+    record.status='applied';
+    record.appliedAt=new Date().toISOString();
+    applyWageAgreementRecordToSalary_(record);
+    activated.push(record);
+  });
+
+  if(activated.length){
+    saveWageAgreements_();
+  }
+
+  return activated;
+}
+
+function scheduleWageAgreementActivationCheck_(){
+  if(wageAgreementActivationTimer_){
+    clearTimeout(wageAgreementActivationTimer_);
+    wageAgreementActivationTimer_=null;
+  }
+
+  const next=scheduledWageAgreements_()[0];
+
+  if(!next){
+    return;
+  }
+
+  const effectiveDate=parseWageEffectiveAt_(next.effectiveAt);
+
+  if(!effectiveDate){
+    return;
+  }
+
+  const delay=Math.max(500,Math.min(60000,effectiveDate.getTime()-Date.now()));
+
+  wageAgreementActivationTimer_=setTimeout(()=>{
+    const activated=activateDueWageAgreements_();
+
+    if(activated.length){
+      wageAgreementAccordionOpen_=true;
+      renderSalaryFields();
+      renderSalary();
+      renderDashboard();
+      showAppToast_(
+        `예약된 임금협상이 적용되었습니다. (${formatWageDateTime_(activated[activated.length-1].effectiveAt)})`,
+        'success',
+        3600
+      );
+    }
+
+    scheduleWageAgreementActivationCheck_();
+  },delay);
 }
 
 function salarySettingsForPayMonth_(year,month){
@@ -5088,6 +5231,7 @@ function buildWageAgreementPreviewRecord_(){
     rate:Number.isFinite(rate)?rate:0,
     retroStartMonth:WAGE_AGREEMENT_DRAFT.retroStartMonth,
     paymentMonth:WAGE_AGREEMENT_DRAFT.paymentMonth,
+    effectiveAt:WAGE_AGREEMENT_DRAFT.effectiveAt,
     before,
     after,
     salarySnapshotBefore:{...SAL,...before},
@@ -7359,6 +7503,7 @@ function wageMonthlyDetailHtml_(retro){
 function wagePreviewHtml_(){
   const record=buildWageAgreementPreviewRecord_();
   const retro=calculateWageAgreementRetro_(record);
+  const effectiveDate=parseWageEffectiveAt_(record.effectiveAt);
   const validRate=record.rate>0;
   const validMonths=
     monthIndex_(record.retroStartMonth)!==null&&
@@ -7368,13 +7513,19 @@ function wagePreviewHtml_(){
   const title=validRate
     ?`임금협상 ${formatNumber_(record.rate)}% 미리보기`
     :'임금협상 미리보기';
+  const isFuture=
+    effectiveDate&&effectiveDate.getTime()>Date.now();
+  const previewStatus=effectiveDate
+    ?(isFuture?'적용 예정':'즉시 적용')
+    :'적용일시 선택';
+  const previewStatusClass=isFuture?'scheduled':'';
 
   const hourlyNotice=
     validRate&&validMonths&&retro.hourlyDifference===0
       ?'<div class="form-hint" style="margin-top:10px">통상시급 차액이 0원입니다. 기본급1·기본급3의 통상임금 포함 설정을 확인하세요.</div>'
       :'';
 
-  return `<div class="wage-preview-card"><div class="wage-preview-head"><div><div class="wage-preview-title">${title}</div><div class="small">미리보기에서는 기존 기본급이 변경되지 않습니다.</div></div><span class="wage-status">미적용</span></div><div class="wage-preview-list"><div class="wage-preview-row"><span>인상률</span><strong>${validRate?formatNumber_(record.rate)+'%':'-'}</strong></div><div class="wage-preview-row"><span>소급 적용 시작 급여월</span><strong>${formatWageMonth_(record.retroStartMonth)}</strong></div><div class="wage-preview-row"><span>소급분 지급 급여월</span><strong>${formatWageMonth_(record.paymentMonth)}</strong></div><div class="wage-preview-row"><span>인상 기본급 정상 적용</span><strong>${formatWageMonth_(record.paymentMonth)}부터</strong></div><div class="wage-preview-row"><span>적용 전 기본급1</span><strong>${fmtW(record.before.base1)}</strong></div><div class="wage-preview-row"><span>적용 후 기본급1</span><strong>${validRate?fmtW(record.after.base1):'-'}</strong></div><div class="wage-preview-row"><span>적용 전 기본급3</span><strong>${fmtW(record.before.base3)}</strong></div><div class="wage-preview-row"><span>적용 후 기본급3</span><strong>${validRate?fmtW(record.after.base3):'-'}</strong></div><div class="wage-preview-row"><span>적용 전 통상시급</span><strong>${validRate&&validMonths?fmtW(retro.hourlyBefore):'-'}</strong></div><div class="wage-preview-row"><span>적용 후 예상 통상시급</span><strong>${validRate&&validMonths?fmtW(retro.hourlyAfter):'-'}</strong></div><div class="wage-preview-row"><span>통상시급 차액</span><strong>${validRate&&validMonths?fmtW(retro.hourlyDifference):'-'}</strong></div><div class="wage-preview-row"><span>소급 대상 기간</span><strong>${validRate&&validMonths?wageRetroPeriodText_(retro):'-'}</strong></div><div class="wage-preview-row"><span>기본급 소급 차액</span><strong>${validRate&&validMonths?fmtW(retro.baseDifference):'-'}</strong></div><div class="wage-preview-row"><span>OT·심야·휴일 등 수당 차액</span><strong>${validRate&&validMonths?fmtW(retro.allowanceDifference):'-'}</strong></div></div><div class="wage-preview-total"><span>소급분 총액</span><strong>${validRate&&validMonths?fmtW(retro.total):'-'}</strong></div>${hourlyNotice}${validRate&&validMonths?wageMonthlyDetailHtml_(retro):''}</div>`;
+  return `<div class="wage-preview-card"><div class="wage-preview-head"><div><div class="wage-preview-title">${title}</div><div class="small">선택한 실제 적용 일시 전까지는 기존 기본급이 유지됩니다.</div></div><span class="wage-status ${previewStatusClass}">${previewStatus}</span></div><div class="wage-preview-list"><div class="wage-preview-row"><span>인상률</span><strong>${validRate?formatNumber_(record.rate)+'%':'-'}</strong></div><div class="wage-preview-row"><span>소급 적용 시작 급여월</span><strong>${formatWageMonth_(record.retroStartMonth)}</strong></div><div class="wage-preview-row"><span>소급분 지급 급여월</span><strong>${formatWageMonth_(record.paymentMonth)}</strong></div><div class="wage-preview-row"><span>인상 기본급 정상 적용</span><strong>${formatWageMonth_(record.paymentMonth)}부터</strong></div><div class="wage-preview-row"><span>실제 적용 일시</span><strong>${effectiveDate?formatWageDateTime_(record.effectiveAt):'-'}</strong></div><div class="wage-preview-row"><span>적용 전 기본급1</span><strong>${fmtW(record.before.base1)}</strong></div><div class="wage-preview-row"><span>적용 후 기본급1</span><strong>${validRate?fmtW(record.after.base1):'-'}</strong></div><div class="wage-preview-row"><span>적용 전 기본급3</span><strong>${fmtW(record.before.base3)}</strong></div><div class="wage-preview-row"><span>적용 후 기본급3</span><strong>${validRate?fmtW(record.after.base3):'-'}</strong></div><div class="wage-preview-row"><span>적용 전 통상시급</span><strong>${validRate&&validMonths?fmtW(retro.hourlyBefore):'-'}</strong></div><div class="wage-preview-row"><span>적용 후 예상 통상시급</span><strong>${validRate&&validMonths?fmtW(retro.hourlyAfter):'-'}</strong></div><div class="wage-preview-row"><span>통상시급 차액</span><strong>${validRate&&validMonths?fmtW(retro.hourlyDifference):'-'}</strong></div><div class="wage-preview-row"><span>소급 대상 기간</span><strong>${validRate&&validMonths?wageRetroPeriodText_(retro):'-'}</strong></div><div class="wage-preview-row"><span>기본급 소급 차액</span><strong>${validRate&&validMonths?fmtW(retro.baseDifference):'-'}</strong></div><div class="wage-preview-row"><span>OT·심야·휴일 등 수당 차액</span><strong>${validRate&&validMonths?fmtW(retro.allowanceDifference):'-'}</strong></div></div><div class="wage-preview-total"><span>소급분 총액</span><strong>${validRate&&validMonths?fmtW(retro.total):'-'}</strong></div>${hourlyNotice}${validRate&&validMonths?wageMonthlyDetailHtml_(retro):''}</div>`;
 }
 
 function wageHistoryHtml_(){
@@ -7390,17 +7541,32 @@ function wageHistoryHtml_(){
       record.status==='applied'&&
       latest&&
       latest.id===record.id;
+    const isScheduled=record.status==='scheduled';
+    const cancelledFromScheduled=
+      record.status==='cancelled'&&
+      record.cancelledFromStatus==='scheduled';
     const statusText=
       record.status==='cancelled'
-        ?'적용 취소'
-        :'적용 완료';
+        ?(cancelledFromScheduled?'예약 취소':'적용 취소')
+        :record.status==='scheduled'
+          ?'적용 예정'
+          :'적용 완료';
+    const deleteButton=
+      record.status==='cancelled'
+        ?`<button type="button" class="btn red wage-history-delete wage-agreement-delete" data-wage-id="${record.id}">적용취소 이력삭제</button>`
+        :'';
+    const actionButton=isScheduled
+      ?`<button type="button" class="btn red wage-agreement-cancel" data-wage-id="${record.id}" style="width:100%;margin-top:12px">적용 예약 취소</button>`
+      :isLatest
+        ?`<button type="button" class="btn red wage-agreement-cancel" data-wage-id="${record.id}" style="width:100%;margin-top:12px">적용 취소 및 이전 금액 복구</button>`
+        :'';
 
-    return `<div class="wage-history-card"><div class="wage-preview-head"><div><b>${formatWageMonth_(record.paymentMonth)} 임금협상</b><div class="small">${formatNumber_(record.rate)}% 인상</div></div><span class="wage-status ${record.status}">${statusText}</span></div><div class="wage-preview-list"><div class="wage-preview-row"><span>소급 적용 시작 급여월</span><strong>${formatWageMonth_(record.retroStartMonth)}</strong></div><div class="wage-preview-row"><span>소급분 지급 급여월</span><strong>${formatWageMonth_(record.paymentMonth)}</strong></div><div class="wage-preview-row"><span>인상 기본급 정상 적용</span><strong>${formatWageMonth_(record.paymentMonth)}부터</strong></div><div class="wage-preview-row"><span>기본급1</span><strong>${fmtW(record.before.base1)} → ${fmtW(record.after.base1)}</strong></div><div class="wage-preview-row"><span>기본급3</span><strong>${fmtW(record.before.base3)} → ${fmtW(record.after.base3)}</strong></div><div class="wage-preview-row"><span>소급 대상 기간</span><strong>${wageRetroPeriodText_(retro)}</strong></div><div class="wage-preview-row"><span>예상 소급분 총액</span><strong>${fmtW(retro.total)}</strong></div></div>${wageMonthlyDetailHtml_(retro)}${isLatest?'<button type="button" class="btn red wage-agreement-cancel" data-wage-id="'+record.id+'" style="width:100%;margin-top:12px">적용 취소 및 이전 금액 복구</button>':''}</div>`;
+    return `<div class="wage-history-card"><div class="wage-preview-head"><div><b>${formatWageMonth_(record.paymentMonth)} 임금협상</b><div class="small">${formatNumber_(record.rate)}% 인상</div></div><div class="wage-history-actions"><span class="wage-status ${record.status}">${statusText}</span>${deleteButton}</div></div><div class="wage-preview-list"><div class="wage-preview-row"><span>소급 적용 시작 급여월</span><strong>${formatWageMonth_(record.retroStartMonth)}</strong></div><div class="wage-preview-row"><span>소급분 지급 급여월</span><strong>${formatWageMonth_(record.paymentMonth)}</strong></div><div class="wage-preview-row"><span>인상 기본급 정상 적용</span><strong>${formatWageMonth_(record.paymentMonth)}부터</strong></div><div class="wage-preview-row"><span>실제 적용 일시</span><strong>${formatWageDateTime_(record.effectiveAt||record.appliedAt)}</strong></div><div class="wage-preview-row"><span>기본급1</span><strong>${fmtW(record.before.base1)} → ${fmtW(record.after.base1)}</strong></div><div class="wage-preview-row"><span>기본급3</span><strong>${fmtW(record.before.base3)} → ${fmtW(record.after.base3)}</strong></div><div class="wage-preview-row"><span>소급 대상 기간</span><strong>${wageRetroPeriodText_(retro)}</strong></div><div class="wage-preview-row"><span>예상 소급분 총액</span><strong>${fmtW(retro.total)}</strong></div></div>${wageMonthlyDetailHtml_(retro)}${actionButton}</div>`;
   }).join('')}</div>`;
 }
 
 function renderWageAgreementSection_(){
-  return `<details id="wageAgreementAccordion" class="salary-accordion wage-agreement-accordion" ${wageAgreementAccordionOpen_?'open':''}><summary>임금협상 기록 및 미리보기</summary><div class="salary-accordion-body"><div class="notice info">인상률을 입력해 소급분을 먼저 확인한 뒤 적용하세요. 적용 버튼을 누르기 전에는 기본급과 급여 계산값이 바뀌지 않습니다.</div><div class="salary-two-col"><div class="form-group"><label class="form-label">인상률(%)</label><input id="wageAgreementRate" data-wage-draft="rate" type="number" min="0" step="0.01" class="form-input" value="${WAGE_AGREEMENT_DRAFT.rate}" placeholder="예: 3.5"></div><div class="form-group"><label class="form-label">소급 적용 시작 급여월</label><input id="wageAgreementRetroStart" data-wage-draft="retroStartMonth" type="month" class="form-input" value="${WAGE_AGREEMENT_DRAFT.retroStartMonth}"></div><div class="form-group"><label class="form-label">소급분 지급 급여월</label><input id="wageAgreementPaymentMonth" data-wage-draft="paymentMonth" type="month" class="form-input" value="${WAGE_AGREEMENT_DRAFT.paymentMonth}"></div></div><div id="wageAgreementPreview">${wagePreviewHtml_()}</div><button id="applyWageAgreementBtn" type="button" class="btn green" style="width:100%;margin-top:12px">임금협상 적용</button><hr class="sep"><div class="card-title">임금협상 기록</div><div id="wageAgreementHistory">${wageHistoryHtml_()}</div></div></details>`;
+  return `<details id="wageAgreementAccordion" class="salary-accordion wage-agreement-accordion" ${wageAgreementAccordionOpen_?'open':''}><summary>임금협상 기록 및 미리보기</summary><div class="salary-accordion-body"><div class="notice info">인상률과 적용 일시를 먼저 정하세요. 미래 시각을 선택하면 그 시각까지는 현재 기본급이 유지되고, 앱이 열려 있거나 다음에 앱을 열 때 자동 적용됩니다.</div><div class="salary-two-col"><div class="form-group"><label class="form-label">인상률(%)</label><input id="wageAgreementRate" data-wage-draft="rate" type="number" min="0" step="0.01" class="form-input" value="${WAGE_AGREEMENT_DRAFT.rate}" placeholder="예: 3.5"></div><div class="form-group"><label class="form-label">소급 적용 시작 급여월</label><input id="wageAgreementRetroStart" data-wage-draft="retroStartMonth" type="month" class="form-input" value="${WAGE_AGREEMENT_DRAFT.retroStartMonth}"></div><div class="form-group"><label class="form-label">소급분 지급 급여월</label><input id="wageAgreementPaymentMonth" data-wage-draft="paymentMonth" type="month" class="form-input" value="${WAGE_AGREEMENT_DRAFT.paymentMonth}"></div><div class="form-group"><label class="form-label">실제 적용 일시</label><input id="wageAgreementEffectiveAt" data-wage-draft="effectiveAt" type="datetime-local" class="form-input" value="${WAGE_AGREEMENT_DRAFT.effectiveAt}"><div class="form-hint">미래 시각은 예약 적용, 현재·과거 시각은 즉시 적용됩니다.</div></div></div><div id="wageAgreementPreview">${wagePreviewHtml_()}</div><button id="applyWageAgreementBtn" type="button" class="btn green" style="width:100%;margin-top:12px">임금협상 적용</button><hr class="sep"><div class="card-title">임금협상 기록</div><div id="wageAgreementHistory">${wageHistoryHtml_()}</div></div></details>`;
 }
 
 function renderWageAgreementPreview_(){
@@ -7412,7 +7578,8 @@ function renderWageAgreementPreview_(){
     monthIndex_(record.retroStartMonth)!==null&&
     monthIndex_(record.paymentMonth)!==null&&
     monthIndex_(record.retroStartMonth)<=
-      monthIndex_(record.paymentMonth);
+      monthIndex_(record.paymentMonth)&&
+    !!parseWageEffectiveAt_(record.effectiveAt);
 
   if(preview){
     preview.innerHTML=wagePreviewHtml_();
@@ -7428,6 +7595,7 @@ function applyWageAgreement_(){
   const preview=buildWageAgreementPreviewRecord_();
   const startIndex=monthIndex_(preview.retroStartMonth);
   const paymentIndex=monthIndex_(preview.paymentMonth);
+  const effectiveDate=parseWageEffectiveAt_(preview.effectiveAt);
 
   if(preview.rate<=0){
     alert('0보다 큰 임금 인상률을 입력하세요.');
@@ -7440,6 +7608,20 @@ function applyWageAgreement_(){
     startIndex>paymentIndex
   ){
     alert('소급 적용 시작월과 지급월을 확인하세요.');
+    return;
+  }
+
+  if(!effectiveDate){
+    alert('실제 적용 일시를 선택하세요.');
+    return;
+  }
+
+  const scheduledAgreement=latestScheduledWageAgreement_();
+
+  if(scheduledAgreement){
+    alert(
+      `이미 적용 예정인 임금협상이 있습니다. (${formatWageDateTime_(scheduledAgreement.effectiveAt)})\n먼저 기존 예약을 취소하세요.`
+    );
     return;
   }
 
@@ -7456,15 +7638,22 @@ function applyWageAgreement_(){
   }
 
   const retro=calculateWageAgreementRetro_(preview);
+  const isScheduled=effectiveDate.getTime()>Date.now();
+  const applyTimingText=isScheduled
+    ?`예약 적용: ${formatWageDateTime_(effectiveDate)}`
+    :`즉시 적용: ${formatWageDateTime_(effectiveDate)}`;
   const confirmed=confirm(
-    `임금협상 내용을 적용합니다.\n\n`+
+    `임금협상 내용을 ${isScheduled?'예약':'적용'}합니다.\n\n`+
     `인상률: ${formatNumber_(preview.rate)}%\n`+
     `기본급1: ${fmtW(preview.before.base1)} → ${fmtW(preview.after.base1)}\n`+
     `기본급3: ${fmtW(preview.before.base3)} → ${fmtW(preview.after.base3)}\n`+
     `통상시급: ${fmtW(retro.hourlyBefore)} → ${fmtW(retro.hourlyAfter)}\n`+
     `소급 대상: ${wageRetroPeriodText_(retro)}\n`+
-    `예상 소급분: ${fmtW(retro.total)}\n\n`+
-    `적용 후에는 기록에서 취소하여 이전 금액으로 복구할 수 있습니다.`
+    `예상 소급분: ${fmtW(retro.total)}\n`+
+    `${applyTimingText}\n\n`+
+    (isScheduled
+      ?'선택한 시각 전까지 현재 기본급이 유지됩니다.'
+      :'적용 후에는 기록에서 취소하여 이전 금액으로 복구할 수 있습니다.')
   );
 
   if(!confirmed){
@@ -7476,8 +7665,10 @@ function applyWageAgreement_(){
   const record={
     ...preview,
     id:`wage-${Date.now()}`,
-    status:'applied',
-    appliedAt:now,
+    status:isScheduled?'scheduled':'applied',
+    effectiveAt:effectiveDate.toISOString(),
+    scheduledAt:isScheduled?now:null,
+    appliedAt:isScheduled?null:now,
     salarySnapshotBefore:{...SAL,...preview.before},
     salarySnapshotAfter:{
       ...SAL,
@@ -7490,36 +7681,77 @@ function applyWageAgreement_(){
   };
 
   WAGE_AGREEMENTS.push(record);
-  SAL.base1=preview.after.base1;
-  SAL.base3=preview.after.base3;
 
-  if(SAL.hourlyMode==='manual'){
-    SAL.manualHourly=hourlyPair.after;
+  if(!isScheduled){
+    applyWageAgreementRecordToSalary_(record);
   }
-  store.set('salarySettings',SAL);
+
   saveWageAgreements_();
 
   WAGE_AGREEMENT_DRAFT={
     rate:'',
     retroStartMonth:monthKey_(today.getFullYear(),1),
-    paymentMonth:monthKey_(today.getFullYear(),today.getMonth()+1)
+    paymentMonth:monthKey_(today.getFullYear(),today.getMonth()+1),
+    effectiveAt:''
   };
   saveWageAgreementDraft_();
   wageAgreementAccordionOpen_=true;
+  scheduleWageAgreementActivationCheck_();
 
   renderSalaryFields();
   renderSalary();
   renderDashboard();
-  showAppToast_('임금협상이 적용되었습니다.','success',2800);
+  showAppToast_(
+    isScheduled
+      ?`임금협상 적용이 ${formatWageDateTime_(record.effectiveAt)}로 예약되었습니다.`
+      :'임금협상이 적용되었습니다.',
+    'success',
+    3200
+  );
 }
 
 function cancelWageAgreement_(id){
   const record=WAGE_AGREEMENTS.find(item=>item.id===id);
-  const latest=latestAppliedWageAgreement_();
 
-  if(!record||record.status!=='applied'){
+  if(!record||!['applied','scheduled'].includes(record.status)){
     return;
   }
+
+  const previousStatus=record.status;
+
+  if(previousStatus==='scheduled'){
+    const confirmed=confirm(
+      `예약된 임금협상 적용을 취소할까요?\n\n`+
+      `예정 일시: ${formatWageDateTime_(record.effectiveAt)}\n`+
+      `현재 기본급은 변경되지 않습니다.`
+    );
+
+    if(!confirmed){
+      return;
+    }
+
+    record.status='cancelled';
+    record.cancelledFromStatus='scheduled';
+    record.cancelledAt=new Date().toISOString();
+    saveWageAgreements_();
+    wageAgreementAccordionOpen_=true;
+    scheduleWageAgreementActivationCheck_();
+
+    renderSalaryFields();
+    renderSalary();
+    renderDashboard();
+    showAppToast_('임금협상 적용 예약을 취소했습니다.','success',2800);
+    return;
+  }
+
+  const pending=latestScheduledWageAgreement_();
+
+  if(pending){
+    alert('적용 예정인 임금협상을 먼저 취소하세요.');
+    return;
+  }
+
+  const latest=latestAppliedWageAgreement_();
 
   if(!latest||latest.id!==record.id){
     alert('가장 최근에 적용한 임금협상부터 취소할 수 있습니다.');
@@ -7538,6 +7770,7 @@ function cancelWageAgreement_(id){
   }
 
   record.status='cancelled';
+  record.cancelledFromStatus='applied';
   record.cancelledAt=new Date().toISOString();
   SAL.base1=record.before.base1;
   SAL.base3=record.before.base3;
@@ -7556,6 +7789,35 @@ function cancelWageAgreement_(id){
   renderSalary();
   renderDashboard();
   showAppToast_('임금협상 적용을 취소하고 이전 기본급으로 복구했습니다.','success',3000);
+}
+
+function deleteCancelledWageAgreement_(id){
+  const record=WAGE_AGREEMENTS.find(item=>item.id===id);
+
+  if(!record||record.status!=='cancelled'){
+    return;
+  }
+
+  const confirmed=confirm(
+    `적용 취소 이력을 완전히 삭제할까요?\n\n`+
+    `${formatWageMonth_(record.paymentMonth)} · ${formatNumber_(record.rate)}%\n`+
+    `삭제한 이력은 복구할 수 없습니다.`
+  );
+
+  if(!confirmed){
+    return;
+  }
+
+  WAGE_AGREEMENTS=WAGE_AGREEMENTS.filter(
+    item=>item.id!==id
+  );
+  saveWageAgreements_();
+  wageAgreementAccordionOpen_=true;
+
+  renderSalaryFields();
+  renderSalary();
+  renderDashboard();
+  showAppToast_('적용 취소 이력을 삭제했습니다.','success',2600);
 }
 
 function bindWageAgreementSection_(){
@@ -7594,6 +7856,13 @@ function bindWageAgreementSection_(){
     .forEach(button=>{
       button.onclick=()=>
         cancelWageAgreement_(button.dataset.wageId);
+    });
+
+  document
+    .querySelectorAll('.wage-agreement-delete')
+    .forEach(button=>{
+      button.onclick=()=>
+        deleteCancelledWageAgreement_(button.dataset.wageId);
     });
 
   renderWageAgreementPreview_();
@@ -7799,13 +8068,15 @@ function renderSalaryFields(){
     latestInsurance?.from||
     `${today.getFullYear()}-${pad2(today.getMonth()+1)}`;
 
-  const baseLocked=!!latestAppliedWageAgreement_();
+  const baseLocked=
+    !!latestAppliedWageAgreement_()||
+    !!latestScheduledWageAgreement_();
 
   salaryFieldsGrid.innerHTML=`
     ${renderWageAgreementSection_()}
 
     <div class="card-title">개인 급여항목</div>
-    ${baseLocked?'<div class="notice info wage-base-lock">임금협상 적용 기록이 있어 기본급1·기본급3을 보호하고 있습니다. 변경하려면 가장 최근 협상을 먼저 취소하세요.</div>':''}
+    ${baseLocked?'<div class="notice info wage-base-lock">임금협상 적용 또는 예약 기록이 있어 기본급1·기본급3을 보호하고 있습니다. 변경하려면 가장 최근 적용/예약 협상을 먼저 취소하세요.</div>':''}
 
     <div class="salary-two-col">
       <div class="form-group">
@@ -11173,6 +11444,40 @@ document.getElementById('pwaInstallBtn').onclick=async function(){
 };
 
 updatePwaInstallUi_();
+
+const activatedWageAgreementsOnLoad_=activateDueWageAgreements_();
+if(activatedWageAgreementsOnLoad_.length){
+  setTimeout(()=>{
+    showAppToast_(
+      `예약된 임금협상이 적용되었습니다. (${formatWageDateTime_(activatedWageAgreementsOnLoad_[activatedWageAgreementsOnLoad_.length-1].effectiveAt)})`,
+      'success',
+      3600
+    );
+  },0);
+}
+scheduleWageAgreementActivationCheck_();
+
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){
+    return;
+  }
+
+  const activated=activateDueWageAgreements_();
+
+  if(activated.length){
+    wageAgreementAccordionOpen_=true;
+    renderSalaryFields();
+    renderSalary();
+    renderDashboard();
+    showAppToast_(
+      `예약된 임금협상이 적용되었습니다. (${formatWageDateTime_(activated[activated.length-1].effectiveAt)})`,
+      'success',
+      3600
+    );
+  }
+
+  scheduleWageAgreementActivationCheck_();
+});
 
 if('serviceWorker' in navigator && location.protocol.startsWith('http')){
   window.addEventListener('load',function(){
