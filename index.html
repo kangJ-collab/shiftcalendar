@@ -12418,10 +12418,15 @@ function getCloudBackupConfig_(){
 }
 
 function cloudAutoBackupEnabled_(config=getCloudBackupConfig_()){
-  return (
-    config.autoBackup===true &&
-    config.autoBackupConfirmed===true
-  );
+  if(config.autoBackup!==true){
+    return false;
+  }
+
+  /*
+    기존 버전에서는 autoBackup:true 하나만 저장했다.
+    autoBackupConfirmed가 명시적으로 false인 경우에만 끈다.
+  */
+  return config.autoBackupConfirmed!==false;
 }
 
 function saveCloudBackupConfig_(patch){

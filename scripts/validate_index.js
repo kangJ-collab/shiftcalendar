@@ -233,6 +233,34 @@ if (/id="cloudAutoBackupEnabled"[^>]*\schecked(?:\s|>)/.test(html)) {
   failures.push('cloud automatic backup must be opt-in');
 }
 
+function runLegacyCloudAutoBackupCompatibilityTest() {
+  const vm = require('node:vm');
+  const functionStart = html.indexOf('function cloudAutoBackupEnabled_');
+  const functionEnd = html.indexOf('function saveCloudBackupConfig_', functionStart);
+  if (functionStart < 0 || functionEnd <= functionStart) {
+    throw new Error('could not isolate cloud auto backup compatibility code');
+  }
+  const context = {globalThis: {}};
+  vm.runInNewContext(
+    html.slice(functionStart, functionEnd) +
+      '\nglobalThis.checkCloudAutoBackup=cloudAutoBackupEnabled_;',
+    context
+  );
+  const cases = [
+    [{autoBackup:true}, true],
+    [{autoBackup:true,autoBackupConfirmed:true}, true],
+    [{autoBackup:true,autoBackupConfirmed:false}, false],
+    [{autoBackup:false}, false],
+    [{autoBackup:false,autoBackupConfirmed:false}, false]
+  ];
+  cases.forEach(([config,expected])=>{
+    const actual=context.globalThis.checkCloudAutoBackup(config);
+    if(actual!==expected){
+      throw new Error(`expected ${expected}, got ${actual}`);
+    }
+  });
+}
+
 function runForeignStorageRestoreTest() {
   const vm = require('node:vm');
   const storage = new Map([
@@ -310,6 +338,12 @@ function runForeignStorageRestoreTest() {
       throw new Error(`restore changed or failed to import storage key: ${key}`);
     }
   }
+}
+
+try {
+  runLegacyCloudAutoBackupCompatibilityTest();
+} catch (error) {
+  failures.push(`legacy cloud auto backup compatibility test failed: ${error.message}`);
 }
 
 try {
