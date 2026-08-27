@@ -19,7 +19,10 @@
 <script>
 (function(){
   const key='themePreference';
-  const allowed=['system','light','dark'];
+  const allowed=[
+    'system','light','dark','ivory','warm-ivory',
+    'mist','cream','leaf','sky','violet','apricot','rose'
+  ];
   let preference='system';
 
   try{
@@ -36,15 +39,133 @@
     window.matchMedia('(prefers-color-scheme: dark)').matches;
 
   const resolved=
-    preference==='dark' ||
-    (preference==='system'&&systemDark)
-      ?'dark'
-      :'light';
+    preference==='system'
+      ?(systemDark?'dark':'light')
+      :preference;
 
   document.documentElement.dataset.theme=resolved;
   document.documentElement.dataset.themePreference=preference;
   document.documentElement.style.colorScheme=
     resolved==='dark'?'dark':'only light';
+
+  let visualStyle='default';
+  const allowedVisualStyles=['default','factory','classic'];
+  let calendarEmphasis='date';
+  let dateSize=15;
+  let shiftSize=34;
+  let accentPreference='slate';
+  let accentCustomColor='#315d73';
+  const accentPresets={
+    slate:'#315d73',teal:'#2f746d',green:'#477252',
+    olive:'#73713d',amber:'#9b692f',orange:'#a15836',
+    red:'#a94b43',rose:'#9b526a',purple:'#6d568e',
+    indigo:'#4d6192'
+  };
+
+  const readSaved=(savedKey,fallback)=>{
+    try{
+      const raw=localStorage.getItem(savedKey);
+      return raw===null?fallback:JSON.parse(raw);
+    }catch(_){
+      return fallback;
+    }
+  };
+  visualStyle=readSaved('visualStyle','default');
+  calendarEmphasis=readSaved('calendarEmphasis','date');
+  const sizeSettings=readSaved('calendarSizeSettings',{});
+  accentPreference=readSaved('accentPreference','slate');
+  accentCustomColor=readSaved(
+    'accentCustomColor',
+    '#315d73'
+  );
+  dateSize=Number(sizeSettings?.dateSize)||15;
+  shiftSize=Number(sizeSettings?.shiftSize)||34;
+
+  document.documentElement.dataset.visualStyle=
+    allowedVisualStyles.includes(visualStyle)
+      ?visualStyle
+      :'default';
+  document.documentElement.dataset.calendarEmphasis=
+    calendarEmphasis==='shift'?'shift':'date';
+  document.documentElement.style.setProperty(
+    '--calendar-date-size',
+    `${Math.min(26,Math.max(6,dateSize))}px`
+  );
+  document.documentElement.style.setProperty(
+    '--calendar-shift-size',
+    `${Math.min(44,Math.max(12,shiftSize))}px`
+  );
+
+  const customIsValid=/^#[0-9a-f]{6}$/i.test(accentCustomColor);
+  const accentColor=accentPreference==='custom'&&customIsValid
+    ?accentCustomColor.toLowerCase()
+    :(accentPresets[accentPreference]||accentPresets.slate);
+  const rgbFromHex=hex=>[1,3,5].map(index=>
+    parseInt(hex.slice(index,index+2),16)
+  );
+  const luminanceOf=hex=>rgbFromHex(hex)
+    .map(channel=>channel/255)
+    .map(value=>value<=0.04045
+      ?value/12.92
+      :Math.pow((value+0.055)/1.055,2.4)
+    )
+    .reduce(
+      (sum,value,index)=>
+        sum+value*[0.2126,0.7152,0.0722][index],
+      0
+    );
+  const contrastRatio=(first,second)=>{
+    const values=[luminanceOf(first),luminanceOf(second)]
+      .sort((a,b)=>b-a);
+    return (values[0]+0.05)/(values[1]+0.05);
+  };
+  const mixHex=(from,to,ratio)=>{
+    const start=rgbFromHex(from);
+    const end=rgbFromHex(to);
+    return '#'+start.map((value,index)=>
+      Math.round(value+(end[index]-value)*ratio)
+        .toString(16)
+        .padStart(2,'0')
+    ).join('');
+  };
+  const accessibleAccent=(color,minContrast)=>{
+    const surface=resolved==='dark'?'#181d21':'#ffffff';
+    if(contrastRatio(color,surface)>=minContrast){
+      return color;
+    }
+    const target=resolved==='dark'?'#ffffff':'#000000';
+    for(let step=1;step<=100;step+=1){
+      const candidate=mixHex(color,target,step/100);
+      if(contrastRatio(candidate,surface)>=minContrast){
+        return candidate;
+      }
+    }
+    return target;
+  };
+  const accentFill=accessibleAccent(accentColor,3);
+  const accentStrong=accessibleAccent(accentColor,4.5);
+  const fillLuminance=luminanceOf(accentFill);
+  const accentContrast=
+    1.05/(fillLuminance+0.05)>=(fillLuminance+0.05)/0.05
+      ?'#ffffff'
+      :'#000000';
+  document.documentElement.style.setProperty(
+    '--accent-source',
+    accentColor
+  );
+  document.documentElement.style.setProperty('--accent',accentFill);
+  document.documentElement.style.setProperty(
+    '--accent-contrast',
+    accentContrast
+  );
+  document.documentElement.style.setProperty(
+    '--accent-strong',
+    accentStrong
+  );
+  document.documentElement.style.setProperty(
+    '--accent-soft',
+    `color-mix(in srgb, ${accentColor} 16%, var(--surface))`
+  );
 
   const themeMeta=document.querySelector(
     'meta[name="theme-color"]'
@@ -53,9 +174,30 @@
   if(themeMeta){
     themeMeta.setAttribute(
       'content',
-      resolved==='dark'?'#171c20':'#ffffff'
+      resolved==='dark'
+        ?'#171c20'
+        :({
+            ivory:'#eee7d9',
+            'warm-ivory':'#eee1d8',
+            mist:'#dfe4e8',
+            cream:'#eee7da',
+            leaf:'#dfe8df',
+            sky:'#dde7ed',
+            violet:'#e5e1eb',
+            apricot:'#eadfd7',
+            rose:'#e9dfe2'
+          }[resolved]||'#ffffff')
     );
   }
+
+  document.querySelector('meta[name="color-scheme"]')
+    ?.setAttribute('content',resolved==='dark'?'dark':'light');
+  document.querySelector(
+    'meta[name="apple-mobile-web-app-status-bar-style"]'
+  )?.setAttribute(
+    'content',
+    resolved==='dark'?'black':'default'
+  );
 })();
 </script>
 
@@ -64,7 +206,8 @@
   --blue-dark:#2f5368;--blue-mid:#53778c;--red:#d94841;--yellow:#f2e79a;
   --black:#2b2b2b;--gray-bg:#f3f4f5;--line:#dfe3e6;--green:#356b57;
   --surface:#fff;--surface-muted:#f6f7f8;--text:#202428;--muted:#68727a;
-  --accent:#315d73;--accent-strong:#244759;--accent-soft:#e8eff2;
+  --accent-source:#315d73;--accent:#315d73;--accent-strong:#244759;--accent-soft:#e8eff2;--accent-contrast:#fff;
+  --border:var(--line);--card:var(--surface);--soft:var(--surface-muted);
   --warn:#6a562e;--warn-bg:#faf5e9;
   --nav-h:68px;
   --nav-total-height:calc(var(--nav-h) + env(safe-area-inset-bottom,0px));
@@ -72,7 +215,7 @@
   --memo-weight:600;--memo-stroke:0px;
   --calendar-text:#222;--text-soft:#58636b;--memo-color:#30383e;
   --sunday-color:#e5352b;--saturday-color:#2255cc;
-  --today-bg:rgba(59,130,246,.09);--today-ring:#243b6b;
+  --today-bg:var(--accent-soft);--today-ring:var(--accent-strong);
   --calendar-date-size:15px;--calendar-corner-date-size:12px;
   --calendar-today-size:25px;--calendar-corner-today-size:22px;
   --calendar-shift-size:34px;--calendar-shift-font-size:15px;
@@ -89,12 +232,101 @@ html[data-theme="dark"]{
   --blue-dark:#83a9be;--blue-mid:#789caf;--red:#ff7770;--yellow:#d8cd78;
   --black:#25282b;--gray-bg:#0f1316;--line:#30383e;--green:#5c947c;
   --surface:#181d21;--surface-muted:#20262b;--text:#edf1f3;--muted:#aab3b9;
-  --accent:#779bad;--accent-strong:#bdd3de;--accent-soft:#263842;
+  --accent-source:#779bad;--accent:#779bad;--accent-strong:#bdd3de;--accent-soft:#263842;
   --warn:#dfc98f;--warn-bg:#332d21;
   --calendar-text:#edf1f3;--text-soft:#b5bec4;--memo-color:#e5eaed;
   --sunday-color:#ff7a73;--saturday-color:#78a8ff;
-  --today-bg:rgba(120,180,220,.14);--today-ring:#a7cadc;
+  --today-bg:var(--accent-soft);--today-ring:var(--accent-strong);
   --modal-backdrop:rgba(0,0,0,.62);--shadow:rgba(0,0,0,.35);
+}
+html[data-theme="ivory"]{
+  color-scheme:only light;
+  --gray-bg:#eee7d9;--surface:#fbf6eb;--surface-muted:#f5eedf;
+  --text:#2b2a27;--muted:#756f65;--line:#e2d8c7;
+  --black:#2b2a27;--text-soft:#6b665e;--memo-color:#34312c;
+  --shadow:rgba(75,60,40,.13);
+}
+html[data-theme="warm-ivory"]{
+  color-scheme:only light;
+  --gray-bg:#eee1d8;--surface:#fcf2e8;--surface-muted:#f7e9dd;
+  --text:#2f2925;--muted:#786a61;--line:#e6d4c5;
+  --black:#2f2925;--text-soft:#70635b;--memo-color:#39302b;
+  --shadow:rgba(82,56,42,.13);
+}
+html[data-theme="mist"]{
+  color-scheme:only light;
+  --gray-bg:#dfe4e8;--surface:#f8fafb;--surface-muted:#eef1f4;
+  --text:#1e2935;--muted:#697583;--line:#d9e0e5;
+  --black:#1e2935;--text-soft:#697583;--memo-color:#2b3641;
+  --shadow:rgba(30,41,53,.10);
+}
+html[data-theme="cream"]{
+  color-scheme:only light;
+  --gray-bg:#eee7da;--surface:#fbf7ef;--surface-muted:#f4eddf;
+  --text:#2d2a25;--muted:#766f63;--line:#e2d8c7;
+  --black:#2d2a25;--text-soft:#70695f;--memo-color:#36322c;
+  --shadow:rgba(76,62,40,.11);
+}
+html[data-theme="leaf"]{
+  color-scheme:only light;
+  --gray-bg:#dfe8df;--surface:#f7faf6;--surface-muted:#eaf2e9;
+  --text:#263128;--muted:#68766b;--line:#d6e1d5;
+  --black:#263128;--text-soft:#627065;--memo-color:#2e3930;
+  --shadow:rgba(42,68,48,.10);
+}
+html[data-theme="sky"]{
+  color-scheme:only light;
+  --gray-bg:#dde7ed;--surface:#f7fafc;--surface-muted:#eaf2f8;
+  --text:#23313b;--muted:#667783;--line:#d4e0e8;
+  --black:#23313b;--text-soft:#60717d;--memo-color:#2c3943;
+  --shadow:rgba(40,65,82,.10);
+}
+html[data-theme="violet"]{
+  color-scheme:only light;
+  --gray-bg:#e5e1eb;--surface:#faf8fc;--surface-muted:#f0ecf8;
+  --text:#2e2937;--muted:#746d7e;--line:#ddd6e6;
+  --black:#2e2937;--text-soft:#6e6778;--memo-color:#373140;
+  --shadow:rgba(58,45,76,.10);
+}
+html[data-theme="apricot"]{
+  color-scheme:only light;
+  --gray-bg:#eadfd7;--surface:#fdf8f4;--surface-muted:#faeee6;
+  --text:#342a25;--muted:#7b6d64;--line:#e6d7cc;
+  --black:#342a25;--text-soft:#75675f;--memo-color:#3d312b;
+  --shadow:rgba(82,56,42,.10);
+}
+html[data-theme="rose"]{
+  color-scheme:only light;
+  --gray-bg:#e9dfe2;--surface:#fdf9fa;--surface-muted:#f8edef;
+  --text:#35292d;--muted:#7a6c71;--line:#e5d5da;
+  --black:#35292d;--text-soft:#74666b;--memo-color:#3e3035;
+  --shadow:rgba(80,50,60,.10);
+}
+html[data-theme="ivory"],html[data-theme="warm-ivory"],
+html[data-theme="mist"],html[data-theme="cream"],html[data-theme="leaf"],
+html[data-theme="sky"],html[data-theme="violet"],html[data-theme="apricot"],html[data-theme="rose"]{
+  color-scheme:only light;
+}
+html[data-theme="ivory"],html[data-theme="warm-ivory"],
+html[data-theme="mist"],html[data-theme="cream"],html[data-theme="leaf"],
+html[data-theme="sky"],html[data-theme="violet"],html[data-theme="apricot"],html[data-theme="rose"],
+html[data-theme="ivory"] body,html[data-theme="warm-ivory"] body,
+html[data-theme="mist"] body,html[data-theme="cream"] body,html[data-theme="leaf"] body,
+html[data-theme="sky"] body,html[data-theme="violet"] body,html[data-theme="apricot"] body,html[data-theme="rose"] body{
+  background-color:var(--gray-bg)!important;
+  color:var(--text);
+}
+html[data-theme="ivory"] input,html[data-theme="ivory"] select,html[data-theme="ivory"] textarea,
+html[data-theme="warm-ivory"] input,html[data-theme="warm-ivory"] select,html[data-theme="warm-ivory"] textarea,
+html[data-theme="mist"] input,html[data-theme="mist"] select,html[data-theme="mist"] textarea,
+html[data-theme="cream"] input,html[data-theme="cream"] select,html[data-theme="cream"] textarea,
+html[data-theme="leaf"] input,html[data-theme="leaf"] select,html[data-theme="leaf"] textarea,
+html[data-theme="sky"] input,html[data-theme="sky"] select,html[data-theme="sky"] textarea,
+html[data-theme="violet"] input,html[data-theme="violet"] select,html[data-theme="violet"] textarea,
+html[data-theme="apricot"] input,html[data-theme="apricot"] select,html[data-theme="apricot"] textarea,
+html[data-theme="rose"] input,html[data-theme="rose"] select,html[data-theme="rose"] textarea{
+  background:var(--surface);
+  color:var(--text);
 }
 
 html[data-theme="light"],
@@ -216,6 +448,8 @@ button{cursor:pointer}
   background:var(--surface-muted);
 }
 .header-actions{display:flex;align-items:center;gap:4px}
+.header-brand,.header-title-stack{display:contents}
+.classic-team-seal,.classic-wordmark,.classic-today-block{display:none}
 .header-icon-btn{
   width:42px;height:42px;display:flex;align-items:center;justify-content:center;
   background:transparent;border:0;border-radius:12px;padding:8px;color:var(--text-soft);
@@ -424,6 +658,1442 @@ html[data-calendar-emphasis="shift"] .cell .memo{
 html[data-calendar-emphasis="date"] .cell .tag{
   align-self:flex-start;
 }
+
+/* ===== 화면 스타일: 현장형(factory) =====
+   기존(default) CSS는 수정하지 않고 이 스킨에서만 덮어쓴다. */
+html[data-visual-style="factory"]{
+  --factory-brand:var(--accent);
+  --factory-brand-ink:var(--accent-contrast);
+  --factory-sheet:color-mix(in srgb,var(--surface) 90%,var(--gray-bg));
+}
+html[data-theme="dark"][data-visual-style="factory"]{
+}
+
+/* 앱 골격 — 선보다 면, 기존 기능/레이아웃은 유지 */
+html[data-visual-style="factory"] #app{
+  background:var(--surface);
+}
+html[data-visual-style="factory"] .main-header{
+  padding:16px 16px 10px;
+  border-bottom:0;
+  background:var(--surface);
+}
+html[data-visual-style="factory"] .header-month{
+  padding:2px 0;
+  border-radius:0;
+  font-size:32px;
+  font-weight:900;
+  letter-spacing:-1.2px;
+}
+html[data-visual-style="factory"] .header-month:active{
+  background:transparent;
+  opacity:.66;
+}
+html[data-visual-style="factory"] .header-icon-btn{
+  width:38px;
+  height:38px;
+  border-radius:8px;
+}
+html[data-visual-style="factory"] .month-bar{
+  grid-template-columns:46px minmax(0,1fr) 46px;
+  padding:2px 12px 11px;
+  border-bottom:0;
+  background:var(--surface);
+}
+html[data-visual-style="factory"] .month-bar button{
+  height:36px;
+  margin:0;
+  padding:0;
+  border-radius:8px;
+  background:var(--surface-muted);
+  font-size:22px;
+}
+html[data-visual-style="factory"] .month-bar .team-badge{
+  justify-self:center;
+  padding:7px 12px;
+  border:0;
+  border-radius:9px;
+  background:var(--factory-brand);
+  color:var(--factory-brand-ink);
+  font-size:13px;
+  font-weight:900;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.22),0 2px 5px var(--shadow);
+}
+html[data-visual-style="factory"] .weekday-row{
+  padding:0 3px 4px;
+  border-bottom:0;
+  background:var(--surface);
+  gap:3px;
+}
+html[data-visual-style="factory"] .weekday-row div{
+  padding:5px 0;
+  border-radius:6px;
+  background:var(--surface-muted);
+  font-size:11px;
+  font-weight:800;
+}
+
+/* 내근무 달력 — 장식 표식 없이 테마 표면과 옅은 근무 면색만 사용 */
+html[data-visual-style="factory"] .grid{
+  gap:3px;
+  padding:3px 3px 5px;
+  background:var(--surface);
+}
+html[data-visual-style="factory"] .cell{
+  border-right:0;
+  border-bottom:0;
+  border-radius:8px;
+  padding:5px 4px;
+  color:var(--calendar-text);
+  background:color-mix(in srgb,var(--shift-bg,var(--surface-muted)) 12%,var(--surface));
+}
+html[data-visual-style="factory"] .cell:nth-child(7n){
+  border-right:0;
+}
+html[data-visual-style="factory"] .cell.dim{
+  opacity:.34;
+}
+html[data-visual-style="factory"] .cell.dim .tag{
+  opacity:1;
+}
+html[data-visual-style="factory"] .cell .tag{
+  position:relative;
+  z-index:2;
+  padding:0;
+  border-radius:0;
+  background:transparent!important;
+  color:var(--text)!important;
+  box-shadow:none!important;
+  text-shadow:none;
+}
+html[data-visual-style="factory"] .cell .daynum{
+  position:relative;
+  z-index:2;
+  font-weight:850;
+}
+html[data-visual-style="factory"] .cell .holiday-name{
+  position:relative;
+  z-index:2;
+  background:transparent!important;
+  opacity:.82;
+}
+html[data-visual-style="factory"] .cell.today{
+  outline:2px solid var(--factory-brand);
+  outline-offset:-2px;
+  box-shadow:none;
+}
+html[data-visual-style="factory"] .cell.today .daynum{
+  width:auto;
+  height:auto;
+  margin-top:auto;
+  margin-bottom:auto;
+  background:transparent;
+  border:0;
+  border-radius:0;
+}
+html[data-visual-style="factory"][data-calendar-emphasis="date"] .cell .tag{
+  align-self:flex-start;
+  min-width:0;
+  min-height:0;
+  padding:0;
+  margin:0;
+  font-size:10px;
+  border-radius:0;
+}
+html[data-visual-style="factory"][data-calendar-emphasis="shift"] .cell .tag{
+  width:auto;
+  height:auto;
+  min-width:0;
+  min-height:0;
+  max-width:calc(100% - 8px);
+  aspect-ratio:auto;
+  margin:auto;
+  padding:0;
+  border-radius:0;
+  font-size:var(--calendar-shift-font-size);
+  font-weight:900;
+  overflow:visible;
+}
+html[data-visual-style="factory"][data-calendar-emphasis="shift"] .cell .tag.tag-long{
+  font-size:var(--calendar-shift-long-font-size);
+}
+html[data-visual-style="factory"][data-calendar-emphasis="shift"] .cell.today .daynum{
+  top:4px;
+  left:5px;
+}
+html[data-visual-style="factory"] .memo{
+  position:relative;
+  z-index:11;
+}
+
+/* 다른조 / 친구근무 — 좌측 강조선이나 칩 없이 옅은 면색만 유지 */
+html[data-visual-style="factory"] .table-wrap{
+  padding:3px;
+  gap:3px;
+  background:var(--surface);
+}
+html[data-visual-style="factory"] .trow{
+  gap:3px;
+  border-bottom:0;
+  background:transparent;
+}
+html[data-visual-style="factory"] .trow.header-row{
+  background:transparent;
+}
+html[data-visual-style="factory"] .tcell{
+  border-right:0;
+  border-radius:6px;
+  color:var(--text);
+  background:color-mix(in srgb,var(--shift-bg,var(--surface-muted)) 12%,var(--surface-muted));
+  box-shadow:none;
+}
+html[data-visual-style="factory"] .tcell:last-child{
+  border-right:0;
+}
+html[data-visual-style="factory"] .tcell.label{
+  background:var(--factory-brand);
+  color:var(--factory-brand-ink);
+  font-weight:900;
+}
+html[data-visual-style="factory"] .tcell .badge{
+  padding:0;
+  border:0;
+  border-radius:0;
+  background:transparent!important;
+  color:var(--text)!important;
+  font-size:12px;
+  font-weight:900;
+}
+html[data-visual-style="factory"] .tcell.today-col{
+  box-shadow:inset 0 0 0 2px var(--factory-brand);
+}
+html[data-visual-style="factory"] .today-number-ring{
+  min-width:0;
+  height:auto;
+  padding:0;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  font-weight:900;
+}
+
+/* 하단 메뉴 — V5의 단일 강한 활성 상태 */
+html[data-visual-style="factory"] nav{
+  gap:4px;
+  border-top:0;
+  background:var(--surface);
+  box-shadow:0 -8px 24px var(--shadow);
+}
+html[data-visual-style="factory"] nav button{
+  border-radius:10px;
+  font-weight:750;
+}
+html[data-visual-style="factory"] nav button.active{
+  background:var(--factory-brand);
+  color:var(--factory-brand-ink);
+}
+
+/* 패널 공통 */
+html[data-visual-style="factory"] .panel{
+  background:var(--surface);
+}
+html[data-visual-style="factory"] .panel-head{
+  padding:15px 16px 11px;
+  border-bottom:0;
+  background:var(--surface);
+}
+html[data-visual-style="factory"] .panel-title{
+  font-size:18px;
+  font-weight:900;
+  letter-spacing:-.35px;
+}
+html[data-visual-style="factory"] .panel-body{
+  padding:14px 16px 28px;
+  background:var(--surface);
+}
+html[data-visual-style="factory"] .settings-quick-nav{
+  top:-14px;
+  margin:-14px -16px 16px;
+  padding:8px 16px 10px;
+  border-bottom:0;
+  background:var(--surface);
+  box-shadow:none;
+}
+html[data-visual-style="factory"] .settings-quick-nav button{
+  min-height:34px;
+  padding:7px 10px;
+  border:0;
+  border-radius:7px;
+  background:var(--surface-muted);
+  color:var(--text-soft);
+  font-weight:800;
+}
+
+/* 설정 섹션 — hairline 대신 컬러 탭 + 면 */
+html[data-visual-style="factory"] #settingsPanel .panel-body > .section-label{
+  display:inline-flex;
+  width:max-content;
+  max-width:100%;
+  margin:18px 0 8px;
+  padding:4px 9px;
+  border-radius:2px 8px 8px 2px;
+  background:var(--factory-brand);
+  color:var(--factory-brand-ink);
+  font-size:11px;
+  font-weight:900;
+}
+html[data-visual-style="factory"] #settingsPanel .panel-body > .section-label:first-of-type{
+  margin-top:2px;
+}
+html[data-visual-style="factory"] .card{
+  margin-bottom:14px;
+  padding:14px;
+  border:0;
+  border-radius:12px;
+  background:var(--surface-muted);
+  box-shadow:none;
+}
+html[data-visual-style="factory"] .card-title{
+  font-size:14px;
+  font-weight:900;
+  letter-spacing:-.2px;
+}
+html[data-visual-style="factory"] .form-input{
+  border:0;
+  border-radius:7px;
+  background:var(--surface);
+  box-shadow:none;
+}
+html[data-visual-style="factory"] .btn{
+  border:0;
+  border-radius:7px;
+  background:var(--surface);
+}
+html[data-visual-style="factory"] .btn.primary{
+  background:var(--factory-brand);
+  color:var(--factory-brand-ink);
+}
+html[data-visual-style="factory"] .notice{
+  border:0;
+  border-radius:8px;
+}
+html[data-visual-style="factory"] .notice.info{
+  background:var(--surface);
+}
+html[data-visual-style="factory"] .notice.warn{
+  background:var(--warn-bg);
+}
+html[data-visual-style="factory"] hr.sep{
+  height:8px;
+  margin:16px -14px;
+  border:0;
+  background:var(--surface);
+}
+html[data-visual-style="factory"] .theme-setting-grid{
+  gap:5px;
+}
+html[data-visual-style="factory"] .theme-setting-button,
+html[data-visual-style="factory"] .calendar-emphasis-button{
+  border:0;
+  border-radius:8px;
+  background:var(--surface);
+}
+html[data-visual-style="factory"] .theme-setting-button.active,
+html[data-visual-style="factory"] .calendar-emphasis-button.active{
+  border:0;
+  background:var(--accent-soft);
+  box-shadow:inset 0 0 0 2px var(--factory-brand);
+  color:var(--text);
+}
+html[data-visual-style="factory"] .calendar-emphasis-sample{
+  border:0;
+  border-radius:6px;
+}
+html[data-visual-style="factory"] .calendar-emphasis-sample .sample-shift{
+  min-width:0;
+  min-height:0;
+  width:auto;
+  height:auto;
+  padding:0;
+  border-radius:0;
+  background:transparent;
+  color:var(--text);
+}
+html[data-visual-style="factory"] .calendar-size-controls{
+  margin-top:12px;
+  padding:12px;
+  border-top:0;
+  border-radius:9px;
+  background:var(--surface);
+}
+html[data-visual-style="factory"] .mode-switch{
+  gap:3px;
+  padding:3px;
+  border-radius:7px;
+  background:var(--surface);
+}
+html[data-visual-style="factory"] .mode-switch button{
+  border-radius:5px;
+}
+html[data-visual-style="factory"] .mode-switch button.active{
+  background:var(--factory-brand);
+  color:var(--factory-brand-ink);
+  box-shadow:none;
+}
+html[data-visual-style="factory"] .fixed-basis,
+html[data-visual-style="factory"] .call-work-fields,
+html[data-visual-style="factory"] .salary-check-list,
+html[data-visual-style="factory"] .salary-custom-row,
+html[data-visual-style="factory"] .change-preview,
+html[data-visual-style="factory"] .actual-work-fields{
+  border:0;
+  border-radius:8px;
+  background:var(--surface);
+}
+html[data-visual-style="factory"] .pattern-preview-cell{
+  border:0;
+  border-radius:6px;
+}
+html[data-visual-style="factory"] .type-row,
+html[data-visual-style="factory"] .history-row,
+html[data-visual-style="factory"] .holiday-row,
+html[data-visual-style="factory"] .rule-row,
+html[data-visual-style="factory"] .period-row{
+  margin-bottom:4px;
+  padding:10px 9px;
+  border-bottom:0;
+  border-radius:8px;
+  background:var(--surface);
+}
+html[data-visual-style="factory"] .pill{
+  border:0;
+  border-radius:4px;
+}
+html[data-visual-style="factory"] .type-color-input,
+html[data-visual-style="factory"] .color-field input[type="color"]{
+  border:0;
+  border-radius:7px;
+  background:var(--surface);
+}
+
+/* 대시보드 — 같은 계산값, 카드/표 표현만 현장형으로 */
+html[data-visual-style="factory"] #dashboardPanel .stat-grid{
+  gap:7px;
+}
+html[data-visual-style="factory"] #dashboardPanel .stat{
+  padding:13px 11px;
+  border:0;
+  border-radius:10px;
+  background:var(--surface-muted);
+}
+html[data-visual-style="factory"] #dashboardPanel .stat .k{
+  font-size:10px;
+  font-weight:750;
+}
+html[data-visual-style="factory"] #dashboardPanel .stat .v{
+  font-size:23px;
+  font-weight:900;
+  letter-spacing:-.6px;
+}
+html[data-visual-style="factory"] .annual-cycle-divider{
+  height:7px;
+  margin:12px -14px;
+  background:var(--surface-muted);
+}
+html[data-visual-style="factory"] .week-hours-list{
+  gap:4px;
+}
+html[data-visual-style="factory"] .week-hours-row{
+  padding:11px 10px;
+  border:0;
+  border-radius:8px;
+  background:var(--surface);
+}
+html[data-visual-style="factory"] .week-hours-row .week-total{
+  font-size:19px;
+  font-weight:950;
+}
+html[data-visual-style="factory"] .data-table{
+  border-collapse:separate;
+  border-spacing:0 4px;
+}
+html[data-visual-style="factory"] .data-table td{
+  padding:8px 9px;
+  border-bottom:0;
+  background:var(--surface);
+}
+html[data-visual-style="factory"] .data-table td:first-child{
+  border-radius:6px 0 0 6px;
+}
+html[data-visual-style="factory"] .data-table td:last-child{
+  border-radius:0 6px 6px 0;
+}
+html[data-visual-style="factory"] .data-table .allowance-total-row td{
+  border-top:0;
+  background:var(--factory-brand);
+  color:var(--factory-brand-ink);
+}
+
+/* 급여명세서 — 실제 값/계산은 그대로, invoice 계층만 강화 */
+html[data-visual-style="factory"] #salaryPanel .stat-grid{
+  gap:7px;
+}
+html[data-visual-style="factory"] #salaryPanel .stat{
+  padding:12px 10px;
+  border:0;
+  border-radius:9px;
+  background:var(--surface-muted);
+}
+html[data-visual-style="factory"] #salaryPanel .stat .v{
+  font-size:22px;
+  font-weight:900;
+  letter-spacing:-.45px;
+}
+html[data-visual-style="factory"] .slip-grid{
+  gap:10px;
+}
+html[data-visual-style="factory"] .slip-grid > .card{
+  position:relative;
+  overflow:visible;
+  background:var(--factory-sheet);
+}
+html[data-theme="dark"][data-visual-style="factory"] .slip-grid > .card{
+  color:var(--text);
+}
+html[data-visual-style="factory"] .slip-grid > .card .card-title{
+  margin-bottom:9px;
+  font-size:16px;
+  font-weight:900;
+}
+html[data-visual-style="factory"] .slip-table{
+  border-collapse:separate;
+  border-spacing:0 3px;
+}
+html[data-visual-style="factory"] .slip-table td{
+  padding:8px 9px;
+  border-bottom:0;
+  background:var(--surface);
+}
+html[data-visual-style="factory"] .slip-table td:first-child{
+  border-radius:5px 0 0 5px;
+}
+html[data-visual-style="factory"] .slip-table td:last-child{
+  border-radius:0 5px 5px 0;
+  font-weight:800;
+}
+html[data-visual-style="factory"] .slip-table tr.total td{
+  background:var(--text);
+  color:var(--surface);
+  font-weight:900;
+}
+html[data-visual-style="factory"] .salary-result{
+  border-radius:7px;
+  background:var(--surface);
+}
+html[data-visual-style="factory"] .salary-accordion,
+html[data-visual-style="factory"] .wage-agreement-accordion,
+html[data-visual-style="factory"] .ot-preview-card,
+html[data-visual-style="factory"] .retirement-month,
+html[data-visual-style="factory"] .wage-preview-card,
+html[data-visual-style="factory"] .wage-history-card{
+  border:0;
+  border-radius:10px;
+  background:var(--surface-muted);
+}
+html[data-visual-style="factory"] .salary-accordion[open] > summary{
+  border-bottom:0;
+  background:var(--surface);
+}
+html[data-visual-style="factory"] .wage-preview-card,
+html[data-visual-style="factory"] .wage-history-card,
+html[data-visual-style="factory"] .retirement-month{
+  background:var(--surface);
+}
+html[data-visual-style="factory"] .wage-preview-total,
+html[data-visual-style="factory"] .wage-retro-detail,
+html[data-visual-style="factory"] .wage-retro-month{
+  border-color:transparent;
+}
+html[data-visual-style="factory"] .retirement-result{
+  border:0;
+  border-radius:12px;
+  background:var(--accent-soft);
+}
+
+/* 모달/시트 — 같은 스킨 언어 */
+html[data-visual-style="factory"] .modal-box,
+html[data-visual-style="factory"] .theme-sheet-panel{
+  border:0;
+  box-shadow:0 14px 36px var(--shadow);
+}
+html[data-visual-style="factory"] .theme-option{
+  border:0;
+  border-radius:8px;
+  background:var(--surface-muted);
+}
+html[data-visual-style="factory"] .theme-option.active{
+  border:0;
+  background:var(--accent-soft);
+  box-shadow:inset 0 0 0 2px var(--factory-brand);
+}
+html[data-visual-style="factory"] .month-picker-year-button,
+html[data-visual-style="factory"] .month-picker-month,
+html[data-visual-style="factory"] .month-picker-today{
+  border:0;
+  border-radius:8px;
+}
+html[data-visual-style="factory"] .month-picker-month.active,
+html[data-visual-style="factory"] .month-picker-today{
+  background:var(--factory-brand);
+  color:var(--factory-brand-ink);
+}
+html[data-visual-style="factory"] .month-picker-month.today-month:not(.active){
+  border:0;
+  box-shadow:inset 0 0 0 2px var(--factory-brand);
+}
+
+/* ===== 화면 스타일: 클래식(classic) =====
+   최초 시안의 색면·종이형 계층을 현재 기능과 데이터에 연결한다.
+   장식용 점, 삼각 표식, 좌측 강조선은 사용하지 않는다. */
+html[data-visual-style="classic"]{
+  --classic-bg:var(--gray-bg);
+  --classic-paper:var(--surface);
+  --classic-paper-2:var(--surface-muted);
+  --classic-ink:var(--text);
+  --classic-muted:var(--muted);
+  --classic-brand:var(--accent);
+  --classic-brand-strong:var(--accent-strong);
+  --classic-brand-ink:var(--accent-contrast);
+  --classic-off:color-mix(in srgb,var(--green) 82%,var(--text));
+}
+html[data-visual-style="classic"] #app{
+  width:min(100vw,900px);
+  margin:0 auto;
+  background:var(--classic-paper);
+  box-shadow:0 0 28px var(--shadow);
+}
+
+/* 인장형 헤더 */
+html[data-visual-style="classic"] .main-header{
+  min-height:68px;
+  padding:calc(12px + env(safe-area-inset-top,0px)) 16px 12px;
+  gap:12px;
+  background:var(--classic-paper);
+  border:0;
+}
+html[data-visual-style="classic"] .header-brand{
+  min-width:0;
+  flex:1 1 auto;
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+html[data-visual-style="classic"] .header-title-stack{
+  min-width:0;
+  display:block;
+}
+html[data-visual-style="classic"] .classic-team-seal{
+  width:40px;
+  height:40px;
+  flex:0 0 auto;
+  display:grid;
+  place-items:center;
+  border-radius:46% 54% 51% 49%/52% 48% 55% 45%;
+  background:var(--classic-brand);
+  color:var(--classic-brand-ink);
+  font-size:12px;
+  font-weight:900;
+  transform:rotate(-5deg);
+  box-shadow:
+    inset 0 0 0 2px color-mix(in srgb,var(--classic-brand-ink) 28%,transparent),
+    0 2px 5px var(--shadow);
+}
+html[data-visual-style="classic"] .classic-wordmark{
+  display:block;
+  color:var(--classic-ink);
+  font-size:19px;
+  font-weight:900;
+  letter-spacing:-.6px;
+}
+html[data-visual-style="classic"] .header-month{
+  min-width:0;
+  min-height:32px;
+  margin-top:0;
+  padding:4px 8px 4px 0;
+  color:var(--classic-muted);
+  font-size:12px;
+  font-weight:650;
+  letter-spacing:0;
+  border-radius:4px;
+}
+html[data-visual-style="classic"] .header-month::after{
+  top:0;
+  font-size:.75em;
+}
+html[data-visual-style="classic"] .header-icon-btn{
+  width:38px;
+  height:38px;
+  padding:8px;
+  border-radius:8px;
+  color:var(--classic-muted);
+}
+html[data-visual-style="classic"] .header-icon-btn svg{
+  width:20px;
+  height:20px;
+}
+html[data-visual-style="classic"] .header-icon-btn:active{
+  background:var(--classic-paper-2);
+}
+
+/* 실제 오늘·다음 근무 데이터 요약 */
+html[data-visual-style="classic"] .classic-today-block{
+  display:block;
+  flex:0 0 auto;
+  margin:2px 16px 10px;
+  padding:14px 16px 15px;
+  border-radius:14px;
+  background:var(--classic-shift-bg,var(--classic-paper-2));
+  color:var(--classic-shift-fg,var(--classic-ink));
+}
+html[data-visual-style="classic"] .classic-today-block[data-shift-key="휴무"]{
+  background:var(--classic-paper-2);
+  color:var(--classic-ink);
+}
+html[data-visual-style="classic"] .classic-today-date{
+  font-size:10px;
+  font-weight:850;
+  opacity:.72;
+}
+html[data-visual-style="classic"] .classic-today-row{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:14px;
+  margin-top:10px;
+}
+html[data-visual-style="classic"] .classic-today-status,
+html[data-visual-style="classic"] .classic-next-shift{
+  min-width:0;
+}
+html[data-visual-style="classic"] .classic-today-status strong{
+  display:block;
+  font-size:29px;
+  line-height:1;
+  font-weight:900;
+  letter-spacing:-.8px;
+}
+html[data-visual-style="classic"] .classic-today-status span,
+html[data-visual-style="classic"] .classic-next-shift span,
+html[data-visual-style="classic"] .classic-next-shift small{
+  display:block;
+  margin-top:4px;
+  font-size:10px;
+  font-weight:700;
+  opacity:.7;
+}
+html[data-visual-style="classic"] .classic-next-shift{
+  text-align:right;
+}
+html[data-visual-style="classic"] .classic-next-shift strong{
+  display:block;
+  margin-top:3px;
+  font-size:14px;
+  font-weight:850;
+}
+
+/* 월 이동과 달력 */
+html[data-visual-style="classic"] .month-bar{
+  grid-template-columns:40px minmax(0,1fr) 40px;
+  padding:0 12px 8px;
+  background:var(--classic-paper);
+  border:0;
+}
+html[data-visual-style="classic"] .month-bar button{
+  height:38px;
+  padding:0;
+  color:var(--classic-muted);
+  font-size:20px;
+  border-radius:8px;
+}
+html[data-visual-style="classic"] .month-bar button:active{
+  background:var(--classic-paper-2);
+}
+html[data-visual-style="classic"] .month-bar .team-badge{
+  padding:4px 8px;
+  color:var(--classic-ink);
+  background:transparent;
+  border:0;
+  border-radius:0;
+  font-size:14px;
+  font-weight:850;
+}
+html[data-visual-style="classic"] #calendarWrap{
+  padding:0 12px 10px;
+  background:var(--classic-paper);
+}
+html[data-visual-style="classic"] .weekday-row{
+  margin-bottom:4px;
+  background:transparent;
+  border:0;
+}
+html[data-visual-style="classic"] .weekday-row div{
+  padding:4px 0;
+  color:var(--classic-muted);
+  font-size:11px;
+  font-weight:750;
+}
+html[data-visual-style="classic"] .weekday-row div:first-child{
+  color:var(--sunday-color);
+}
+html[data-visual-style="classic"] .weekday-row div:last-child{
+  color:var(--saturday-color);
+}
+html[data-visual-style="classic"] .grid{
+  gap:3px;
+  padding:0;
+  background:var(--classic-paper);
+}
+html[data-visual-style="classic"] .cell{
+  padding:5px 4px;
+  border:0;
+  border-radius:9px;
+  background:var(--shift-bg,var(--classic-paper-2));
+  color:var(--shift-fg,var(--classic-ink));
+}
+html[data-visual-style="classic"] .cell[data-shift-key="휴무"]{
+  background:var(--classic-paper-2);
+  color:var(--classic-ink);
+}
+html[data-visual-style="classic"] .cell.dim{
+  opacity:.28;
+}
+html[data-visual-style="classic"] .cell .daynum{
+  order:1;
+  align-self:flex-start;
+  width:auto;
+  height:auto;
+  margin:0;
+  background:transparent;
+  border:0;
+  border-radius:0;
+  font-weight:850;
+  line-height:1;
+}
+html[data-visual-style="classic"] .cell:not([data-shift-key="휴무"]) .daynum{
+  color:inherit!important;
+  opacity:.84;
+}
+html[data-visual-style="classic"] .cell .holiday-name{
+  position:absolute;
+  top:4px;
+  right:4px;
+  z-index:5;
+  max-width:calc(100% - 24px);
+  padding:0;
+  color:inherit!important;
+  background:transparent;
+  font-size:8px;
+  text-align:right;
+  opacity:.76;
+}
+html[data-visual-style="classic"] .cell .tag{
+  order:3;
+  align-self:flex-end;
+  min-width:0;
+  min-height:0;
+  width:auto;
+  height:auto;
+  margin:auto 0 0;
+  padding:0;
+  color:inherit!important;
+  background:transparent!important;
+  border-radius:0;
+  box-shadow:none!important;
+  font-size:11px;
+  font-weight:900;
+  line-height:1;
+  overflow:visible;
+}
+html[data-visual-style="classic"] .cell .tag.tag-long{
+  max-width:100%;
+  font-size:9px;
+  letter-spacing:-.35px;
+}
+html[data-visual-style="classic"] .cell[data-shift-key="휴무"] .tag{
+  color:var(--classic-off)!important;
+}
+html[data-visual-style="classic"] .cell .memo{
+  order:2;
+  width:100%;
+  margin:auto 0 2px;
+  padding:0 2px;
+  color:inherit;
+  font-size:9px;
+  line-height:1.2;
+  text-align:center;
+}
+html[data-visual-style="classic"] .cell.today{
+  outline:2px solid var(--classic-brand);
+  outline-offset:-2px;
+  box-shadow:none;
+}
+html[data-visual-style="classic"] .cell.today .daynum{
+  width:auto;
+  height:auto;
+  margin:0;
+  background:transparent;
+  border:0;
+  border-radius:0;
+}
+html[data-visual-style="classic"][data-calendar-emphasis="date"] .cell .tag{
+  position:relative;
+  inset:auto;
+  transform:none;
+}
+html[data-visual-style="classic"][data-calendar-emphasis="shift"] .cell .tag{
+  position:relative;
+  inset:auto;
+  align-self:center;
+  width:auto;
+  max-width:calc(100% - 8px);
+  height:auto;
+  aspect-ratio:auto;
+  margin:auto;
+  padding:0;
+  border-radius:0;
+  font-size:var(--calendar-shift-font-size);
+  overflow:visible;
+}
+html[data-visual-style="classic"][data-calendar-emphasis="shift"] .cell .tag.tag-long{
+  font-size:var(--calendar-shift-long-font-size);
+}
+html[data-visual-style="classic"][data-calendar-emphasis="shift"] .cell .daynum{
+  top:5px;
+  left:5px;
+}
+html[data-visual-style="classic"][data-calendar-emphasis="shift"] .cell.today .daynum{
+  top:5px;
+  left:5px;
+}
+
+/* 다른조·친구근무 */
+html[data-visual-style="classic"] .table-wrap{
+  gap:3px;
+  padding:3px 4px 6px;
+  background:var(--classic-paper);
+}
+html[data-visual-style="classic"] .trow{
+  gap:3px;
+  background:transparent;
+  border:0;
+}
+html[data-visual-style="classic"] .trow.header-row{
+  background:transparent;
+}
+html[data-visual-style="classic"] .tcell{
+  color:var(--shift-fg,var(--classic-ink));
+  background:var(--shift-bg,var(--classic-paper-2));
+  border:0;
+  border-radius:7px;
+  font-size:11px;
+}
+html[data-visual-style="classic"] .tcell[data-shift-key="휴무"]{
+  color:var(--classic-off);
+  background:var(--classic-paper-2);
+}
+html[data-visual-style="classic"] .tcell.label{
+  color:var(--classic-brand-ink);
+  background:var(--classic-brand);
+  border-radius:3px 8px 8px 3px;
+  font-weight:900;
+}
+html[data-visual-style="classic"] .tcell .badge{
+  padding:0;
+  color:inherit!important;
+  background:transparent!important;
+  border:0;
+  border-radius:0;
+  font-size:11px;
+  font-weight:900;
+}
+html[data-visual-style="classic"] .tcell.today-col{
+  box-shadow:inset 0 0 0 2px var(--classic-brand);
+}
+html[data-visual-style="classic"] .today-number-ring{
+  min-width:0;
+  height:auto;
+  padding:0;
+  color:inherit;
+  background:transparent;
+  border:0;
+  border-radius:0;
+}
+
+/* 하단 메뉴와 공통 패널 */
+html[data-visual-style="classic"] nav{
+  left:50%;
+  right:auto;
+  width:min(100%,900px);
+  transform:translateX(-50%);
+  gap:2px;
+  padding:
+    7px
+    max(5px,env(safe-area-inset-right,0px))
+    max(6px,env(safe-area-inset-bottom,0px))
+    max(5px,env(safe-area-inset-left,0px));
+  background:var(--classic-paper);
+  border:0;
+}
+html[data-visual-style="classic"] nav button{
+  height:54px;
+  gap:3px;
+  color:var(--classic-muted);
+  border-radius:10px;
+  font-size:10px;
+  font-weight:750;
+}
+html[data-visual-style="classic"] nav button.active{
+  color:var(--classic-brand-ink);
+  background:var(--classic-brand);
+}
+html[data-visual-style="classic"] .panel{
+  left:50%;
+  right:auto;
+  width:min(100%,900px);
+  transform:translateX(-50%);
+  background:var(--classic-bg);
+}
+html[data-visual-style="classic"] .panel-head{
+  padding:14px 16px;
+  background:var(--classic-paper);
+  border:0;
+}
+html[data-visual-style="classic"] .panel-title{
+  font-size:17px;
+  font-weight:850;
+}
+html[data-visual-style="classic"] .panel-body{
+  padding:14px 16px 26px;
+}
+html[data-visual-style="classic"] .settings-quick-nav{
+  top:-14px;
+  gap:5px;
+  margin:-14px -16px 14px;
+  padding:10px 16px;
+  background:var(--classic-paper);
+  border:0;
+  box-shadow:none;
+}
+html[data-visual-style="classic"] .settings-quick-nav button{
+  min-height:34px;
+  padding:7px 10px;
+  color:var(--classic-ink);
+  background:var(--classic-paper-2);
+  border:0;
+  border-radius:6px;
+}
+
+/* 설정 — 헤어라인 대신 면과 간격으로 묶는다. */
+html[data-visual-style="classic"] #settingsPanel .settings-section-anchor{
+  display:inline-flex;
+  width:max-content;
+  margin:8px 0 7px;
+  padding:4px 9px;
+  color:var(--classic-brand-ink);
+  background:var(--classic-brand);
+  border-radius:3px 8px 8px 3px;
+  font-size:11px;
+  font-weight:900;
+}
+html[data-visual-style="classic"] #settingsPanel .section-label:not(.settings-section-anchor){
+  margin:16px 2px 7px;
+  color:var(--classic-ink);
+  font-size:14px;
+  font-weight:850;
+}
+html[data-visual-style="classic"] #settingsPanel .card{
+  padding:14px;
+  background:var(--classic-paper-2);
+  border:0;
+  border-radius:12px;
+  box-shadow:none;
+}
+html[data-visual-style="classic"] #settingsPanel .card > .form-group,
+html[data-visual-style="classic"] #settingsPanel .fixed-basis,
+html[data-visual-style="classic"] #settingsPanel .call-work-fields,
+html[data-visual-style="classic"] #settingsPanel .actual-work-fields,
+html[data-visual-style="classic"] #settingsPanel .change-preview{
+  padding:11px;
+  background:var(--classic-paper);
+  border:0;
+  border-radius:8px;
+}
+html[data-visual-style="classic"] #settingsPanel .type-row,
+html[data-visual-style="classic"] #settingsPanel .history-row,
+html[data-visual-style="classic"] #settingsPanel .holiday-row,
+html[data-visual-style="classic"] #settingsPanel .rule-row,
+html[data-visual-style="classic"] #settingsPanel .period-row{
+  margin-bottom:3px;
+  padding:10px;
+  background:var(--classic-paper);
+  border:0;
+  border-radius:7px;
+}
+html[data-visual-style="classic"] #settingsPanel hr.sep{
+  height:7px;
+  margin:12px -14px;
+  background:var(--classic-paper);
+  border:0;
+}
+html[data-visual-style="classic"] .calendar-emphasis-button,
+html[data-visual-style="classic"] .theme-setting-button{
+  background:var(--classic-paper);
+  border:0;
+  border-radius:8px;
+}
+html[data-visual-style="classic"] .calendar-emphasis-button.active,
+html[data-visual-style="classic"] .theme-setting-button.active{
+  background:var(--accent-soft);
+  border:0;
+  box-shadow:inset 0 0 0 2px var(--classic-brand);
+}
+html[data-visual-style="classic"] .calendar-emphasis-sample{
+  background:var(--classic-paper-2);
+  border:0;
+  border-radius:7px;
+}
+html[data-visual-style="classic"] .calendar-emphasis-sample .sample-shift{
+  min-width:0;
+  min-height:0;
+  width:auto;
+  height:auto;
+  padding:0;
+  color:var(--classic-ink);
+  background:transparent;
+  border-radius:0;
+}
+html[data-visual-style="classic"] .calendar-size-controls{
+  padding:12px;
+  background:var(--classic-paper);
+  border:0;
+  border-radius:9px;
+}
+html[data-visual-style="classic"] .theme-chip,
+html[data-visual-style="classic"] .theme-palette-chip,
+html[data-visual-style="classic"] .accent-swatch,
+html[data-visual-style="classic"] .type-color-input,
+html[data-visual-style="classic"] .color-field input[type="color"]{
+  border-radius:6px;
+}
+html[data-visual-style="classic"] .theme-palette-option.active,
+html[data-visual-style="classic"] .theme-option.active,
+html[data-visual-style="classic"] .theme-setting-button.active{
+  color:var(--classic-ink);
+}
+
+/* 대시보드 — 주간 기록과 월보를 종이형 묶음으로 표시 */
+html[data-visual-style="classic"] #dashboardPanel .notice,
+html[data-visual-style="classic"] #dashboardPanel .card{
+  background:var(--classic-paper-2);
+  border:0;
+  border-radius:12px;
+  box-shadow:none;
+}
+html[data-visual-style="classic"] #dashboardPanel .stat-grid{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:4px;
+}
+html[data-visual-style="classic"] #dashboardPanel .stat{
+  min-width:0;
+  padding:13px 12px;
+  background:var(--classic-paper-2);
+  border:0;
+  border-radius:8px;
+}
+html[data-visual-style="classic"] #dashboardPanel .stat:first-child{
+  grid-column:1/-1;
+  padding:16px;
+  border-radius:14px 14px 8px 8px;
+}
+html[data-visual-style="classic"] #dashboardPanel .stat .v{
+  font-size:24px;
+  font-weight:900;
+  letter-spacing:-.5px;
+}
+html[data-visual-style="classic"] #dashboardPanel .stat:first-child .v{
+  color:var(--classic-brand-strong);
+  font-size:34px;
+}
+html[data-visual-style="classic"] #dashboardPanel .stat:last-child{
+  grid-column:1/-1;
+}
+html[data-visual-style="classic"] .dashboard-accordion{
+  padding:0;
+  overflow:hidden;
+}
+html[data-visual-style="classic"] .dashboard-accordion > summary{
+  padding:13px 14px;
+}
+html[data-visual-style="classic"] .dashboard-accordion[open] > summary{
+  border:0;
+}
+html[data-visual-style="classic"] .dashboard-accordion-body{
+  padding:0 14px 14px;
+}
+html[data-visual-style="classic"] .week-hours-list{
+  gap:3px;
+}
+html[data-visual-style="classic"] .week-hours-row{
+  padding:11px 10px;
+  background:var(--classic-paper);
+  border:0;
+  border-radius:7px;
+}
+html[data-visual-style="classic"] .attendance-summary-list{
+  display:grid;
+  gap:3px;
+}
+html[data-visual-style="classic"] .attendance-summary-row{
+  padding:11px 9px;
+  background:var(--classic-paper);
+  border:0;
+  border-radius:7px;
+}
+html[data-visual-style="classic"] .attendance-report-scroll{
+  background:var(--classic-paper-2);
+  border:0;
+  border-radius:0;
+}
+html[data-visual-style="classic"] .attendance-report-table{
+  border-collapse:separate;
+  border-spacing:0 3px;
+  background:transparent;
+}
+html[data-visual-style="classic"] .attendance-report-table th,
+html[data-visual-style="classic"] .attendance-report-table td{
+  background:var(--classic-paper);
+  border:0;
+  border-radius:5px;
+}
+html[data-visual-style="classic"] .attendance-report-table .report-kind{
+  background:var(--classic-paper-2);
+  box-shadow:none;
+}
+html[data-visual-style="classic"] .attendance-report-table .report-total{
+  color:var(--classic-ink);
+  background:var(--accent-soft);
+  box-shadow:none;
+}
+
+/* 급여 — 영수증 점무늬 없이 명세서 계층만 사용 */
+html[data-visual-style="classic"] #salaryPanel .notice,
+html[data-visual-style="classic"] #salaryPanel .card{
+  border:0;
+  box-shadow:none;
+}
+html[data-visual-style="classic"] #salaryPanel .stat-grid{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:4px;
+}
+html[data-visual-style="classic"] #salaryPanel .stat{
+  padding:12px;
+  background:var(--classic-paper-2);
+  border:0;
+  border-radius:8px;
+}
+html[data-visual-style="classic"] #salaryPanel .stat:last-child{
+  grid-column:1/-1;
+  order:-1;
+  padding:16px;
+  border-radius:14px 14px 8px 8px;
+}
+html[data-visual-style="classic"] #salaryPanel .stat:last-child .v{
+  color:var(--classic-brand-strong);
+  font-size:32px;
+  font-weight:900;
+}
+html[data-visual-style="classic"] #salaryPanel .stat:nth-last-child(2){
+  grid-column:1/-1;
+}
+html[data-visual-style="classic"] #salaryPanel .slip-grid{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:12px;
+  padding:18px;
+  background:var(--classic-paper-2);
+  border-radius:14px;
+}
+html[data-visual-style="classic"] #salaryPanel .slip-grid > .card{
+  margin:0;
+  padding:0;
+  overflow:visible;
+  background:transparent;
+  border-radius:0;
+}
+html[data-visual-style="classic"] #salaryPanel .slip-grid > .card .card-title{
+  display:inline-block;
+  margin:0 0 5px;
+  padding:4px 9px;
+  color:var(--classic-paper);
+  background:var(--classic-off);
+  border-radius:3px 8px 8px 3px;
+  font-size:11px;
+  font-weight:900;
+}
+html[data-visual-style="classic"] #salaryPanel .slip-grid > .card:nth-child(2) .card-title{
+  color:var(--classic-brand-ink);
+  background:var(--classic-brand);
+}
+html[data-visual-style="classic"] #salaryPanel .slip-table{
+  border-collapse:separate;
+  border-spacing:0 3px;
+}
+html[data-visual-style="classic"] #salaryPanel .slip-table td{
+  padding:8px 9px;
+  background:var(--classic-paper);
+  border:0;
+}
+html[data-visual-style="classic"] #salaryPanel .slip-table td:first-child{
+  border-radius:6px 0 0 6px;
+}
+html[data-visual-style="classic"] #salaryPanel .slip-table td:last-child{
+  border-radius:0 6px 6px 0;
+  font-weight:850;
+}
+html[data-visual-style="classic"] #salaryPanel .slip-table td[colspan="2"]{
+  color:var(--classic-muted)!important;
+}
+html[data-visual-style="classic"] #salaryPanel .slip-table tr.total td{
+  color:var(--classic-paper);
+  background:var(--classic-ink);
+  font-weight:900;
+}
+html[data-visual-style="classic"] #salaryPanel .salary-accordion,
+html[data-visual-style="classic"] #salaryPanel .ot-preview-card,
+html[data-visual-style="classic"] #salaryPanel .retirement-month,
+html[data-visual-style="classic"] #salaryPanel .wage-preview-card,
+html[data-visual-style="classic"] #salaryPanel .wage-history-card{
+  background:var(--classic-paper-2);
+  border:0;
+  border-radius:12px;
+}
+html[data-visual-style="classic"] #dashboardPanel .data-table td,
+html[data-visual-style="classic"] #salaryPanel .data-table td,
+html[data-visual-style="classic"] #dashboardPanel .data-table .allowance-total-row td,
+html[data-visual-style="classic"] #salaryPanel .data-table .allowance-total-row td{
+  border:0;
+}
+html[data-visual-style="classic"] .annual-cycle-divider{
+  height:7px;
+  margin:12px 0;
+  background:var(--classic-paper);
+}
+html[data-visual-style="classic"] #salaryPanel .salary-accordion[open] > summary{
+  border:0;
+}
+html[data-visual-style="classic"] #salaryPanel .retirement-result{
+  color:var(--classic-ink);
+  background:var(--accent-soft);
+  border:0;
+}
+
+/* 모달도 같은 종이·강조색 체계를 사용 */
+html[data-visual-style="classic"] .modal-box,
+html[data-visual-style="classic"] .theme-sheet-panel{
+  background:var(--classic-paper);
+  border:0;
+  border-radius:14px;
+  box-shadow:0 14px 36px var(--shadow);
+}
+html[data-visual-style="classic"] .theme-option{
+  background:var(--classic-paper-2);
+  border:0;
+  border-radius:8px;
+}
+html[data-visual-style="classic"] .theme-option.active{
+  background:var(--accent-soft);
+  border:0;
+  box-shadow:inset 0 0 0 2px var(--classic-brand);
+}
+
+@media(max-width:520px){
+  html[data-visual-style="classic"] .classic-today-block{
+    margin-right:12px;
+    margin-left:12px;
+  }
+  html[data-visual-style="classic"] .classic-today-status strong{
+    font-size:26px;
+  }
+}
+
+@media(max-height:560px){
+  html[data-visual-style="classic"] .classic-today-block{
+    display:none;
+  }
+  html[data-visual-style="classic"] .main-header{
+    min-height:58px;
+    padding-top:calc(8px + env(safe-area-inset-top,0px));
+    padding-bottom:8px;
+  }
+}
+
+@media(min-width:700px){
+  html[data-visual-style="classic"] #app{
+    max-width:900px;
+    padding-right:0;
+    padding-bottom:0;
+    padding-left:168px;
+  }
+  html[data-visual-style="classic"] nav{
+    top:0;
+    bottom:auto;
+    left:max(0px,calc((100vw - 900px)/2));
+    width:168px;
+    height:100dvh;
+    padding:88px 12px 18px;
+    flex-direction:column;
+    align-items:stretch;
+    transform:none;
+    overflow-x:hidden;
+    overflow-y:auto;
+  }
+  html[data-visual-style="classic"] nav button{
+    width:100%;
+    min-height:52px;
+    flex:0 0 52px;
+    padding:0 12px;
+    flex-direction:row;
+    justify-content:flex-start;
+    gap:10px;
+    font-size:12px;
+  }
+  html[data-visual-style="classic"] .panel{
+    top:0;
+    bottom:0;
+    left:max(168px,calc((100vw - 900px)/2 + 168px));
+    right:max(0px,calc((100vw - 900px)/2));
+    width:auto;
+    transform:none;
+  }
+}
+
+/* 화면 스타일 선택 자체는 기존 달력 강조 버튼 컴포넌트를 재사용 */
+.calendar-emphasis-grid.visual-style-grid{
+  margin-top:8px;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+}
+.visual-style-grid .calendar-emphasis-button{
+  min-height:86px;
+}
+.visual-style-grid .calendar-emphasis-description{
+  flex:0 0 auto;
+}
+@media(max-width:520px){
+  .calendar-emphasis-grid.visual-style-grid{
+    grid-template-columns:1fr;
+  }
+}
+
 .memo-color-grid{
   display:grid;
   grid-template-columns:1fr 1fr;
@@ -1086,7 +2756,7 @@ input[type="time"].form-input::-webkit-date-and-time-value{
   }
 }
 .btn{padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--text);font-weight:700}
-.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}.btn.green{background:var(--green);color:#fff;border-color:var(--green)}.btn.red{color:var(--red);border-color:var(--red)}
+.btn.primary{background:var(--accent);color:var(--accent-contrast);border-color:var(--accent)}.btn.green{background:var(--green);color:#fff;border-color:var(--green)}.btn.red{color:var(--red);border-color:var(--red)}
 .stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:12px}
 .stat{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:12px}
 .stat .k{font-size:11px;color:var(--muted)}.stat .v{font-size:20px;font-weight:800;margin-top:4px}.stat .s{font-size:11px;color:var(--muted);margin-top:2px}
@@ -1299,7 +2969,7 @@ input[type="time"].form-input::-webkit-date-and-time-value{
   border-radius:10px;
 }
 .month-picker-month.active{
-  color:#fff;
+  color:var(--accent-contrast);
   background:var(--accent);
   border-color:var(--accent);
 }
@@ -1314,7 +2984,7 @@ input[type="time"].form-input::-webkit-date-and-time-value{
 }
 .month-picker-today{
   min-height:46px;
-  color:#fff;
+  color:var(--accent-contrast);
   font-weight:850;
   background:var(--accent);
   border:1px solid var(--accent);
@@ -1332,6 +3002,13 @@ input::placeholder,
 textarea::placeholder{
   color:var(--muted);
   opacity:.8;
+}
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible{
+  outline:3px solid color-mix(in srgb,var(--accent) 45%,transparent);
+  outline-offset:2px;
 }
 select option{
   color:var(--text);
@@ -1354,6 +3031,9 @@ select option{
 .theme-sheet-panel{
   width:100%;
   max-width:560px;
+  max-height:min(88dvh,760px);
+  overflow-y:auto;
+  overscroll-behavior:contain;
   padding:10px 14px calc(14px + env(safe-area-inset-bottom));
   background:var(--surface);
   border:1px solid var(--line);
@@ -1397,6 +3077,47 @@ select option{
 .theme-options{
   display:grid;
   gap:6px;
+}
+.theme-section-label{
+  margin:16px 2px 8px;
+  color:var(--muted);
+  font-size:11px;
+  font-weight:850;
+  letter-spacing:.02em;
+}
+.theme-palette-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+}
+.theme-palette-option{
+  min-width:0;
+  min-height:58px;
+  display:grid;
+  grid-template-columns:20px minmax(0,1fr);
+  align-items:center;
+  gap:8px;
+  padding:9px;
+  color:var(--text);
+  text-align:left;
+  background:var(--surface-muted);
+  border:1px solid var(--line);
+  border-radius:10px;
+  font-size:11px;
+  font-weight:800;
+}
+.theme-palette-option.active{
+  color:var(--accent-strong);
+  border-color:var(--accent);
+  box-shadow:inset 0 0 0 1px var(--accent);
+}
+.theme-palette-chip{
+  width:20px;
+  height:20px;
+  border:1px solid color-mix(in srgb,var(--text) 16%,transparent);
+  border-radius:50%;
+  background:var(--theme-chip,var(--surface));
+  box-shadow:inset 0 0 0 3px rgba(255,255,255,.34);
 }
 .theme-option{
   width:100%;
@@ -1492,7 +3213,7 @@ select option{
   line-height:1.5;
 }
 
-@media(max-width:390px){.header-month{font-size:30px}.header-icon-btn{width:38px;height:38px;padding:7px}}
+@media(max-width:390px){.header-month{font-size:30px}.header-icon-btn{width:38px;height:38px;padding:7px}.theme-palette-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(min-width:700px){.stat-grid{grid-template-columns:repeat(4,1fr)}.slip-grid{grid-template-columns:1fr 1fr}}
 
 /* v28: 사용자 작업 결과 토스트 */
@@ -1579,19 +3300,65 @@ select option{
 .actual-work-fields{margin-top:10px;padding:12px;border:1px solid var(--border);border-radius:14px;background:var(--soft)}
 @media(max-width:520px){.ot-preview-grid{grid-template-columns:1fr}.retirement-custom-row{grid-template-columns:1fr 105px auto}.retirement-custom-row label{grid-column:1/3}.retirement-item-row{grid-template-columns:minmax(0,1fr) 118px}}
 
+
+
+.accent-swatch-grid{display:grid;grid-template-columns:repeat(5,minmax(44px,1fr));gap:9px;margin-top:10px}
+.accent-swatch{min-height:44px;border:2px solid transparent;border-radius:10px;background:var(--swatch)!important;position:relative}
+.accent-swatch.active{border-color:var(--text);box-shadow:0 0 0 2px var(--surface) inset}
+.accent-swatch.active::after{content:'✓';position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-size:18px;font-weight:950;text-shadow:0 1px 2px rgba(0,0,0,.55)}
+.accent-custom-row{display:flex;align-items:center;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line);cursor:pointer}
+.accent-custom-row.active{color:var(--accent-strong)}
+.accent-custom-row input[type=color]{width:52px;height:44px;padding:3px;border:1px solid var(--line);border-radius:9px;background:var(--surface)}
+.attendance-report-card{overflow:visible}
+.attendance-report-toolbar{display:flex;align-items:end;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.attendance-report-toolbar .form-group{margin:0;min-width:155px}
+.attendance-report-scroll{overflow:auto;max-width:100%;border:1px solid var(--line);border-radius:8px;background:var(--surface);-webkit-overflow-scrolling:touch}
+.attendance-report-table{border-collapse:separate;border-spacing:0;min-width:1660px;width:max-content;background:var(--surface);font-variant-numeric:tabular-nums}
+.attendance-report-table th,.attendance-report-table td{height:42px;min-width:48px;padding:7px 6px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);text-align:center;font-size:12px;white-space:nowrap;background:var(--surface)}
+.attendance-report-table thead th{position:sticky;top:0;z-index:4;font-weight:900;background:var(--surface-muted)}
+.attendance-report-table .report-kind{position:sticky;left:0;z-index:5;min-width:92px;width:92px;font-weight:900;text-align:left;padding-left:10px;background:var(--surface-muted);box-shadow:1px 0 0 var(--line)}
+.attendance-report-table thead .report-kind{z-index:7}
+.attendance-report-table .report-total{position:sticky;right:0;z-index:5;min-width:72px;width:72px;font-weight:950;background:var(--accent-soft);color:var(--accent-strong);box-shadow:-1px 0 0 var(--line)}
+.attendance-report-table thead .report-total{z-index:7}
+.attendance-report-table .report-empty-day{opacity:.35;background:var(--surface-muted)}
+.attendance-report-table tbody tr:last-child td,.attendance-report-table tbody tr:last-child th{border-bottom:0}
+.attendance-report-table tr>*:last-child{border-right:0}
+.dashboard-accordion{padding:0;overflow:hidden}
+.dashboard-accordion>summary{list-style:none;cursor:pointer;user-select:none;padding:18px 20px}
+.dashboard-accordion>summary::-webkit-details-marker{display:none}
+.dashboard-accordion>summary .accordion-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.dashboard-accordion>summary .accordion-chevron{flex:0 0 auto;color:var(--muted);font-size:22px;line-height:1;transition:transform .18s ease}
+.dashboard-accordion[open]>summary .accordion-chevron{transform:rotate(180deg)}
+.dashboard-accordion[open]>summary{border-bottom:1px solid var(--line)}
+.dashboard-accordion-body{padding:16px 20px 20px}
+.dashboard-accordion .week-hours-list{margin-top:0}
+.attendance-summary-list{margin-top:12px}
+.attendance-summary-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:11px 8px;border-bottom:1px solid var(--line)}
+.attendance-summary-row:last-child{border-bottom:0}
+.attendance-summary-label{font-size:15px}
+.attendance-summary-value{text-align:right;font-size:19px;font-weight:950;font-variant-numeric:tabular-nums}
+.attendance-summary-sub{margin-top:2px;color:var(--muted);font-size:11px;font-weight:700}
+.attendance-embedded-card{margin:0;box-shadow:none;border:0;padding:0;background:transparent}
+
 </style>
 </head>
 <body>
 <div id="app">
 <header class="main-header">
-  <button
-    id="headerMonthLabel"
-    class="header-month"
-    type="button"
-    aria-live="polite"
-    aria-haspopup="dialog"
-    aria-controls="monthPickerModal"
-  ></button>
+  <div class="header-brand">
+    <div id="classicTeamSeal" class="classic-team-seal" aria-hidden="true"></div>
+    <div class="header-title-stack">
+      <div class="classic-wordmark">교대달력</div>
+      <button
+        id="headerMonthLabel"
+        class="header-month"
+        type="button"
+        aria-live="polite"
+        aria-haspopup="dialog"
+        aria-controls="monthPickerModal"
+      ></button>
+    </div>
+  </div>
   <div class="header-actions">
     <button id="shareBtn" class="header-icon-btn" aria-label="현재 교대달력 주소 공유">
       <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -1601,7 +3368,7 @@ select option{
         <path d="M8.1 10.9l7.7-4.5M8.1 13.1l7.7 4.5"></path>
       </svg>
     </button>
-    <button id="themeBtn" class="header-icon-btn" aria-label="화면 모드 변경">
+    <button id="themeBtn" class="header-icon-btn" aria-label="테마 변경" aria-haspopup="dialog" aria-expanded="false">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M12 8a2.83 2.83 0 0 0 4 4 4 4 0 1 1-4-4"></path>
         <path d="M12 2v2M12 20v2M2 12h2M20 12h2"></path>
@@ -1617,6 +3384,21 @@ select option{
     </button>
   </div>
 </header>
+
+<section id="classicTodayBlock" class="classic-today-block" aria-label="오늘 근무 요약">
+  <div id="classicTodayDate" class="classic-today-date"></div>
+  <div class="classic-today-row">
+    <div class="classic-today-status">
+      <strong id="classicTodayShift"></strong>
+      <span id="classicTodayDetail"></span>
+    </div>
+    <div class="classic-next-shift">
+      <span>다음 근무</span>
+      <strong id="classicNextShift"></strong>
+      <small id="classicNextShiftDate"></small>
+    </div>
+  </div>
+</section>
 
 <div class="month-bar">
   <button id="prevMonthBtn" aria-label="이전 달">‹</button>
@@ -1638,71 +3420,19 @@ select option{
 
     <div class="theme-sheet-head">
       <div>
-        <div id="themeSheetTitle" class="theme-sheet-title">화면 모드</div>
+        <div id="themeSheetTitle" class="theme-sheet-title">테마</div>
         <div id="themeSheetCurrent" class="theme-option-description"></div>
       </div>
 
-      <button id="themeSheetClose" class="theme-sheet-close" type="button" aria-label="화면 모드 선택창 닫기">
+      <button id="themeSheetClose" class="theme-sheet-close" type="button" aria-label="테마 선택창 닫기">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M18 6 6 18M6 6l12 12"></path>
         </svg>
       </button>
     </div>
 
-    <div class="theme-options" role="radiogroup" aria-label="화면 모드">
-      <button class="theme-option" type="button" data-theme-choice="system" role="radio">
-        <span class="theme-option-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24">
-            <rect x="3" y="4" width="18" height="13" rx="2"></rect>
-            <path d="M8 21h8M12 17v4"></path>
-          </svg>
-        </span>
-        <span>
-          <span class="theme-option-title">시스템 설정</span>
-          <span class="theme-option-description">휴대폰의 화면 모드를 따라갑니다.</span>
-        </span>
-        <span class="theme-option-check" aria-hidden="true">
-          <svg viewBox="0 0 24 24">
-            <path d="m5 12 4 4L19 6"></path>
-          </svg>
-        </span>
-      </button>
-
-      <button class="theme-option" type="button" data-theme-choice="light" role="radio">
-        <span class="theme-option-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="4"></circle>
-            <path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"></path>
-          </svg>
-        </span>
-        <span>
-          <span class="theme-option-title">라이트</span>
-          <span class="theme-option-description">항상 밝은 화면으로 표시합니다.</span>
-        </span>
-        <span class="theme-option-check" aria-hidden="true">
-          <svg viewBox="0 0 24 24">
-            <path d="m5 12 4 4L19 6"></path>
-          </svg>
-        </span>
-      </button>
-
-      <button class="theme-option" type="button" data-theme-choice="dark" role="radio">
-        <span class="theme-option-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24">
-            <path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5 8.5 8.5 0 1 0 20.5 14.2z"></path>
-          </svg>
-        </span>
-        <span>
-          <span class="theme-option-title">다크</span>
-          <span class="theme-option-description">항상 어두운 화면으로 표시합니다.</span>
-        </span>
-        <span class="theme-option-check" aria-hidden="true">
-          <svg viewBox="0 0 24 24">
-            <path d="m5 12 4 4L19 6"></path>
-          </svg>
-        </span>
-      </button>
-    </div>
+    <div class="theme-section-label">화면 색상</div>
+    <div id="themeSheetPalette" class="theme-palette-grid" role="radiogroup" aria-label="화면 색상"></div>
   </section>
 </div>
 
@@ -1833,7 +3563,7 @@ select option{
 
     <div class="settings-quick-nav" aria-label="설정 섹션 바로가기">
       <button type="button" data-settings-target="settingsAppSection">앱 설치</button>
-      <button type="button" data-settings-target="settingsCalendarSection">달력 표시</button>
+      <button type="button" data-settings-target="settingsCalendarSection">테마</button>
       <button type="button" data-settings-target="settingsTeamSection">근무 설정</button>
       <button type="button" data-settings-target="settingsAnnualSection">연차 설정</button>
       <button type="button" data-settings-target="settingsTypeSection">근무 타입</button>
@@ -1852,38 +3582,42 @@ select option{
     </div>
 
 
-    <div class="section-label">화면 설정</div>
+    <div id="settingsCalendarSection" class="section-label settings-section-anchor">테마</div>
     <div class="card">
-      <div class="theme-setting-grid" role="radiogroup" aria-label="화면 모드 설정">
-        <button class="theme-setting-button" type="button" data-theme-choice="system" role="radio">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <rect x="3" y="4" width="18" height="13" rx="2"></rect>
-            <path d="M8 21h8M12 17v4"></path>
-          </svg>
-          <span>시스템 설정</span>
+      <div class="form-label">스킨</div>
+      <div class="calendar-emphasis-grid visual-style-grid" role="radiogroup" aria-label="화면 스킨">
+        <button id="visualStyleDefault" class="calendar-emphasis-button" type="button" data-visual-style="default" role="radio">
+          <span class="calendar-emphasis-title">기본</span>
+          <span class="calendar-emphasis-description">차분하고 익숙한 기본 화면입니다.</span>
         </button>
 
-        <button class="theme-setting-button" type="button" data-theme-choice="light" role="radio">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="12" cy="12" r="4"></circle>
-            <path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"></path>
-          </svg>
-          <span>라이트</span>
+        <button id="visualStyleFactory" class="calendar-emphasis-button" type="button" data-visual-style="factory" role="radio">
+          <span class="calendar-emphasis-title">현장형</span>
+          <span class="calendar-emphasis-description">정보 밀도에 집중한 간결한 현장 화면입니다.</span>
         </button>
 
-        <button class="theme-setting-button" type="button" data-theme-choice="dark" role="radio">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5 8.5 8.5 0 1 0 20.5 14.2z"></path>
-          </svg>
-          <span>다크</span>
+        <button id="visualStyleClassic" class="calendar-emphasis-button" type="button" data-visual-style="classic" role="radio">
+          <span class="calendar-emphasis-title">클래식</span>
+          <span class="calendar-emphasis-description">처음 시안의 달력·근태·명세서 구성을 살린 화면입니다.</span>
         </button>
       </div>
+      <div id="visualStyleCurrent" class="theme-current-text" aria-live="polite"></div>
 
+      <div class="theme-section-label">화면 색상</div>
+      <div id="themeSettingsPalette" class="theme-palette-grid" role="radiogroup" aria-label="화면 색상 설정"></div>
       <div id="themeSettingsCurrent" class="theme-current-text"></div>
-    </div>
 
-    <div id="settingsCalendarSection" class="section-label settings-section-anchor">달력 표시</div>
-    <div class="card">
+      <div class="theme-section-label">강조색</div>
+      <div id="accentSwatchGrid" class="accent-swatch-grid" role="radiogroup" aria-label="강조색 프리셋"></div>
+      <label class="accent-custom-row" for="accentCustomColor">
+        <input id="accentCustomColor" type="color" value="#315d73">
+        <span>
+          <b>직접 선택</b>
+          <span class="form-hint" style="display:block;margin-top:2px">버튼·선택 상태·선택한 스킨의 포인트에 함께 적용됩니다.</span>
+        </span>
+      </label>
+
+      <div class="theme-section-label">달력 표현</div>
       <div class="calendar-emphasis-grid" role="radiogroup" aria-label="달력 강조 항목">
         <button id="calendarEmphasisDate" class="calendar-emphasis-button" type="button" data-calendar-emphasis="date" role="radio">
           <span class="calendar-emphasis-sample date-large" aria-hidden="true">
@@ -1924,6 +3658,7 @@ select option{
           모드를 바꿔도 사용자가 지정한 크기는 그대로 유지됩니다.
         </div>
       </div>
+      <button id="themeSettingsReset" class="btn" type="button" style="width:100%;margin-top:14px">테마 설정 전체 초기화</button>
     </div>
 
 
@@ -2208,6 +3943,10 @@ select option{
         기존 JSON 백업과 Google Sheets/GAS 백업은 그대로 함께 사용할 수 있습니다.<br>
         <b>연결 코드는 기기 데이터가 삭제된 뒤 다시 복원할 때 필요하므로 반드시 메모장 등 다른 곳에도 보관하세요.</b>
       </div>
+      <div class="notice warn">
+        <b>자동백업 주의</b><br>
+        자동백업은 기본으로 꺼져 있습니다. 연결 코드를 사용하는 동안에는 수동·자동 백업이 현재 운영 데이터를 갱신할 수 있으므로 필요한 경우에만 켜세요.
+      </div>
 
       <div class="form-group">
         <label class="form-label" for="cloudBackupDisplayName">연결 신청 이름</label>
@@ -2240,7 +3979,7 @@ select option{
       </div>
 
       <label style="display:flex;align-items:center;gap:7px;font-size:13px;margin-top:10px">
-        <input id="cloudAutoBackupEnabled" type="checkbox" checked>
+        <input id="cloudAutoBackupEnabled" type="checkbox">
         변경사항 자동백업 사용
       </label>
 
@@ -2574,6 +4313,10 @@ function syncIOSViewportLayout_(){
   );
 
   if(bottomNav){
+    const classicSideNavigation=
+      document.documentElement.dataset.visualStyle==='classic' &&
+      window.matchMedia &&
+      window.matchMedia('(min-width:700px)').matches;
     const navHeight=Math.max(
       1,
       Math.ceil(
@@ -2583,7 +4326,7 @@ function syncIOSViewportLayout_(){
 
     root.style.setProperty(
       '--nav-total-height',
-      navHeight+'px'
+      classicSideNavigation?'0px':navHeight+'px'
     );
   }
 }
@@ -2649,7 +4392,11 @@ setTimeout(
 const themeSheet=document.getElementById('themeSheet');
 const themeSheetClose=document.getElementById('themeSheetClose');
 const themeSheetCurrent=document.getElementById('themeSheetCurrent');
+const themeSheetPalette=document.getElementById('themeSheetPalette');
+const themeSettingsPalette=document.getElementById('themeSettingsPalette');
 const themeSettingsCurrent=document.getElementById('themeSettingsCurrent');
+const accentCustomColorInput=document.getElementById('accentCustomColor');
+const themeSettingsReset=document.getElementById('themeSettingsReset');
 const monthPickerModal=document.getElementById('monthPickerModal');
 const monthPickerClose=document.getElementById('monthPickerClose');
 const monthPickerPrevYear=document.getElementById('monthPickerPrevYear');
@@ -2687,6 +4434,17 @@ const memoFontPreview=document.getElementById('memoFontPreview');
 const calendarEmphasisDate=document.getElementById('calendarEmphasisDate');
 const calendarEmphasisShift=document.getElementById('calendarEmphasisShift');
 const calendarEmphasisCurrent=document.getElementById('calendarEmphasisCurrent');
+const visualStyleDefault=document.getElementById('visualStyleDefault');
+const visualStyleFactory=document.getElementById('visualStyleFactory');
+const visualStyleClassic=document.getElementById('visualStyleClassic');
+const visualStyleCurrent=document.getElementById('visualStyleCurrent');
+const classicTeamSeal=document.getElementById('classicTeamSeal');
+const classicTodayBlock=document.getElementById('classicTodayBlock');
+const classicTodayDate=document.getElementById('classicTodayDate');
+const classicTodayShift=document.getElementById('classicTodayShift');
+const classicTodayDetail=document.getElementById('classicTodayDetail');
+const classicNextShift=document.getElementById('classicNextShift');
+const classicNextShiftDate=document.getElementById('classicNextShiftDate');
 const calendarDateSize=document.getElementById('calendarDateSize');
 const calendarDateSizeValue=document.getElementById('calendarDateSizeValue');
 const calendarShiftSize=document.getElementById('calendarShiftSize');
@@ -2766,6 +4524,119 @@ const navDashboard=document.getElementById('navDashboard');
 const navSalary=document.getElementById('navSalary');
 const navSetting=document.getElementById('navSetting');
 
+/*
+  교대달력이 소유한 localStorage만 백업·복원·삭제합니다.
+  키 이름은 운영 버전의 기존 이름을 그대로 유지하며, 다른 앱의
+  같은 origin 저장소는 절대 열거하거나 건드리지 않습니다.
+*/
+const SHIFT_CALENDAR_STORAGE_KEYS=new Set([
+  'accentPreference',
+  'accentCustomColor',
+  'themePreference',
+  'memoFontWeight',
+  'calendarEmphasis',
+  'visualStyle',
+  'calendarSizeSettings',
+  'memoDefaultStyle',
+  'annualLeaveSettings',
+  'shiftTeamPatternConfig',
+  'baseTeamIndex',
+  'myTeamIndex',
+  'teamHistory',
+  'teamHistorySchemaVersion',
+  'refDate',
+  'companyName',
+  'shiftStyle',
+  'customTypes',
+  'viewYear',
+  'viewMonth',
+  'workPeriods',
+  'withEntries',
+  'salarySettings',
+  'wageAgreements',
+  'wageAgreementDraft',
+  'salOvr',
+  'customSalaryItems',
+  'actualInsuranceHistory',
+  'remoteHolidayData',
+  'remoteInsuranceData',
+  'companyHolidays',
+  'holidayDataUrl',
+  'insuranceDataUrl',
+  'retirementCalculator',
+  'shiftcalendarGasConfig',
+  'shiftcalendarCloudBackupConfig',
+  'deviceBackupLastSavedAt'
+]);
+
+const SHIFT_CALENDAR_STORAGE_PREFIXES=[
+  'memo-',
+  'memo-style-',
+  'override-',
+  'callwork-',
+  'actualwork-'
+];
+
+function isShiftCalendarStorageKey_(key){
+  const value=String(key??'');
+
+  return SHIFT_CALENDAR_STORAGE_KEYS.has(value)||
+    SHIFT_CALENDAR_STORAGE_PREFIXES.some(
+      prefix=>value.startsWith(prefix)
+    );
+}
+
+function storageKeys_(){
+  const keys=[];
+
+  for(let index=0;index<localStorage.length;index++){
+    const key=localStorage.key(index);
+
+    if(key&&isShiftCalendarStorageKey_(key)){
+      keys.push(key);
+    }
+  }
+
+  return keys;
+}
+
+function isRestorableShiftCalendarStorageKey_(key){
+  return isShiftCalendarStorageKey_(key)&&
+    key!==GAS_CONFIG_KEY&&
+    key!==CLOUD_BACKUP_CONFIG_KEY;
+}
+
+function storageKey_(key){
+  return String(key);
+}
+
+function getRawStorage_(key){
+  const normalizedKey=storageKey_(key);
+  return isShiftCalendarStorageKey_(normalizedKey)
+    ?localStorage.getItem(normalizedKey)
+    :null;
+}
+
+function setRawStorage_(key,value){
+  const normalizedKey=storageKey_(key);
+
+  if(!isShiftCalendarStorageKey_(normalizedKey)) return;
+
+  localStorage.setItem(normalizedKey,String(value));
+}
+
+function removeRawStorage_(key){
+  const normalizedKey=storageKey_(key);
+
+  if(!isShiftCalendarStorageKey_(normalizedKey)) return;
+
+  localStorage.removeItem(normalizedKey);
+}
+
+function clearAppStorage_(){
+  storageKeys_().forEach(removeRawStorage_);
+}
+
 function notifyCloudStorageMutation_(key){
   if(
     typeof window.shiftcalendarCloudMarkDirty==='function'
@@ -2777,7 +4648,7 @@ function notifyCloudStorageMutation_(key){
 const store={
   get(k,d){
     try{
-      const value=localStorage.getItem(k);
+      const value=getRawStorage_(k);
       return value===null?d:JSON.parse(value);
     }catch(error){
       return d;
@@ -2785,8 +4656,8 @@ const store={
   },
   set(k,v){
     const nextValue=JSON.stringify(v);
-    const previousValue=localStorage.getItem(k);
-    localStorage.setItem(k,nextValue);
+    const previousValue=getRawStorage_(k);
+    setRawStorage_(k,nextValue);
 
     if(previousValue!==nextValue){
       notifyCloudStorageMutation_(k);
@@ -2794,22 +4665,52 @@ const store={
   },
   setRaw(k,v){
     const nextValue=String(v);
-    const previousValue=localStorage.getItem(k);
-    localStorage.setItem(k,nextValue);
+    const previousValue=getRawStorage_(k);
+    setRawStorage_(k,nextValue);
 
     if(previousValue!==nextValue){
       notifyCloudStorageMutation_(k);
     }
   },
   remove(k){
-    const existed=localStorage.getItem(k)!==null;
-    localStorage.removeItem(k);
+    const existed=getRawStorage_(k)!==null;
+    removeRawStorage_(k);
 
     if(existed){
       notifyCloudStorageMutation_(k);
     }
   }
 };
+const HTML_ESCAPE_MAP_={
+  '&':'&amp;',
+  '<':'&lt;',
+  '>':'&gt;',
+  '"':'&quot;',
+  "'":'&#39;',
+  '`':'&#96;'
+};
+
+function escapeHtml_(value){
+  return String(value??'').replace(
+    /[&<>"']/g,
+    character=>HTML_ESCAPE_MAP_[character]
+  );
+}
+
+function escapeAttr_(value){
+  return String(value??'').replace(
+    /[&<>"'`]/g,
+    character=>HTML_ESCAPE_MAP_[character]
+  );
+}
+
+function safeTypeColor_(value,fallback){
+  const text=String(value??'').trim();
+  return /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(text)
+    ?text
+    :fallback;
+}
+
 const pad2=n=>n<10?'0'+n:''+n;
 const dateKey=d=>`${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
 const stripTime=d=>new Date(d.getFullYear(),d.getMonth(),d.getDate());
@@ -2817,8 +4718,190 @@ const fmt=n=>Math.round(n||0).toLocaleString('ko-KR');
 const fmtW=n=>fmt(n)+'원';
 let today=new Date();
 
+const ACCENT_PREFERENCE_KEY='accentPreference';
+const ACCENT_CUSTOM_COLOR_KEY='accentCustomColor';
+const ACCENT_PRESETS=[
+  ['slate','#315d73','슬레이트'],
+  ['teal','#2f746d','틸'],
+  ['green','#477252','그린'],
+  ['olive','#73713d','올리브'],
+  ['amber','#9b692f','앰버'],
+  ['orange','#a15836','오렌지'],
+  ['red','#a94b43','레드'],
+  ['rose','#9b526a','로즈'],
+  ['purple','#6d568e','퍼플'],
+  ['indigo','#4d6192','인디고']
+];
+
+function normalizeAccentHexColor_(value,fallback='#315d73'){
+  const text=String(value||'').trim();
+  return /^#[0-9a-f]{6}$/i.test(text)
+    ?text.toLowerCase()
+    :fallback;
+}
+
+function normalizeAccentPreference_(value){
+  const text=String(value||'');
+  return (
+    text==='custom' ||
+    ACCENT_PRESETS.some(([key])=>key===text)
+  )
+    ?text
+    :'slate';
+}
+
+function accentRgb_(hex){
+  return [1,3,5].map(index=>
+    parseInt(hex.slice(index,index+2),16)
+  );
+}
+
+function accentLuminance_(hex){
+  return accentRgb_(hex)
+    .map(channel=>channel/255)
+    .map(value=>value<=0.04045
+      ?value/12.92
+      :Math.pow((value+0.055)/1.055,2.4)
+    )
+    .reduce(
+      (sum,value,index)=>
+        sum+value*[0.2126,0.7152,0.0722][index],
+      0
+    );
+}
+
+function accentContrastRatio_(first,second){
+  const values=[
+    accentLuminance_(first),
+    accentLuminance_(second)
+  ].sort((a,b)=>b-a);
+  return (values[0]+0.05)/(values[1]+0.05);
+}
+
+function mixAccentHex_(from,to,ratio){
+  const start=accentRgb_(from);
+  const end=accentRgb_(to);
+  return '#'+start.map((value,index)=>
+    Math.round(value+(end[index]-value)*ratio)
+      .toString(16)
+      .padStart(2,'0')
+  ).join('');
+}
+
+function accessibleAccentColor_(hex,minContrast){
+  const dark=document.documentElement.dataset.theme==='dark';
+  const surface=dark?'#181d21':'#ffffff';
+  if(accentContrastRatio_(hex,surface)>=minContrast){
+    return hex;
+  }
+  const target=dark?'#ffffff':'#000000';
+  for(let step=1;step<=100;step+=1){
+    const candidate=mixAccentHex_(hex,target,step/100);
+    if(accentContrastRatio_(candidate,surface)>=minContrast){
+      return candidate;
+    }
+  }
+  return target;
+}
+
+function accentContrastColor_(hex){
+  const luminance=accentLuminance_(hex);
+  const whiteContrast=1.05/(luminance+0.05);
+  const blackContrast=(luminance+0.05)/0.05;
+  return whiteContrast>=blackContrast?'#ffffff':'#000000';
+}
+
+let accentPreference=normalizeAccentPreference_(
+  store.get(ACCENT_PREFERENCE_KEY,'slate')
+);
+let accentCustomColor=normalizeAccentHexColor_(
+  store.get(ACCENT_CUSTOM_COLOR_KEY,'#315d73')
+);
+
+function accentColor_(){
+  if(accentPreference==='custom'){
+    return accentCustomColor;
+  }
+  const found=ACCENT_PRESETS.find(
+    ([key])=>key===accentPreference
+  );
+  return found?found[1]:ACCENT_PRESETS[0][1];
+}
+
+function syncAccentControls_(){
+  const grid=document.getElementById('accentSwatchGrid');
+  if(grid){
+    grid.innerHTML=ACCENT_PRESETS.map(
+      ([key,color,label])=>
+        `<button type="button" class="accent-swatch ${accentPreference===key?'active':''}" data-accent-key="${key}" style="--swatch:${color}" role="radio" aria-checked="${accentPreference===key?'true':'false'}" aria-label="${label} 강조색" title="${label}"></button>`
+    ).join('');
+
+    grid.querySelectorAll('[data-accent-key]').forEach(button=>{
+      button.onclick=()=>{
+        accentPreference=normalizeAccentPreference_(
+          button.dataset.accentKey
+        );
+        applyAccentPreference_();
+        renderCurrent();
+      };
+    });
+  }
+
+  if(accentCustomColorInput){
+    accentCustomColorInput.value=accentCustomColor;
+    accentCustomColorInput.closest('.accent-custom-row')
+      ?.classList.toggle('active',accentPreference==='custom');
+  }
+}
+
+function applyAccentPreference_(options={}){
+  const save=options.save!==false;
+  accentPreference=normalizeAccentPreference_(accentPreference);
+  accentCustomColor=normalizeAccentHexColor_(accentCustomColor);
+  const sourceColor=accentColor_();
+  const fillColor=accessibleAccentColor_(sourceColor,3);
+  const strongColor=accessibleAccentColor_(sourceColor,4.5);
+  const root=document.documentElement;
+
+  root.style.setProperty('--accent-source',sourceColor);
+  root.style.setProperty('--accent',fillColor);
+  root.style.setProperty(
+    '--accent-contrast',
+    accentContrastColor_(fillColor)
+  );
+  root.style.setProperty(
+    '--accent-strong',
+    strongColor
+  );
+  root.style.setProperty(
+    '--accent-soft',
+    `color-mix(in srgb, ${sourceColor} 16%, var(--surface))`
+  );
+
+  if(save){
+    store.set(ACCENT_PREFERENCE_KEY,accentPreference);
+    store.set(ACCENT_CUSTOM_COLOR_KEY,accentCustomColor);
+  }
+
+  syncAccentControls_();
+}
+
 const THEME_PREFERENCE_KEY='themePreference';
-const THEME_PREFERENCES=['system','light','dark'];
+const THEME_CATALOG=[
+  {key:'system',label:'시스템',chip:'linear-gradient(135deg,#f6f7f8 0 50%,#202428 50%)'},
+  {key:'light',label:'라이트',chip:'#ffffff'},
+  {key:'dark',label:'다크',chip:'#171c20'},
+  {key:'ivory',label:'아이보리',chip:'#eee7d9'},
+  {key:'warm-ivory',label:'웜 아이보리',chip:'#eee1d8'},
+  {key:'mist',label:'안개',chip:'#dfe4e8'},
+  {key:'cream',label:'크림',chip:'#eee7da'},
+  {key:'leaf',label:'잎새',chip:'#dfe8df'},
+  {key:'sky',label:'하늘',chip:'#dde7ed'},
+  {key:'violet',label:'보라빛',chip:'#e5e1eb'},
+  {key:'apricot',label:'살구',chip:'#eadfd7'},
+  {key:'rose',label:'장미',chip:'#e9dfe2'}
+];
+const THEME_PREFERENCES=THEME_CATALOG.map(theme=>theme.key);
 const systemThemeQuery=window.matchMedia(
   '(prefers-color-scheme: dark)'
 );
@@ -2838,27 +4921,62 @@ let themePreference=normalizeThemePreference_(
 );
 
 function resolvedTheme_(preference=themePreference){
-  return (
-    preference==='dark' ||
-    (
-      preference==='system' &&
-      systemThemeQuery.matches
-    )
-  )
-    ?'dark'
-    :'light';
+  if(preference==='system'){
+    return systemThemeQuery.matches?'dark':'light';
+  }
+  return preference;
 }
 
 function themeLabel_(preference){
+  return THEME_CATALOG.find(theme=>theme.key===preference)?.label
+    ||'시스템';
+}
+
+function themeMetaColor_(resolved){
   return {
-    system:'시스템 설정',
-    light:'라이트',
-    dark:'다크'
-  }[preference]||'시스템 설정';
+    dark:'#171c20',
+    ivory:'#eee7d9',
+    'warm-ivory':'#eee1d8',
+    mist:'#dfe4e8',
+    cream:'#eee7da',
+    leaf:'#dfe8df',
+    sky:'#dde7ed',
+    violet:'#e5e1eb',
+    apricot:'#eadfd7',
+    rose:'#e9dfe2'
+  }[resolved]||'#ffffff';
+}
+
+function renderThemePaletteControls_(){
+  const markup=THEME_CATALOG.map(theme=>
+    `<button class="theme-palette-option" type="button" data-theme-choice="${theme.key}" role="radio" aria-label="${theme.label} 테마"><span class="theme-palette-chip" style="--theme-chip:${theme.chip}" aria-hidden="true"></span><span>${theme.label}</span></button>`
+  ).join('');
+
+  [themeSheetPalette,themeSettingsPalette].forEach(container=>{
+    if(!container){
+      return;
+    }
+
+    if(container.dataset.catalogRendered!=='true'){
+      container.innerHTML=markup;
+      container.dataset.catalogRendered='true';
+      container.querySelectorAll('[data-theme-choice]').forEach(button=>{
+        button.onclick=()=>{
+          const fromSheet=Boolean(button.closest('#themeSheet'));
+          applyThemePreference_(button.dataset.themeChoice);
+          renderCurrent();
+          if(fromSheet){
+            closeThemeSheet_();
+          }
+        };
+      });
+    }
+  });
 }
 
 function syncThemeControls_(){
   const resolved=resolvedTheme_();
+  renderThemePaletteControls_();
 
   document
     .querySelectorAll('[data-theme-choice]')
@@ -2876,7 +4994,7 @@ function syncThemeControls_(){
   const currentText=
     themePreference==='system'
       ?`시스템 설정 · 현재 ${resolved==='dark'?'다크':'라이트'} 적용 중`
-      :`${themeLabel_(themePreference)} 모드 적용 중`;
+      :`${themeLabel_(themePreference)} 테마 적용 중`;
 
   if(themeSheetCurrent){
     themeSheetCurrent.textContent=currentText;
@@ -2886,13 +5004,13 @@ function syncThemeControls_(){
     themeSettingsCurrent.textContent=
       themePreference==='system'
         ?'휴대폰의 라이트·다크 설정이 바뀌면 앱도 자동으로 변경됩니다.'
-        :`${themeLabel_(themePreference)} 모드를 항상 사용합니다.`;
+        :`${themeLabel_(themePreference)} 테마를 항상 사용합니다.`;
   }
 
   if(themeBtn){
     themeBtn.setAttribute(
       'aria-label',
-      `화면 모드 변경 · ${currentText}`
+      `테마 변경 · ${currentText}`
     );
     themeBtn.title=currentText;
   }
@@ -2915,6 +5033,8 @@ function applyThemePreference_(
   document.documentElement.style.colorScheme=
     resolved==='dark'?'dark':'only light';
 
+  applyAccentPreference_({save:false});
+
   const colorSchemeMeta=document.querySelector(
     'meta[name="color-scheme"]'
   );
@@ -2933,7 +5053,7 @@ function applyThemePreference_(
   if(themeMeta){
     themeMeta.setAttribute(
       'content',
-      resolved==='dark'?'#171c20':'#ffffff'
+      themeMetaColor_(resolved)
     );
   }
 
@@ -2963,12 +5083,20 @@ function applyThemePreference_(
 function openThemeSheet_(){
   themeSheet.classList.remove('hidden');
   themeSheet.setAttribute('aria-hidden','false');
+  themeBtn?.setAttribute('aria-expanded','true');
   syncThemeControls_();
+  requestAnimationFrame(()=>{
+    (
+      themeSheet.querySelector('.theme-palette-option.active') ||
+      themeSheetClose
+    )?.focus();
+  });
 }
 
 function closeThemeSheet_(){
   themeSheet.classList.add('hidden');
   themeSheet.setAttribute('aria-hidden','true');
+  themeBtn?.setAttribute('aria-expanded','false');
   themeBtn?.focus();
 }
 
@@ -3015,6 +5143,13 @@ let memoFontWeight=applyMemoFontWeight_(
 );
 
 const CALENDAR_EMPHASIS_KEY='calendarEmphasis';
+const VISUAL_STYLE_KEY='visualStyle';
+const VISUAL_STYLE_OPTIONS=['default','factory','classic'];
+const VISUAL_STYLE_LABELS={
+  default:'기본',
+  factory:'현장형',
+  classic:'클래식'
+};
 const CALENDAR_SIZE_SETTINGS_KEY='calendarSizeSettings';
 const MEMO_DEFAULT_STYLE_KEY='memoDefaultStyle';
 const ANNUAL_LEAVE_SETTINGS_KEY='annualLeaveSettings';
@@ -3065,6 +5200,44 @@ function applyCalendarEmphasis_(value,{save=true}={}){
 
 let calendarEmphasis=applyCalendarEmphasis_(
   store.get(CALENDAR_EMPHASIS_KEY,'date'),
+  {save:false}
+);
+
+function normalizeVisualStyle_(value){
+  return VISUAL_STYLE_OPTIONS.includes(value)
+    ?value
+    :'default';
+}
+
+function applyVisualStyle_(value,{save=true}={}){
+  const normalized=normalizeVisualStyle_(value);
+  document.documentElement.dataset.visualStyle=normalized;
+
+  if(save){
+    store.set(VISUAL_STYLE_KEY,normalized);
+  }
+
+  [visualStyleDefault,visualStyleFactory,visualStyleClassic]
+    .filter(Boolean)
+    .forEach(button=>{
+      const active=button.dataset.visualStyle===normalized;
+      button.classList.toggle('active',active);
+      button.setAttribute('aria-checked',active?'true':'false');
+      button.tabIndex=active?0:-1;
+    });
+
+  if(visualStyleCurrent){
+    visualStyleCurrent.textContent=
+      `현재: ${VISUAL_STYLE_LABELS[normalized]}`;
+  }
+
+  syncIOSViewportLayout_();
+
+  return normalized;
+}
+
+let visualStyle=applyVisualStyle_(
+  store.get(VISUAL_STYLE_KEY,'default'),
   {save:false}
 );
 
@@ -3579,7 +5752,7 @@ function calculateAnnualUsage_(periodStart,throughDate){
     quarterCount:0
   };
 
-  Object.keys(localStorage)
+  storageKeys_()
     .filter(key=>key.startsWith('override-'))
     .forEach(key=>{
       const rawDate=key.slice('override-'.length);
@@ -4111,7 +6284,7 @@ const STATUS_KEY_MIGRATIONS={
  '일근휴일OT':'일근휴일 OT'
 };
 
-Object.keys(localStorage)
+storageKeys_()
   .filter(key=>key.startsWith('override-'))
   .forEach(storageKey=>{
     const currentValue=store.get(storageKey,null);
@@ -5503,10 +7676,8 @@ function calculateShiftOtHours_(year,month){
   return Math.round(result*100)/100;
 }
 
-function calcHoursForMonth(y,m){
-  const days=new Date(y,m,0).getDate();
-
-  const h={
+function createDailyHoursBucket_(){
+  return {
     normal:0,
     extend:0,
     weekly:0,
@@ -5516,8 +7687,6 @@ function calcHoursForMonth(y,m){
     festBase:0,
     festExt:0,
     night:0,
-    shiftOT:calculateShiftOtHours_(y,m),
-    shiftApplicableDays:countShiftApplicableDays_(y,m),
     workDays:0,
     attendanceDays:0,
     annualDays:0,
@@ -5528,88 +7697,86 @@ function calcHoursForMonth(y,m){
     publicLeaveDays:0,
     specialLeaveDays:0
   };
+}
 
-  for(let day=1;day<=days;day++){
-    const date=new Date(y,m-1,day);
-    const displayCode=toPayCode(getMyDisplayShift(date));
-    const scheduledCode=toPayCode(getScheduledShift_(date));
+/* 급여 월 합계와 근태월보가 같은 일별 산정 규칙을 공유한다. */
+function calculateHoursForDate_(date){
+  const h=createDailyHoursBucket_();
+  const displayCode=toPayCode(getMyDisplayShift(date));
+  const scheduledCode=toPayCode(getScheduledShift_(date));
+  const major=isMajorDay(date);
+  const holiday=isPayHoliday(date);
 
-    const major=isMajorDay(date);
-    const holiday=isPayHoliday(date);
+  if(displayCode==='주'){
+    addRegularShiftHours_(h,'주',holiday);
+  }
+  else if(displayCode==='야'){
+    addRegularShiftHours_(h,'야',holiday);
+  }
+  else if(displayCode==='주+반OT'){
+    h.workDays++;
+    h.attendanceDays++;
+    h.normal+=12;
+    h.extend+=4;
+    h.night+=1;
 
-    if(displayCode==='주'){
-      addRegularShiftHours_(h,'주',holiday);
+    if(holiday){
+      h.holiday+=8;
+      h.holidayExt+=4;
     }
-    else if(displayCode==='야'){
-      addRegularShiftHours_(h,'야',holiday);
-    }
-    else if(displayCode==='주+반OT'){
-      h.workDays++;
-      h.attendanceDays++;
-      h.normal+=12;
-      h.extend+=4;
-      h.night+=1;
+  }
+  else if(displayCode==='야+반OT'){
+    h.workDays++;
+    h.attendanceDays++;
+    h.normal+=12;
+    h.night+=8;
+    h.extend+=4;
 
-      if(holiday){
-        h.holiday+=8;
-        h.holidayExt+=4;
-      }
+    if(holiday){
+      h.holiday+=8;
+      h.holidayExt+=4;
     }
-    else if(displayCode==='야+반OT'){
-      h.workDays++;
-      h.attendanceDays++;
-      h.normal+=12;
-      h.night+=8;
-      h.extend+=4;
+  }
+  else if(displayCode==='주8OT'){
+    addOffDayOtHours_(h,8,0,major,holiday);
+  }
+  else if(displayCode==='야8OT'){
+    addOffDayOtHours_(h,8,7,major,holiday);
+  }
+  else if(displayCode==='주OT'){
+    addOffDayOtHours_(h,12,0,major,holiday);
+  }
+  else if(displayCode==='야OT'){
+    addOffDayOtHours_(h,12,8,major,holiday);
+  }
+  else if(displayCode==='일근08~17'){
+    addDayWorkHours_(h,0);
+  }
+  else if(
+    displayCode==='일근07~17' ||
+    displayCode==='일근+1 OT'
+  ){
+    addDayWorkHours_(h,1);
+  }
+  else if(displayCode==='일근휴일 OT'){
+    addOffDayOtHours_(h,10,0,major,holiday);
+  }
+  else if(
+    displayCode==='교육' ||
+    displayCode==='출장'
+  ){
+    addDayWorkHours_(h,0);
+  }
+  else if(displayCode==='호출'){
+    const callWork=getCallWork(date);
+    const calculated=callWork
+      ?calculateCallWorkHours_(
+          callWork.start,
+          callWork.end
+        )
+      :null;
 
-      if(holiday){
-        h.holiday+=8;
-        h.holidayExt+=4;
-      }
-    }
-    else if(displayCode==='주8OT'){
-      addOffDayOtHours_(h,8,0,major,holiday);
-    }
-    else if(displayCode==='야8OT'){
-      addOffDayOtHours_(h,8,7,major,holiday);
-    }
-    else if(displayCode==='주OT'){
-      addOffDayOtHours_(h,12,0,major,holiday);
-    }
-    else if(displayCode==='야OT'){
-      addOffDayOtHours_(h,12,8,major,holiday);
-    }
-    else if(displayCode==='일근08~17'){
-      addDayWorkHours_(h,0);
-    }
-    else if(
-      displayCode==='일근07~17' ||
-      displayCode==='일근+1 OT'
-    ){
-      addDayWorkHours_(h,1);
-    }
-    else if(displayCode==='일근휴일 OT'){
-      addOffDayOtHours_(h,10,0,major,holiday);
-    }
-    else if(
-      displayCode==='교육' ||
-      displayCode==='출장'
-    ){
-      addDayWorkHours_(h,0);
-    }
-    else if(displayCode==='호출'){
-      const callWork=getCallWork(date);
-      const calculated=callWork
-        ?calculateCallWorkHours_(
-            callWork.start,
-            callWork.end
-          )
-        :null;
-
-      if(!calculated){
-        continue;
-      }
-
+    if(calculated){
       if(scheduledCode==='휴'){
         addOffDayOtHours_(
           h,
@@ -5635,65 +7802,87 @@ function calcHoursForMonth(y,m){
         h.night+=calculated.night;
       }
     }
-    else if(displayCode==='주간반차'){
-      h.workDays++;
-      h.attendanceDays++;
-      h.dayHalfDays++;
-      h.annualUsedUnits+=.5;
-      h.normal+=8;
+  }
+  else if(displayCode==='주간반차'){
+    h.workDays++;
+    h.attendanceDays++;
+    h.dayHalfDays++;
+    h.annualUsedUnits+=.5;
+    h.normal+=8;
 
-      if(holiday){
-        h.holiday+=8;
-      }
+    if(holiday){
+      h.holiday+=8;
     }
-    else if(displayCode==='야간반차'){
-      h.workDays++;
-      h.attendanceDays++;
-      h.nightHalfDays++;
-      h.annualUsedUnits+=.5;
-      h.normal+=8;
-      h.night+=7;
+  }
+  else if(displayCode==='야간반차'){
+    h.workDays++;
+    h.attendanceDays++;
+    h.nightHalfDays++;
+    h.annualUsedUnits+=.5;
+    h.normal+=8;
+    h.night+=7;
 
-      if(holiday){
-        h.holiday+=8;
-      }
+    if(holiday){
+      h.holiday+=8;
     }
-    else if(displayCode==='반반차'){
-      h.workDays++;
-      h.attendanceDays++;
-      h.quarterLeaveDays++;
-      h.annualUsedUnits+=.25;
-      h.normal+=8;
+  }
+  else if(displayCode==='반반차'){
+    h.workDays++;
+    h.attendanceDays++;
+    h.quarterLeaveDays++;
+    h.annualUsedUnits+=.25;
+    h.normal+=8;
 
-      /*
-        반반차는 15:00 조기퇴근이지만,
-        일근07~17 및 일근+1 OT의 07:00~08:00 연장 1시간은
-        실제 근무했으므로 그대로 반영한다.
-      */
-      if(
-        scheduledCode==='일근07~17' ||
-        scheduledCode==='일근+1 OT'
-      ){
-        h.extend+=1;
-      }
+    /*
+      반반차는 15:00 조기퇴근이지만,
+      일근07~17 및 일근+1 OT의 07:00~08:00 연장 1시간은
+      실제 근무했으므로 그대로 반영한다.
+    */
+    if(
+      scheduledCode==='일근07~17' ||
+      scheduledCode==='일근+1 OT'
+    ){
+      h.extend+=1;
     }
-    else if(displayCode==='연차'){
-      h.attendanceDays++;
-      h.annualDays++;
-      h.annualUsedUnits+=
-        annualUsageUnitsFor_(
-          date,
-          displayCode
-        );
-    }
-    else if(displayCode==='공가'){
-      h.attendanceDays++;
-      h.publicLeaveDays++;
-    }
-    else if(displayCode==='스페셜데이'){
-      h.attendanceDays++;
-      h.specialLeaveDays++;
-    }
+  }
+  else if(displayCode==='연차'){
+    h.attendanceDays++;
+    h.annualDays++;
+    h.annualUsedUnits+=
+      annualUsageUnitsFor_(
+        date,
+        displayCode
+      );
+  }
+  else if(displayCode==='공가'){
+    h.attendanceDays++;
+    h.publicLeaveDays++;
+  }
+  else if(displayCode==='스페셜데이'){
+    h.attendanceDays++;
+    h.specialLeaveDays++;
+  }
+
+  return h;
+}
+
+function calcHoursForMonth(y,m){
+  const h={
+    ...createDailyHoursBucket_(),
+    shiftOT:calculateShiftOtHours_(y,m),
+    shiftApplicableDays:countShiftApplicableDays_(y,m)
+  };
+  const days=new Date(y,m,0).getDate();
+  const dailyKeys=Object.keys(createDailyHoursBucket_());
+
+  for(let day=1;day<=days;day++){
+    const daily=calculateHoursForDate_(
+      new Date(y,m-1,day)
+    );
+
+    dailyKeys.forEach(key=>{
+      h[key]+=daily[key];
+    });
   }
 
   return h;
@@ -6061,11 +8250,99 @@ function renderMonthLabel(){
     `${viewYear}년 ${viewMonth+1}월, 연월 선택`
   );
 
-  teamBadge.textContent=TEAMS[
+  const teamName=TEAMS[
     getTeamIndexForDate(
       new Date(viewYear,viewMonth,15)
     )
   ];
+  teamBadge.textContent=teamName;
+
+  if(classicTeamSeal){
+    classicTeamSeal.textContent=teamName;
+  }
+}
+
+function renderClassicToday_(){
+  if(
+    !classicTodayBlock ||
+    document.documentElement.dataset.visualStyle!=='classic' ||
+    currentTab!=='My'
+  ) return;
+
+  const weekdayNames=['일','월','화','수','목','금','토'];
+  const shiftKey=getMyDisplayShift(today);
+  const shiftStyle=getTypeStyle(shiftKey);
+  const shiftLabel=String(shiftStyle.label||shiftKey||'-');
+  const nonWorkingStatuses=new Set([
+    '휴무','연차','공가','스페셜데이'
+  ]);
+  const standaloneTitles={
+    '휴무':'휴무',
+    '연차':'연차',
+    '공가':'공가',
+    '스페셜데이':'스페셜데이',
+    '교육':'교육',
+    '출장':'출장'
+  };
+  const shiftTitle=(key,style)=>
+    standaloneTitles[key]||
+    `${String(style.label||key||'-')} 근무`;
+  const shiftDetails={
+    '주간':'07:00 출근',
+    '야간':'19:00 출근',
+    '휴무':'근무 없는 날',
+    '연차':'연차 사용일',
+    '공가':'공가 처리일',
+    '스페셜데이':'출근 인정일',
+    '교육':'교육 일정',
+    '출장':'출장 일정'
+  };
+  let nextDate=null;
+  let nextKey=null;
+  let nextStyle=null;
+
+  for(let offset=1;offset<=32;offset+=1){
+    const candidate=new Date(today);
+    candidate.setDate(candidate.getDate()+offset);
+    const candidateKey=getMyDisplayShift(candidate);
+
+    if(!nonWorkingStatuses.has(candidateKey)){
+      nextDate=candidate;
+      nextKey=candidateKey;
+      nextStyle=getTypeStyle(candidateKey);
+      break;
+    }
+  }
+
+  classicTodayBlock.dataset.shiftKey=shiftKey;
+  classicTodayBlock.style.setProperty(
+    '--classic-shift-bg',
+    safeTypeColor_(shiftStyle.bg,'#f2e79a')
+  );
+  classicTodayBlock.style.setProperty(
+    '--classic-shift-fg',
+    safeTypeColor_(shiftStyle.color,'#202428')
+  );
+  classicTodayDate.textContent=
+    `오늘 · ${today.getMonth()+1}월 ${today.getDate()}일 `+
+    `${weekdayNames[today.getDay()]}요일`;
+  classicTodayShift.textContent=shiftTitle(
+    shiftKey,
+    {...shiftStyle,label:shiftLabel}
+  );
+  classicTodayDetail.textContent=
+    shiftDetails[shiftKey]||shiftKey;
+
+  if(nextDate&&nextStyle){
+    classicNextShift.textContent=
+      shiftTitle(nextKey,nextStyle);
+    classicNextShiftDate.textContent=
+      `${nextDate.getMonth()+1}월 ${nextDate.getDate()}일 `+
+      `${weekdayNames[nextDate.getDay()]}요일`;
+  }else{
+    classicNextShift.textContent='예정 없음';
+    classicNextShiftDate.textContent='';
+  }
 }
 function renderCalendar(){
   renderMonthLabel();
@@ -6089,6 +8366,15 @@ function renderCalendar(){
     const style=getTypeStyle(shift);
     const holiday=getHoliday(c.date);
     const dayColor=c.dim?'#c9c9c9':getDayColor(c.date);
+    const surfaceVisualStyle=['factory','classic'].includes(
+      document.documentElement.dataset.visualStyle
+    );
+
+    if(surfaceVisualStyle){
+      div.style.setProperty('--shift-bg',style.bg);
+      div.style.setProperty('--shift-fg',style.color);
+    }
+    div.dataset.shiftKey=shift;
 
     const tag=document.createElement('span');
     tag.className=
@@ -6105,9 +8391,7 @@ function renderCalendar(){
       const holidayEl=document.createElement('span');
       holidayEl.className='holiday-name';
       holidayEl.style.color=
-        c.dim
-          ?'#d8a4a1'
-          :'';
+        c.dim?'#d8a4a1':'';
       holidayEl.textContent=holiday;
       div.appendChild(holidayEl);
     }
@@ -6196,7 +8480,7 @@ function renderBlocks(wrap,rows){
         numberHtml+
         (
           holiday
-            ? `<span style="font-size:8px;color:#e5352b">${holiday}</span>`
+            ? `<span style="font-size:8px;color:#e5352b">${escapeHtml_(holiday)}</span>`
             : ''
         )+
         `</div>`
@@ -6222,19 +8506,28 @@ function renderBlocks(wrap,rows){
         `60px repeat(${e-s+1},1fr)`;
 
       let rowHtml=
-        `<div class="tcell label">${rowDefinition.label}</div>`;
+        `<div class="tcell label">${escapeHtml_(rowDefinition.label)}</div>`;
 
       for(let day=s;day<=e;day++){
         const date=new Date(viewYear,viewMonth,day);
         const shift=rowDefinition.get(date);
         const style=getTypeStyle(shift);
+        const shiftBackground=safeTypeColor_(style.bg,'#5f6b73');
+        const shiftForeground=safeTypeColor_(style.color,'#ffffff');
         const todayClass=isTodayDate(day)?' today-col':'';
 
+        const surfaceVisualStyle=['factory','classic'].includes(
+          document.documentElement.dataset.visualStyle
+        );
+        const cellStyle=surfaceVisualStyle
+          ?` style="--shift-bg:${shiftBackground};--shift-fg:${shiftForeground}"`
+          :'';
+
         rowHtml+=
-          `<div class="tcell${todayClass}">`+
+          `<div class="tcell${todayClass}" data-shift-key="${escapeAttr_(shift)}"${cellStyle}>`+
           `<span class="badge" `+
-          `style="background:${style.bg};color:${style.color}">`+
-          `${style.label}</span></div>`;
+          `style="background:${shiftBackground};color:${shiftForeground}">`+
+          `${escapeHtml_(style.label)}</span></div>`;
       }
 
       row.innerHTML=rowHtml;
@@ -6246,8 +8539,8 @@ function renderBlocks(wrap,rows){
 }
 function renderAll(){renderBlocks(allWrap,TEAMS.map((t,i)=>({label:t,get:d=>i===getTeamIndexForDate(d)?getMyDisplayShift(d):getShiftForTeam(d,i)})))}
 function renderWith(){renderBlocks(withWrap,[{label:'Me',get:d=>getMyDisplayShift(d)},...withEntries.map(en=>({label:en.name,get:d=>getShiftCustom(d,en.refDate,en.cycle)}))])}
-function renderCurrent(){if(currentTab==='My')renderCalendar();else if(currentTab==='All')renderAll();else renderWith();renderMonthLabel()}
-function switchTab(tab){currentTab=tab;calendarWrap.classList.toggle('hidden',tab!=='My');allWrap.classList.toggle('hidden',tab!=='All');withWrap.classList.toggle('hidden',tab!=='With');navMy.classList.toggle('active',tab==='My');navAll.classList.toggle('active',tab==='All');navWith.classList.toggle('active',tab==='With');renderCurrent()}
+function renderCurrent(){if(currentTab==='My')renderCalendar();else if(currentTab==='All')renderAll();else renderWith();renderMonthLabel();renderClassicToday_()}
+function switchTab(tab){currentTab=tab;calendarWrap.classList.toggle('hidden',tab!=='My');classicTodayBlock?.classList.toggle('hidden',tab!=='My');allWrap.classList.toggle('hidden',tab!=='All');withWrap.classList.toggle('hidden',tab!=='With');navMy.classList.toggle('active',tab==='My');navAll.classList.toggle('active',tab==='All');navWith.classList.toggle('active',tab==='With');renderCurrent()}
 
 let memoTargetDate=null;
 
@@ -6585,6 +8878,10 @@ function openSettings(){
     calendarEmphasis,
     {save:false}
   );
+  visualStyle=applyVisualStyle_(
+    visualStyle,
+    {save:false}
+  );
   calendarSizeSettings=applyCalendarSizeSettings_(
     calendarSizeSettings,
     {save:false}
@@ -6795,24 +9092,26 @@ function getStatusDefinition_(key){
 function renderTypes(){
   typeManageList.innerHTML='';
 
-  const colorControlsHtml=(style,disabled=false)=>(
-    `<div class="type-color-controls">`+
+  const colorControlsHtml=(style,disabled=false)=>{
+    const background=safeTypeColor_(style.bg,'#5f6b73');
+    const foreground=safeTypeColor_(style.color,'#ffffff');
+    return `<div class="type-color-controls">`+
       `<label class="type-color-field">`+
         `<span>배경</span>`+
         `<input class="type-color-input type-bg-color" `+
-          `type="color" value="${style.bg}" `+
+          `type="color" value="${background}" `+
           `aria-label="배경색" `+
           `${disabled?'disabled title="휴무 색상을 사용합니다"':''}>`+
       `</label>`+
       `<label class="type-color-field">`+
         `<span>글씨</span>`+
         `<input class="type-color-input type-text-color" `+
-          `type="color" value="${style.color}" `+
+          `type="color" value="${foreground}" `+
           `aria-label="글씨색" `+
           `${disabled?'disabled title="휴무 글씨색을 사용합니다"':''}>`+
       `</label>`+
-    `</div>`
-  );
+    `</div>`;
+  };
 
   const bindColorInputs=(
     row,
@@ -6890,18 +9189,20 @@ function renderTypes(){
 
     const definition=getStatusDefinition_(key);
     const followsOffColor=key==='연차';
+    const background=safeTypeColor_(style.bg,'#5f6b73');
+    const foreground=safeTypeColor_(style.color,'#ffffff');
     const row=document.createElement('div');
 
     row.className='type-row';
     row.innerHTML=
       `<span class="pill" `+
-      `style="background:${style.bg};color:${style.color}">`+
-      `${style.label}</span>`+
+      `style="background:${background};color:${foreground}">`+
+      `${escapeHtml_(style.label)}</span>`+
       `<div class="grow">`+
-      `<b>${key}</b>`+
+      `<b>${escapeHtml_(key)}</b>`+
       (
         definition&&definition.description
-          ?`<div class="status-description">${definition.description}</div>`
+          ?`<div class="status-description">${escapeHtml_(definition.description)}</div>`
           :`<div class="small">기본 제공</div>`
       )+
       `</div>`+
@@ -6927,23 +9228,25 @@ function renderTypes(){
       );
 
       const row=document.createElement('div');
+      const background=safeTypeColor_(type.bg,'#5f6b73');
+      const foreground=safeTypeColor_(type.color,'#ffffff');
 
       row.className='type-row';
       row.innerHTML=
         `<span class="pill" `+
-        `style="background:${type.bg};color:${type.color}">`+
-        `${type.label}</span>`+
-        `<div class="grow"><b>${type.key}</b></div>`+
+        `style="background:${background};color:${foreground}">`+
+        `${escapeHtml_(type.label)}</span>`+
+        `<div class="grow"><b>${escapeHtml_(type.key)}</b></div>`+
         `<div class="type-color-controls">`+
           `<label class="type-color-field">`+
             `<span>배경</span>`+
             `<input class="type-color-input type-bg-color" `+
-              `type="color" value="${type.bg}" aria-label="배경색">`+
+              `type="color" value="${background}" aria-label="배경색">`+
           `</label>`+
           `<label class="type-color-field">`+
             `<span>글씨</span>`+
             `<input class="type-color-input type-text-color" `+
-              `type="color" value="${type.color}" aria-label="글씨색">`+
+              `type="color" value="${foreground}" aria-label="글씨색">`+
           `</label>`+
           `<button class="btn red">삭제</button>`+
         `</div>`;
@@ -6975,9 +9278,9 @@ function renderCompanyHolidays(){
       return (
         `<div class="holiday-row">`+
         `<div class="grow">`+
-        `<b>${holiday.name}</b>`+
+        `<b>${escapeHtml_(holiday.name)}</b>`+
         `<div class="small">`+
-        `${dateLabel} · `+
+        `${escapeHtml_(dateLabel)} · `+
         `${holiday.payAsHoliday?'휴일수당 적용':'표시만'} · `+
         `${holiday.enabled?'사용':'중지'}`+
         `</div>`+
@@ -7130,12 +9433,12 @@ function renderWithManageList(){
 
     box.innerHTML=
       `<div class="row">`+
-      `<input class="form-input n" value="${entry.name}">`+
+      `<input class="form-input n" value="${escapeAttr_(entry.name)}">`+
       `<button class="btn red d">삭제</button>`+
       `</div>`+
       `<input class="form-input r" type="date" `+
-      `value="${entry.refDate}" style="margin-top:8px">`+
-      `<input class="form-input c" value="${entry.cycle.join(',')}" `+
+      `value="${escapeAttr_(entry.refDate)}" style="margin-top:8px">`+
+      `<input class="form-input c" value="${escapeAttr_(entry.cycle.join(','))}" `+
       `style="margin-top:8px">`;
 
     const commit=()=>{
@@ -7553,12 +9856,12 @@ function wageHistoryHtml_(){
           :'적용 완료';
     const deleteButton=
       record.status==='cancelled'
-        ?`<button type="button" class="btn red wage-history-delete wage-agreement-delete" data-wage-id="${record.id}">적용취소 이력삭제</button>`
+        ?`<button type="button" class="btn red wage-history-delete wage-agreement-delete" data-wage-id="${escapeAttr_(record.id)}">적용취소 이력삭제</button>`
         :'';
     const actionButton=isScheduled
-      ?`<button type="button" class="btn red wage-agreement-cancel" data-wage-id="${record.id}" style="width:100%;margin-top:12px">적용 예약 취소</button>`
+      ?`<button type="button" class="btn red wage-agreement-cancel" data-wage-id="${escapeAttr_(record.id)}" style="width:100%;margin-top:12px">적용 예약 취소</button>`
       :isLatest
-        ?`<button type="button" class="btn red wage-agreement-cancel" data-wage-id="${record.id}" style="width:100%;margin-top:12px">적용 취소 및 이전 금액 복구</button>`
+        ?`<button type="button" class="btn red wage-agreement-cancel" data-wage-id="${escapeAttr_(record.id)}" style="width:100%;margin-top:12px">적용 취소 및 이전 금액 복구</button>`
         :'';
 
     return `<div class="wage-history-card"><div class="wage-preview-head"><div><b>${formatWageMonth_(record.paymentMonth)} 임금협상</b><div class="small">${formatNumber_(record.rate)}% 인상</div></div><div class="wage-history-actions"><span class="wage-status ${record.status}">${statusText}</span>${deleteButton}</div></div><div class="wage-preview-list"><div class="wage-preview-row"><span>소급 적용 시작 급여월</span><strong>${formatWageMonth_(record.retroStartMonth)}</strong></div><div class="wage-preview-row"><span>소급분 지급 급여월</span><strong>${formatWageMonth_(record.paymentMonth)}</strong></div><div class="wage-preview-row"><span>인상 기본급 정상 적용</span><strong>${formatWageMonth_(record.paymentMonth)}부터</strong></div><div class="wage-preview-row"><span>실제 적용 일시</span><strong>${formatWageDateTime_(record.effectiveAt||record.appliedAt)}</strong></div><div class="wage-preview-row"><span>기본급1</span><strong>${fmtW(record.before.base1)} → ${fmtW(record.after.base1)}</strong></div><div class="wage-preview-row"><span>기본급3</span><strong>${fmtW(record.before.base3)} → ${fmtW(record.after.base3)}</strong></div><div class="wage-preview-row"><span>소급 대상 기간</span><strong>${wageRetroPeriodText_(retro)}</strong></div><div class="wage-preview-row"><span>예상 소급분 총액</span><strong>${fmtW(retro.total)}</strong></div></div>${wageMonthlyDetailHtml_(retro)}${actionButton}</div>`;
@@ -8081,27 +10384,27 @@ function renderSalaryFields(){
     <div class="salary-two-col">
       <div class="form-group">
         <label class="form-label">기본급1</label>
-        <input id="sal-base1" type="number" class="form-input" value="${SAL.base1}" ${baseLocked?'disabled':''}>
+        <input id="sal-base1" type="number" class="form-input" value="${escapeAttr_(SAL.base1)}" ${baseLocked?'disabled':''}>
       </div>
       <div class="form-group">
         <label class="form-label">기본급3</label>
-        <input id="sal-base3" type="number" class="form-input" value="${SAL.base3}" ${baseLocked?'disabled':''}>
+        <input id="sal-base3" type="number" class="form-input" value="${escapeAttr_(SAL.base3)}" ${baseLocked?'disabled':''}>
       </div>
       <div class="form-group">
         <label class="form-label">면허수당</label>
-        <input id="sal-license" type="number" class="form-input" value="${SAL.license}">
+        <input id="sal-license" type="number" class="form-input" value="${escapeAttr_(SAL.license)}">
       </div>
       <div class="form-group">
         <label class="form-label">중식비</label>
-        <input id="sal-meal" type="number" class="form-input" value="${SAL.meal}">
+        <input id="sal-meal" type="number" class="form-input" value="${escapeAttr_(SAL.meal)}">
       </div>
       <div class="form-group">
         <label class="form-label">기타 통상임금</label>
-        <input id="sal-otherOrdinary" type="number" class="form-input" value="${SAL.otherOrdinary}">
+        <input id="sal-otherOrdinary" type="number" class="form-input" value="${escapeAttr_(SAL.otherOrdinary)}">
       </div>
       <div class="form-group">
         <label class="form-label">개인연금2 회사분</label>
-        <input id="sal-pensionSup" type="number" class="form-input" value="${SAL.pensionSup}">
+        <input id="sal-pensionSup" type="number" class="form-input" value="${escapeAttr_(SAL.pensionSup)}">
       </div>
     </div>
 
@@ -8133,12 +10436,12 @@ function renderSalaryFields(){
     <div class="salary-two-col">
       <div class="form-group">
         <label class="form-label">자동계산 비율</label>
-        <input id="sal-fixedBonusRate" type="number" step="0.01" class="form-input" value="${SAL.fixedBonusRate}">
+        <input id="sal-fixedBonusRate" type="number" step="0.01" class="form-input" value="${escapeAttr_(SAL.fixedBonusRate)}">
         <div class="form-hint">(기본급1 + 기본급3) × 비율</div>
       </div>
       <div class="form-group">
         <label class="form-label">직접 입력액</label>
-        <input id="sal-fixedBonusManual" type="number" class="form-input" value="${SAL.fixedBonusManual}">
+        <input id="sal-fixedBonusManual" type="number" class="form-input" value="${escapeAttr_(SAL.fixedBonusManual)}">
       </div>
     </div>
 
@@ -8158,11 +10461,11 @@ function renderSalaryFields(){
     <div class="salary-two-col">
       <div class="form-group">
         <label class="form-label">월 기준시간</label>
-        <input id="sal-basisHours" type="number" step="0.01" class="form-input" value="${SAL.basisHours}">
+        <input id="sal-basisHours" type="number" step="0.01" class="form-input" value="${escapeAttr_(SAL.basisHours)}">
       </div>
       <div class="form-group">
         <label class="form-label">직접 입력 통상시급</label>
-        <input id="sal-manualHourly" type="number" class="form-input" value="${SAL.manualHourly}">
+        <input id="sal-manualHourly" type="number" class="form-input" value="${escapeAttr_(SAL.manualHourly)}">
       </div>
     </div>
 
@@ -8207,15 +10510,15 @@ function renderSalaryFields(){
     <div class="salary-two-col">
       <div class="form-group">
         <label class="form-label">자동계산 분자</label>
-        <input id="sal-shiftOtNumerator" type="number" step="0.01" class="form-input" value="${SAL.shiftOtNumerator}">
+        <input id="sal-shiftOtNumerator" type="number" step="0.01" class="form-input" value="${escapeAttr_(SAL.shiftOtNumerator)}">
       </div>
       <div class="form-group">
         <label class="form-label">자동계산 분모</label>
-        <input id="sal-shiftOtDenominator" type="number" step="0.01" class="form-input" value="${SAL.shiftOtDenominator}">
+        <input id="sal-shiftOtDenominator" type="number" step="0.01" class="form-input" value="${escapeAttr_(SAL.shiftOtDenominator)}">
       </div>
       <div class="form-group">
         <label class="form-label">직접 입력 시간</label>
-        <input id="sal-shiftH" type="number" step="0.01" class="form-input" value="${SAL.shiftH}">
+        <input id="sal-shiftH" type="number" step="0.01" class="form-input" value="${escapeAttr_(SAL.shiftH)}">
       </div>
     </div>
 
@@ -8296,35 +10599,35 @@ function renderSalaryFields(){
     <div class="salary-two-col">
       <div class="form-group">
         <label class="form-label">전년도 소득총액</label>
-        <input id="sal-prevAnnual" type="number" class="form-input" value="${SAL.prevAnnual}">
+        <input id="sal-prevAnnual" type="number" class="form-input" value="${escapeAttr_(SAL.prevAnnual)}">
       </div>
       <div class="form-group">
         <label class="form-label">고용보험율(%)</label>
-        <input id="sal-employ" type="number" step="0.001" class="form-input" value="${SAL.employ}">
+        <input id="sal-employ" type="number" step="0.001" class="form-input" value="${escapeAttr_(SAL.employ)}">
       </div>
       <div class="form-group">
         <label class="form-label">예상 소득세율(%)</label>
-        <input id="sal-incomeTaxRate" type="number" step="0.01" class="form-input" value="${SAL.incomeTaxRate}">
+        <input id="sal-incomeTaxRate" type="number" step="0.01" class="form-input" value="${escapeAttr_(SAL.incomeTaxRate)}">
       </div>
       <div class="form-group">
         <label class="form-label">노조비율(%)</label>
-        <input id="sal-unionRate" type="number" step="0.01" class="form-input" value="${SAL.unionRate}">
+        <input id="sal-unionRate" type="number" step="0.01" class="form-input" value="${escapeAttr_(SAL.unionRate)}">
       </div>
       <div class="form-group">
         <label class="form-label">매칭그랜트</label>
-        <input id="sal-matching" type="number" class="form-input" value="${SAL.matching}">
+        <input id="sal-matching" type="number" class="form-input" value="${escapeAttr_(SAL.matching)}">
       </div>
       <div class="form-group">
         <label class="form-label">개인연금2 사원분</label>
-        <input id="sal-pension2" type="number" class="form-input" value="${SAL.pension2}">
+        <input id="sal-pension2" type="number" class="form-input" value="${escapeAttr_(SAL.pension2)}">
       </div>
       <div class="form-group">
         <label class="form-label">식비공제</label>
-        <input id="sal-foodDed" type="number" class="form-input" value="${SAL.foodDed}">
+        <input id="sal-foodDed" type="number" class="form-input" value="${escapeAttr_(SAL.foodDed)}">
       </div>
       <div class="form-group">
         <label class="form-label">사택료</label>
-        <input id="sal-house" type="number" class="form-input" value="${SAL.house}">
+        <input id="sal-house" type="number" class="form-input" value="${escapeAttr_(SAL.house)}">
       </div>
     </div>
   `;
@@ -8450,20 +10753,25 @@ function weeklyWorkSummary_(monday){
   }
   return {total:Math.round(total*10)/10,detail};
 }
+let dashboardAccordionState_={weekly:false,attendance:false};
 function renderWeeklyHoursCard_(year,month){
   const first=new Date(year,month-1,1);
   const last=new Date(year,month,0);
   let monday=getMonday_(first);
   const rows=[];
+  let peak=0;
+
   while(monday<=last){
     const summary=weeklyWorkSummary_(monday);
+    peak=Math.max(peak,summary.total);
     const sunday=addDays_(monday,6);
     const status=summary.total>64?'over':summary.total>=60?'warning':summary.total>=53?'caution':'normal';
     const remain=Math.max(0,64-summary.total);
     rows.push(`<div class="week-hours-row ${status}"><div><b>${monday.getMonth()+1}/${monday.getDate()}~${sunday.getMonth()+1}/${sunday.getDate()}</b><div class="week-hours-breakdown">${summary.detail.length?summary.detail.join(' · '):'근무 없음'}<br>${summary.total>64?`64시간 초과 ${formatNumber_(summary.total-64)}시간`:`64시간까지 ${formatNumber_(remain)}시간`}</div></div><div class="week-total">${formatNumber_(summary.total)}h</div></div>`);
     monday=addDays_(monday,7);
   }
-  return `<div class="card"><div class="card-title">주 64시간 관리</div><div class="form-hint">월요일~일요일 · 야간은 출근일 기준 · 일근 기간 여부를 자동 적용합니다.</div><div class="week-hours-list">${rows.join('')}</div></div>`;
+
+  return `<details id="weeklyHoursAccordion" class="card dashboard-accordion" ${dashboardAccordionState_.weekly?'open':''}><summary><div class="accordion-head"><div><div class="card-title">주 64시간 관리</div><div class="form-hint">${year}년 ${month}월 · 주간 최대 ${formatNumber_(peak)}h</div></div><span class="accordion-chevron">⌄</span></div></summary><div class="dashboard-accordion-body"><div class="form-hint" style="margin:0 0 10px">월요일~일요일 · 야간은 출근일 기준 · 일근 기간 여부를 자동 적용합니다.</div><div class="week-hours-list">${rows.join('')}</div></div></details>`;
 }
 function formatNumber_(value){
   return Number(value||0).toFixed(1).replace(/\.0$/,'');
@@ -8514,7 +10822,13 @@ function retirementAutoAnnualLeave_(retirementDate){
 }
 function renderRetirementCalculator_(){
   const join=ANNUAL_LEAVE_SETTINGS.joinDate||'';
-  const retirementDate=RETIREMENT_STATE.retirementDate||dateKey(today);
+  const storedRetirementDate=String(
+    RETIREMENT_STATE.retirementDate||''
+  );
+  const retirementDate=/^\d{4}-\d{2}-\d{2}$/.test(storedRetirementDate)
+    && !Number.isNaN(new Date(storedRetirementDate+'T00:00:00').getTime())
+      ?storedRetirementDate
+      :dateKey(today);
   const months=retirementPayMonths_(retirementDate);
   let threeMonthTotal=0;
   let daysTotal=0;
@@ -8527,12 +10841,12 @@ function renderRetirementCalculator_(){
     const rows=Object.entries(standard).map(([name,auto])=>{
       const value=overrides[name]!==undefined?Number(overrides[name]||0):auto;
       monthTotal+=value;
-      return `<div class="retirement-item-row"><label>${name}<div class="small">자동 ${fmtW(auto)}</div></label><input class="form-input retirement-standard" type="number" data-month="${info.key}" data-name="${name}" value="${value}"></div>`;
+      return `<div class="retirement-item-row"><label>${escapeHtml_(name)}<div class="small">자동 ${fmtW(auto)}</div></label><input class="form-input retirement-standard" type="number" data-month="${escapeAttr_(info.key)}" data-name="${escapeAttr_(name)}" value="${escapeAttr_(value)}"></div>`;
     }).join('');
     const customs=Array.isArray(RETIREMENT_STATE.customItems[info.key])?RETIREMENT_STATE.customItems[info.key]:[];
     const customRows=customs.map((item,index)=>{
       if(item.include)monthTotal+=Number(item.amount||0);
-      return `<div class="retirement-custom-row"><input class="form-input retirement-custom-name" data-month="${info.key}" data-index="${index}" value="${String(item.name||'').replace(/"/g,'&quot;')}" placeholder="수당 이름"><input class="form-input retirement-custom-amount" type="number" data-month="${info.key}" data-index="${index}" value="${Number(item.amount||0)}"><label class="small"><input class="retirement-custom-include" type="checkbox" data-month="${info.key}" data-index="${index}" ${item.include?'checked':''}> 포함</label><button class="btn red retirement-custom-delete" type="button" data-month="${info.key}" data-index="${index}">삭제</button></div>`;
+      return `<div class="retirement-custom-row"><input class="form-input retirement-custom-name" data-month="${escapeAttr_(info.key)}" data-index="${index}" value="${escapeAttr_(item.name)}" placeholder="수당 이름"><input class="form-input retirement-custom-amount" type="number" data-month="${escapeAttr_(info.key)}" data-index="${index}" value="${Number(item.amount||0)}"><label class="small"><input class="retirement-custom-include" type="checkbox" data-month="${escapeAttr_(info.key)}" data-index="${index}" ${item.include?'checked':''}> 포함</label><button class="btn red retirement-custom-delete" type="button" data-month="${escapeAttr_(info.key)}" data-index="${index}">삭제</button></div>`;
     }).join('');
     const days=new Date(info.year,info.month,0).getDate(); daysTotal+=days; threeMonthTotal+=monthTotal;
     return `<div class="retirement-month"><div class="retirement-head"><b>${info.year}년 ${info.month}월 급여명세서</b><span>${fmtW(monthTotal)}</span></div>${rows}<div class="section-label" style="margin-top:12px">추가 지급항목</div>${customRows||'<div class="small">추가 항목 없음</div>'}<button class="btn retirement-add-item" type="button" data-month="${info.key}" style="width:100%;margin-top:8px">+ 수당 추가</button><div class="small" style="margin-top:8px">해당 월 일수 ${days}일</div></div>`;
@@ -8545,7 +10859,7 @@ function renderRetirementCalculator_(){
   const retireDate=new Date(retirementDate+'T00:00:00');
   const serviceDays=joinDate&&retireDate>=joinDate?Math.floor((stripTime(retireDate)-stripTime(joinDate))/86400000)+1:0;
   const severance=average*30*(serviceDays/365);
-  return `<div id="retirementCalculatorCard" class="accordion-content"><div class="notice warn">최근 3개 급여명세서를 활용한 예상 계산입니다. 실제 산정기간과 임금 포함 여부에 따라 달라질 수 있습니다.</div><div class="row"><div class="grow"><label class="form-label">입사일</label><input class="form-input" value="${join}" readonly></div><div class="grow"><label class="form-label">퇴직 기준일</label><input id="retirementDateInput" class="form-input" type="date" value="${retirementDate}"></div></div>${monthHtml}<div class="retirement-month"><div class="card-title">직전 1년 반영액</div><label class="form-label">명절상여 등 연간 상여 총액</label><input id="retirementAnnualBonus" class="form-input" type="number" value="${Number(RETIREMENT_STATE.annualBonus||0)}"><div class="mode-switch" style="margin-top:10px"><button type="button" data-retirement-leave-mode="auto" class="${RETIREMENT_STATE.annualLeaveMode==='auto'?'active':''}">연차수당 자동</button><button type="button" data-retirement-leave-mode="manual" class="${RETIREMENT_STATE.annualLeaveMode==='manual'?'active':''}">직접 입력</button></div><div class="small" style="margin:8px 0">자동 계산 ${fmtW(autoLeave)}</div><input id="retirementAnnualLeaveManual" class="form-input" type="number" value="${Number(RETIREMENT_STATE.annualLeaveManual||0)}" ${RETIREMENT_STATE.annualLeaveMode==='manual'?'':'disabled'}></div><div class="retirement-result"><div>예상 퇴직금</div><div class="amount">${fmtW(severance)}</div><div class="small">1일 평균임금 ${fmtW(average)} · 재직일수 ${serviceDays.toLocaleString()}일 · 3개월 산정일수 ${daysTotal}일</div></div></div>`;
+  return `<div id="retirementCalculatorCard" class="accordion-content"><div class="notice warn">최근 3개 급여명세서를 활용한 예상 계산입니다. 실제 산정기간과 임금 포함 여부에 따라 달라질 수 있습니다.</div><div class="row"><div class="grow"><label class="form-label">입사일</label><input class="form-input" value="${escapeAttr_(join)}" readonly></div><div class="grow"><label class="form-label">퇴직 기준일</label><input id="retirementDateInput" class="form-input" type="date" value="${escapeAttr_(retirementDate)}"></div></div>${monthHtml}<div class="retirement-month"><div class="card-title">직전 1년 반영액</div><label class="form-label">명절상여 등 연간 상여 총액</label><input id="retirementAnnualBonus" class="form-input" type="number" value="${Number(RETIREMENT_STATE.annualBonus||0)}"><div class="mode-switch" style="margin-top:10px"><button type="button" data-retirement-leave-mode="auto" class="${RETIREMENT_STATE.annualLeaveMode==='auto'?'active':''}">연차수당 자동</button><button type="button" data-retirement-leave-mode="manual" class="${RETIREMENT_STATE.annualLeaveMode==='manual'?'active':''}">직접 입력</button></div><div class="small" style="margin:8px 0">자동 계산 ${fmtW(autoLeave)}</div><input id="retirementAnnualLeaveManual" class="form-input" type="number" value="${Number(RETIREMENT_STATE.annualLeaveManual||0)}" ${RETIREMENT_STATE.annualLeaveMode==='manual'?'':'disabled'}></div><div class="retirement-result"><div>예상 퇴직금</div><div class="amount">${fmtW(severance)}</div><div class="small">1일 평균임금 ${fmtW(average)} · 재직일수 ${serviceDays.toLocaleString()}일 · 3개월 산정일수 ${daysTotal}일</div></div></div>`;
 }
 function bindRetirementCalculator_(){
   const dateInput=document.getElementById('retirementDateInput');
@@ -8557,6 +10871,163 @@ function bindRetirementCalculator_(){
   document.querySelectorAll('.retirement-add-item').forEach(button=>button.onclick=()=>{const m=button.dataset.month;RETIREMENT_STATE.customItems[m]=RETIREMENT_STATE.customItems[m]||[];RETIREMENT_STATE.customItems[m].push({name:'',amount:0,include:false});saveRetirementState_();renderSalary()});
   document.querySelectorAll('.retirement-custom-name,.retirement-custom-amount,.retirement-custom-include').forEach(input=>input.onchange=()=>{const m=input.dataset.month,i=Number(input.dataset.index);const item=RETIREMENT_STATE.customItems[m][i];if(input.classList.contains('retirement-custom-name'))item.name=input.value;else if(input.classList.contains('retirement-custom-amount'))item.amount=Number(input.value||0);else item.include=input.checked;saveRetirementState_();renderSalary()});
   document.querySelectorAll('.retirement-custom-delete').forEach(button=>button.onclick=()=>{const m=button.dataset.month,i=Number(button.dataset.index);RETIREMENT_STATE.customItems[m].splice(i,1);saveRetirementState_();renderSalary()});
+}
+
+let attendanceReportMonthKey_=null;
+let attendanceReportDashboardPayKey_=null;
+
+function reportHoursText_(value){
+  const number=Number(value||0);
+  return Math.abs(number)<0.000001
+    ?''
+    :number.toFixed(2);
+}
+
+function parseMonthKeyForReport_(value,fallbackY,fallbackM){
+  const match=/^(\d{4})-(\d{2})$/.exec(String(value||''));
+
+  if(!match){
+    return {year:fallbackY,month:fallbackM};
+  }
+
+  const year=Number(match[1]);
+  const month=Number(match[2]);
+
+  if(month<1||month>12){
+    return {year:fallbackY,month:fallbackM};
+  }
+
+  return {year,month};
+}
+
+function attendanceReportHtml_(defaultY,defaultM){
+  if(!attendanceReportMonthKey_){
+    attendanceReportMonthKey_=
+      `${defaultY}-${pad2(defaultM)}`;
+  }
+
+  const selected=parseMonthKeyForReport_(
+    attendanceReportMonthKey_,
+    defaultY,
+    defaultM
+  );
+  const daysInMonth=new Date(
+    selected.year,
+    selected.month,
+    0
+  ).getDate();
+  const daily=[];
+
+  for(let day=1;day<=daysInMonth;day++){
+    daily.push(
+      calculateHoursForDate_(
+        new Date(selected.year,selected.month-1,day)
+      )
+    );
+  }
+
+  const monthly=calcHoursForMonth(
+    selected.year,
+    selected.month
+  );
+  const rows=[
+    ['정상',day=>day.normal],
+    ['심야',day=>day.night],
+    ['연장',day=>day.extend],
+    ['초과/주휴',day=>day.weekly+day.weeklyExt],
+    ['휴일',day=>day.holiday+day.holidayExt],
+    ['명절',day=>day.festBase+day.festExt],
+    ['교대조수당',()=>0],
+    ['기타',()=>0]
+  ];
+  const header=Array.from(
+    {length:31},
+    (_,index)=>
+      `<th class="${index+1>daysInMonth?'report-empty-day':''}">${index+1}</th>`
+  ).join('');
+  const body=rows.map(([label,getter])=>{
+    let total=0;
+    const cells=Array.from({length:31},(_,index)=>{
+      const day=index+1;
+
+      if(day>daysInMonth){
+        return '<td class="report-empty-day"></td>';
+      }
+
+      let value=0;
+
+      /*
+        회사 근태월보 프로토타입은 교대조수당 시간을 일별로
+        배분하지 않고 월 합계를 1일 칸과 합계 칸에 표시한다.
+      */
+      if(label==='교대조수당'){
+        value=day===1
+          ?Number(monthly.shiftOT||0)
+          :0;
+      }else{
+        value=Number(getter(daily[index])||0);
+        total+=value;
+      }
+
+      return `<td>${reportHoursText_(value)}</td>`;
+    }).join('');
+
+    if(label==='교대조수당'){
+      total=Number(monthly.shiftOT||0);
+    }
+
+    return `<tr><th class="report-kind">${label}</th>${cells}<td class="report-total">${reportHoursText_(total)}</td></tr>`;
+  }).join('');
+
+  return `<div class="attendance-report-card attendance-embedded-card"><div class="attendance-report-toolbar"><div><div class="card-title">근태월보</div><div class="form-hint">현재 저장된 근무 기록을 급여 계산과 같은 일별 로직으로 표시합니다.</div></div><div class="form-group"><label class="form-label" for="attendanceReportMonth">근태월</label><input id="attendanceReportMonth" class="form-input" type="month" value="${selected.year}-${pad2(selected.month)}"></div></div><div class="attendance-report-scroll"><table class="attendance-report-table"><thead><tr><th class="report-kind">구분</th>${header}<th class="report-total">합계</th></tr></thead><tbody>${body}</tbody></table></div><div class="form-hint" style="margin-top:8px">교대조수당은 회사 월보 형태에 맞춰 1일 칸과 합계에 월 시간을 표시합니다. 기타는 현재 확정된 매핑이 없어 빈칸입니다.</div></div>`;
+}
+
+function attendanceSummaryHtml_(sal,workY,workM){
+  const h=sal.h;
+  const weekly=Number(h.weekly||0);
+  const weeklyExt=Number(h.weeklyExt||0);
+  const holiday=Number(h.holiday||0);
+  const holidayExt=Number(h.holidayExt||0);
+  const festBase=Number(h.festBase||0);
+  const festExt=Number(h.festExt||0);
+  const row=(label,value,sub='')=>
+    `<div class="attendance-summary-row"><div class="attendance-summary-label">${label}</div><div><div class="attendance-summary-value">${formatNumber_(value)}h</div>${sub?`<div class="attendance-summary-sub">${sub}</div>`:''}</div></div>`;
+
+  return `<details id="attendanceSummaryAccordion" class="card dashboard-accordion" ${dashboardAccordionState_.attendance?'open':''}><summary><div class="accordion-head"><div style="width:100%"><div class="card-title">근태월보 근무시간</div><div class="form-hint">근태월보 대조용입니다. 심야·연장·초과/주휴·휴일·명절은 정상 시간과 중복될 수 있으므로 서로 합산하지 않습니다.</div><div class="attendance-summary-list">${row('정상',h.normal)}${row('심야',h.night)}${row('연장',h.extend)}${row('초과/주휴',weekly+weeklyExt,`기본 ${formatNumber_(weekly)}h · 연장 ${formatNumber_(weeklyExt)}h`)}${row('휴일',holiday+holidayExt,`기본 ${formatNumber_(holiday)}h · 연장 ${formatNumber_(holidayExt)}h`)}${row('명절',festBase+festExt,`기본 ${formatNumber_(festBase)}h · 연장 ${formatNumber_(festExt)}h`)}${row('교대조수당',h.shiftOT)}</div></div><span class="accordion-chevron">⌄</span></div></summary><div class="dashboard-accordion-body">${attendanceReportHtml_(workY,workM)}</div></details>`;
+}
+
+function bindAttendanceReport_(){
+  const weekly=document.getElementById(
+    'weeklyHoursAccordion'
+  );
+
+  if(weekly){
+    weekly.ontoggle=()=>{
+      dashboardAccordionState_.weekly=weekly.open;
+    };
+  }
+
+  const attendance=document.getElementById(
+    'attendanceSummaryAccordion'
+  );
+
+  if(attendance){
+    attendance.ontoggle=()=>{
+      dashboardAccordionState_.attendance=attendance.open;
+    };
+  }
+
+  const input=document.getElementById(
+    'attendanceReportMonth'
+  );
+
+  if(input){
+    input.onchange=()=>{
+      attendanceReportMonthKey_=input.value;
+      dashboardAccordionState_.attendance=true;
+      renderDashboard();
+    };
+  }
 }
 
 function renderDashboard(){
@@ -8575,6 +11046,19 @@ function renderDashboard(){
   if(workM<1){
     workM=12;
     workY--;
+  }
+
+  const dashboardPayKey=
+    `${payY}-${pad2(payM)}`;
+
+  /*
+    대시보드 급여월이 바뀌면 상세 근태월도 반영월로 맞춘다.
+    같은 급여월을 다시 그릴 때는 사용자가 고른 상세 월을 유지한다.
+  */
+  if(attendanceReportDashboardPayKey_!==dashboardPayKey){
+    attendanceReportDashboardPayKey_=dashboardPayKey;
+    attendanceReportMonthKey_=
+      `${workY}-${pad2(workM)}`;
   }
 
   const sal=calcSalary(workY,workM);
@@ -8692,21 +11176,7 @@ function renderDashboard(){
 
     ${renderWeeklyHoursCard_(workY,workM)}
 
-    <div class="card">
-      <div class="card-title">근태월보 근무시간</div>
-      <div class="form-hint" style="margin-bottom:8px">
-        근태월보 대조용입니다. 심야·연장·초과/주휴·휴일·명절은 정상 시간과 중복될 수 있으므로 서로 합산하지 않습니다.
-      </div>
-      <table class="data-table">
-        <tr><td>정상</td><td>${formatNumber_(sal.h.normal)}h</td></tr>
-        <tr><td>심야</td><td>${formatNumber_(sal.h.night)}h</td></tr>
-        <tr><td>연장</td><td>${formatNumber_(sal.h.extend)}h</td></tr>
-        <tr><td>초과/주휴</td><td><strong>${formatNumber_(sal.h.weekly+sal.h.weeklyExt)}h</strong><div class="small">기본 ${formatNumber_(sal.h.weekly)}h · 연장 ${formatNumber_(sal.h.weeklyExt)}h</div></td></tr>
-        <tr><td>휴일</td><td><strong>${formatNumber_(sal.h.holiday+sal.h.holidayExt)}h</strong><div class="small">기본 ${formatNumber_(sal.h.holiday)}h · 연장 ${formatNumber_(sal.h.holidayExt)}h</div></td></tr>
-        <tr><td>명절</td><td><strong>${formatNumber_(sal.h.festBase+sal.h.festExt)}h</strong><div class="small">기본 ${formatNumber_(sal.h.festBase)}h · 연장 ${formatNumber_(sal.h.festExt)}h</div></td></tr>
-        <tr><td>교대조수당</td><td>${Number(sal.h.shiftOT||0).toFixed(2)}h</td></tr>
-      </table>
-    </div>
+    ${attendanceSummaryHtml_(sal,workY,workM)}
 
     <div class="card">
       <div class="card-title">수당 예상액</div>
@@ -8716,7 +11186,7 @@ function renderDashboard(){
             ? allowanceEntries
                 .map(
                   ([key,value])=>
-                    `<tr><td>${key}</td><td>${fmtW(value)}</td></tr>`
+                    `<tr><td>${escapeHtml_(key)}</td><td>${fmtW(value)}</td></tr>`
                 )
                 .join('')
             :'<tr><td>발생 수당</td><td>0원</td></tr>'
@@ -8728,6 +11198,7 @@ function renderDashboard(){
       </table>
     </div>
   `;
+  bindAttendanceReport_();
 }
 let salaryViewYear=today.getFullYear(),salaryViewMonth=today.getMonth()+1;
 let salaryAccordionState_={ot:false,retirement:false};
@@ -8796,14 +11267,14 @@ function renderSalary(){
         <table class="slip-table">
           ${Object.entries(sal.pay).map(
             ([key,value])=>
-              `<tr><td>${key}</td><td>${value?fmtW(value):'-'}</td></tr>`
+              `<tr><td>${escapeHtml_(key)}</td><td>${value?fmtW(value):'-'}</td></tr>`
           ).join('')}
           <tr>
             <td colspan="2" style="font-size:11px;color:#888">기지급내역</td>
           </tr>
           ${Object.entries(sal.extra).map(
             ([key,value])=>
-              `<tr><td>${key}</td><td>${value?fmtW(value):'-'}</td></tr>`
+              `<tr><td>${escapeHtml_(key)}</td><td>${value?fmtW(value):'-'}</td></tr>`
           ).join('')}
           <tr class="total">
             <td>지급합계</td>
@@ -8817,7 +11288,7 @@ function renderSalary(){
         <table class="slip-table">
           ${Object.entries(ded.ded).map(
             ([key,value])=>
-              `<tr><td>${key}</td><td>${fmtW(value)}</td></tr>`
+              `<tr><td>${escapeHtml_(key)}</td><td>${fmtW(value)}</td></tr>`
           ).join('')}
           <tr class="total">
             <td>공제합계</td>
@@ -8840,43 +11311,43 @@ function renderSalary(){
       <div class="actual-deduction-grid">
         <div>
           <label class="form-label">건강보험료</label>
-          <input id="actual-healthOnly" type="number" class="form-input" value="${overrideValue('healthOnly')}" placeholder="${ded.healthRaw}">
+          <input id="actual-healthOnly" type="number" class="form-input" value="${escapeAttr_(overrideValue('healthOnly'))}" placeholder="${escapeAttr_(ded.healthRaw)}">
         </div>
         <div>
           <label class="form-label">노인장기요양보험</label>
-          <input id="actual-longTermCare" type="number" class="form-input" value="${overrideValue('longTermCare')}" placeholder="${ded.ltcareRaw}">
+          <input id="actual-longTermCare" type="number" class="form-input" value="${escapeAttr_(overrideValue('longTermCare'))}" placeholder="${escapeAttr_(ded.ltcareRaw)}">
         </div>
         <div>
           <label class="form-label">국민연금</label>
-          <input id="actual-nps" type="number" class="form-input" value="${overrideValue('nps')}">
+          <input id="actual-nps" type="number" class="form-input" value="${escapeAttr_(overrideValue('nps'))}">
         </div>
         <div>
           <label class="form-label">고용보험</label>
-          <input id="actual-employ" type="number" class="form-input" value="${overrideValue('employ')}">
+          <input id="actual-employ" type="number" class="form-input" value="${escapeAttr_(overrideValue('employ'))}">
         </div>
         <div>
           <label class="form-label">소득세</label>
-          <input id="actual-incomeTax" type="number" class="form-input" value="${overrideValue('incomeTax')}">
+          <input id="actual-incomeTax" type="number" class="form-input" value="${escapeAttr_(overrideValue('incomeTax'))}">
         </div>
         <div>
           <label class="form-label">지방소득세</label>
-          <input id="actual-localTax" type="number" class="form-input" value="${overrideValue('localTax')}">
+          <input id="actual-localTax" type="number" class="form-input" value="${escapeAttr_(overrideValue('localTax'))}">
         </div>
         <div>
           <label class="form-label">건강보험 정산금</label>
-          <input id="actual-healthSettlement" type="number" class="form-input" value="${overrideValue('healthSettlement')}" placeholder="해당 월만">
+          <input id="actual-healthSettlement" type="number" class="form-input" value="${escapeAttr_(overrideValue('healthSettlement'))}" placeholder="해당 월만">
         </div>
         <div>
           <label class="form-label">장기요양 정산금</label>
-          <input id="actual-longTermCareSettlement" type="number" class="form-input" value="${overrideValue('longTermCareSettlement')}" placeholder="해당 월만">
+          <input id="actual-longTermCareSettlement" type="number" class="form-input" value="${escapeAttr_(overrideValue('longTermCareSettlement'))}" placeholder="해당 월만">
         </div>
         <div>
           <label class="form-label">연말정산</label>
-          <input id="actual-yearEndTax" type="number" class="form-input" value="${overrideValue('yearEndTax')}" placeholder="환급은 음수">
+          <input id="actual-yearEndTax" type="number" class="form-input" value="${escapeAttr_(overrideValue('yearEndTax'))}" placeholder="환급은 음수">
         </div>
         <div>
           <label class="form-label">기타 일회성 공제</label>
-          <input id="actual-otherDeduction" type="number" class="form-input" value="${overrideValue('otherDeduction')}">
+          <input id="actual-otherDeduction" type="number" class="form-input" value="${escapeAttr_(overrideValue('otherDeduction'))}">
         </div>
       </div>
 
@@ -9123,6 +11594,7 @@ applyThemePreference_(
   {save:false}
 );
 
+
 /*
   백그라운드에서 다시 돌아올 때는 사용자가 보던 연·월을 유지한다.
   날짜가 바뀌었을 수 있으므로 '오늘' 강조 기준만 새로 갱신한다.
@@ -9187,6 +11659,64 @@ document
       renderCurrent();
     };
   });
+
+document
+  .querySelectorAll('button[data-visual-style]')
+  .forEach((button,index,buttons)=>{
+    button.onclick=()=>{
+      visualStyle=applyVisualStyle_(
+        button.dataset.visualStyle
+      );
+      renderCurrent();
+    };
+    button.onkeydown=event=>{
+      const keys=['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'];
+
+      if(!keys.includes(event.key)) return;
+      event.preventDefault();
+
+      let nextIndex=index;
+
+      if(event.key==='Home') nextIndex=0;
+      if(event.key==='End') nextIndex=buttons.length-1;
+      if(event.key==='ArrowLeft'||event.key==='ArrowUp'){
+        nextIndex=(index-1+buttons.length)%buttons.length;
+      }
+      if(event.key==='ArrowRight'||event.key==='ArrowDown'){
+        nextIndex=(index+1)%buttons.length;
+      }
+
+      buttons[nextIndex].focus();
+      buttons[nextIndex].click();
+    };
+  });
+
+if(accentCustomColorInput){
+  accentCustomColorInput.oninput=()=>{
+    accentCustomColor=normalizeAccentHexColor_(
+      accentCustomColorInput.value,
+      accentCustomColor
+    );
+    accentPreference='custom';
+    applyAccentPreference_();
+  };
+}
+
+if(themeSettingsReset){
+  themeSettingsReset.onclick=()=>{
+    accentPreference='slate';
+    accentCustomColor='#315d73';
+    visualStyle=applyVisualStyle_('default');
+    calendarEmphasis=applyCalendarEmphasis_('date');
+    calendarSizeSettings=applyCalendarSizeSettings_({
+      dateSize:15,
+      shiftSize:34
+    });
+    applyThemePreference_('system');
+    applyAccentPreference_();
+    renderCurrent();
+  };
+}
 
 if(calendarDateSize){
   calendarDateSize.oninput=()=>{
@@ -9295,10 +11825,6 @@ memoDeleteBtn.onclick=()=>{
   closeMemoModal();
   renderCurrent();
 };
-function formatMonthDay_(date){
-  return (date.getMonth()+1)+'월 '+date.getDate()+'일';
-}
-
 function renderTeamChangePreview_(){
   if(!teamChangeDate.value){
     teamChangePreview.classList.remove('warn');
@@ -9569,7 +12095,7 @@ saveSalaryBtn.onclick=()=>{
 };
 updateHolidayBtn.onclick=()=>updateRemote('holiday');updateInsuranceBtn.onclick=()=>updateRemote('insurance');
 clearMemosBtn.onclick=()=>{
-  Object.keys(localStorage)
+  storageKeys_()
     .filter(
       key=>
         key.startsWith('memo-') ||
@@ -9759,16 +12285,16 @@ async function copyGasCode_(){
 }
 function collectBackupData_(){
   const local={};
-  for(let i=0;i<localStorage.length;i++){
-    const key=localStorage.key(i);
+  storageKeys_().forEach(key=>{
     if(
       key &&
+      isShiftCalendarStorageKey_(key) &&
       key!==GAS_CONFIG_KEY &&
       key!==CLOUD_BACKUP_CONFIG_KEY
     ){
-      local[key]=localStorage.getItem(key);
+      local[key]=getRawStorage_(key);
     }
-  }
+  });
   return {schemaVersion:1,exportedAt:new Date().toISOString(),localStorage:local,salarySettings:SAL,teamHistory:TEAM_HISTORY,salaryOverrides:salOvr,companyHolidays:COMPANY_HOLIDAYS}
 }
 async function gasGet_(action){
@@ -9791,7 +12317,12 @@ async function restoreFromGas_(){
   try{
     if(!confirm('구글 백업으로 현재 데이터를 덮어쓸까요?'))return;if(!saveGasConfig_())return;
     renderGasStatus_('불러오는 중...');const r=await gasGet_('load');if(!r.data)throw new Error(r.message||'백업 없음');
-    const keep=getGasConfig_();Object.entries(r.data.localStorage||{}).forEach(([k,v])=>localStorage.setItem(k,v));store.set(GAS_CONFIG_KEY,keep);
+    const keep=getGasConfig_();
+    Object.entries(r.data.localStorage||{}).forEach(([k,v])=>{
+      if(!isRestorableShiftCalendarStorageKey_(k)) return;
+      setRawStorage_(k,v);
+    });
+    store.set(GAS_CONFIG_KEY,keep);
     alert('복원 완료. 앱을 다시 불러옵니다.');location.reload()
   }catch(e){renderGasStatus_('복원 실패: '+e.message);alert('복원 실패: '+e.message)}
 }
@@ -9864,7 +12395,8 @@ function defaultCloudBackupConfig_(){
     displayName:'',
     contact:'',
     status:'disconnected',
-    autoBackup:true,
+    autoBackup:false,
+    autoBackupConfirmed:false,
     lastPayloadHash:'',
     lastBackupAt:'',
     lastServerCreatedAt:0,
@@ -9883,6 +12415,13 @@ function getCloudBackupConfig_(){
     ...defaultCloudBackupConfig_(),
     ...(saved&&typeof saved==='object'?saved:{})
   };
+}
+
+function cloudAutoBackupEnabled_(config=getCloudBackupConfig_()){
+  return (
+    config.autoBackup===true &&
+    config.autoBackupConfirmed===true
+  );
 }
 
 function saveCloudBackupConfig_(patch){
@@ -9964,7 +12503,7 @@ function renderCloudBackupUi_(){
   }
 
   if(elements.auto){
-    elements.auto.checked=config.autoBackup!==false;
+    elements.auto.checked=cloudAutoBackupEnabled_(config);
   }
 
   if(elements.conflict){
@@ -9996,7 +12535,7 @@ function renderCloudBackupUi_(){
     const sizeText=config.lastBackupSizeBytes
       ?` · ${formatCloudBackupSize_(config.lastBackupSizeBytes)}`
       :'';
-    const autoText=config.autoBackup===false
+    const autoText=!cloudAutoBackupEnabled_(config)
       ?' · 자동백업 꺼짐'
       :' · 자동백업 사용 중';
     elements.status.textContent=
@@ -10374,7 +12913,8 @@ async function registerCloudBackup_(){
       displayName:user.displayName||displayName,
       contact,
       status:user.status||'pending',
-      autoBackup:true,
+      autoBackup:false,
+      autoBackupConfirmed:false,
       lastPayloadHash:'',
       lastBackupAt:'',
       lastServerCreatedAt:0,
@@ -10544,11 +13084,20 @@ async function connectAndReconcileCloudBackup_(interactive=true){
     const remote=metaResult.backup;
 
     if(!remote){
-      await uploadCurrentCloudBackup_({
-        silent:!interactive,
-        initial:true,
-        snapshot:localSnapshot
-      });
+      cloudBackupReady_=true;
+      cloudBackupConflict_=false;
+
+      if(cloudAutoBackupEnabled_()){
+        await uploadCurrentCloudBackup_({
+          silent:!interactive,
+          initial:true,
+          snapshot:localSnapshot
+        });
+      }else{
+        setCloudBackupStatus_(
+          '승인된 사용자입니다 · 저장된 백업 없음 · “지금 클라우드 백업”으로 처음 생성하세요.'
+        );
+      }
       return;
     }
 
@@ -10590,12 +13139,18 @@ async function connectAndReconcileCloudBackup_(interactive=true){
     ){
       cloudBackupReady_=true;
       cloudBackupConflict_=false;
-      setCloudBackupStatus_('이 기기의 미백업 변경사항을 클라우드에 반영하는 중입니다...');
 
-      await uploadCurrentCloudBackup_({
-        silent:!interactive,
-        snapshot:localSnapshot
-      });
+      if(cloudAutoBackupEnabled_(syncedConfig)){
+        setCloudBackupStatus_('이 기기의 미백업 변경사항을 클라우드에 반영하는 중입니다...');
+        await uploadCurrentCloudBackup_({
+          silent:!interactive,
+          snapshot:localSnapshot
+        });
+      }else{
+        setCloudBackupStatus_(
+          '이 기기에 아직 백업하지 않은 변경사항이 있습니다 · 자동백업 꺼짐'
+        );
+      }
       return;
     }
 
@@ -10754,25 +13309,20 @@ function restoreLocalBackupData_(backup){
     GAS_CONFIG_KEY,
     CLOUD_BACKUP_CONFIG_KEY
   ].forEach(key=>{
-    const value=localStorage.getItem(key);
+    const value=getRawStorage_(key);
     if(value!==null) preserved[key]=value;
   });
 
-  localStorage.clear();
+  clearAppStorage_();
 
   Object.entries(backup.localStorage).forEach(([key,value])=>{
-    if(
-      key===GAS_CONFIG_KEY ||
-      key===CLOUD_BACKUP_CONFIG_KEY
-    ){
-      return;
-    }
+    if(!isRestorableShiftCalendarStorageKey_(key)) return;
 
-    localStorage.setItem(key,value);
+    setRawStorage_(key,value);
   });
 
   Object.entries(preserved).forEach(([key,value])=>{
-    localStorage.setItem(key,value);
+    setRawStorage_(key,value);
   });
 }
 
@@ -10825,7 +13375,7 @@ async function restoreFromCloudBackup_(interactive=true){
       lastServerCreatedAt:remote.serverCreatedAt
     };
 
-    localStorage.setItem(
+    setRawStorage_(
       CLOUD_BACKUP_CONFIG_KEY,
       JSON.stringify(nextConfig)
     );
@@ -10861,7 +13411,7 @@ function scheduleCloudBackup_(){
     !cloudBackupInitialized_ ||
     !config.credential ||
     config.status!=='approved' ||
-    config.autoBackup===false ||
+    !cloudAutoBackupEnabled_(config) ||
     cloudBackupConflict_
   ){
     return;
@@ -10886,7 +13436,7 @@ async function flushCloudBackup_(){
     !cloudBackupReady_ ||
     !config.credential ||
     config.status!=='approved' ||
-    config.autoBackup===false ||
+    !cloudAutoBackupEnabled_(config) ||
     cloudBackupConflict_ ||
     navigator.onLine===false
   ){
@@ -10910,6 +13460,7 @@ async function flushCloudBackup_(){
     setCloudBackupStatus_('자동백업 실패: '+error.message);
   }
 }
+
 
 window.shiftcalendarCloudMarkDirty=function(storageKey){
   if(
@@ -10988,11 +13539,29 @@ cloudElements_.restore.onclick=()=>restoreFromCloudBackup_(true);
 cloudElements_.useLocal.onclick=useLocalDataForCloud_;
 cloudElements_.useCloud.onclick=()=>restoreFromCloudBackup_(true);
 cloudElements_.auto.onchange=()=>{
+  const enabled=cloudElements_.auto.checked;
+
+  if(
+    enabled &&
+    !confirm(
+      '자동백업을 켜면 이 기기의 일정·메모·급여 설정 변경이 클라우드에 자동 반영되어 기존 백업을 갱신할 수 있습니다.\n\n연결된 백업을 갱신할 수 있으므로 필요한 경우에만 사용하세요. 계속할까요?'
+    )
+  ){
+    cloudElements_.auto.checked=false;
+    saveCloudBackupConfig_({
+      autoBackup:false,
+      autoBackupConfirmed:false
+    });
+    renderCloudBackupUi_();
+    return;
+  }
+
   saveCloudBackupConfig_({
-    autoBackup:cloudElements_.auto.checked
+    autoBackup:enabled,
+    autoBackupConfirmed:enabled
   });
 
-  if(cloudElements_.auto.checked){
+  if(enabled){
     scheduleCloudBackup_();
     setCloudBackupStatus_('자동백업 사용 중 · 변경사항은 자동으로 저장됩니다.');
     showAppToast_('자동백업이 활성화되었습니다.','success');
@@ -11498,6 +14067,10 @@ if('serviceWorker' in navigator && location.protocol.startsWith('http')){
 syncMemoDefaultControls_();
 calendarEmphasis=applyCalendarEmphasis_(
   calendarEmphasis,
+  {save:false}
+);
+visualStyle=applyVisualStyle_(
+  visualStyle,
   {save:false}
 );
 calendarSizeSettings=applyCalendarSizeSettings_(
