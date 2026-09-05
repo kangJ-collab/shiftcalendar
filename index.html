@@ -4553,6 +4553,7 @@ const SHIFT_CALENDAR_STORAGE_KEYS=new Set([
   'workPeriods',
   'withEntries',
   'salarySettings',
+  'festivalBonusPayments',
   'wageAgreements',
   'wageAgreementDraft',
   'salOvr',
@@ -6576,6 +6577,8 @@ const SALARY_DEF={
   fixedBonusRate:50,
   fixedBonusManual:0,
 
+  festivalBonusRate:100,
+
   hourlyMode:'auto',
   manualHourly:0,
   basisHours:179,
@@ -6625,6 +6628,146 @@ if(!SAL.roundingMode){
 }
 if(!SAL.shiftOtMode){
   SAL.shiftOtMode='auto';
+}
+
+const FESTIVAL_BONUS_PAYMENTS_KEY='festivalBonusPayments';
+
+function normalizeFestivalBonusPayments_(value) {
+  const source = value && typeof value === 'object' ? value : {};
+  const normalized = {};
+
+  Object.entries(source).forEach(([key, raw]) => {
+    if (!/^\d{4}-(?:seollal|chuseok)$/.test(key)) {
+      return;
+    }
+
+    normalized[key] =
+      raw === true ||
+      (raw && typeof raw === 'object' && raw.paid === true);
+  });
+
+  return normalized;
+}
+
+let FESTIVAL_BONUS_PAYMENTS=normalizeFestivalBonusPayments_(
+  store.get(FESTIVAL_BONUS_PAYMENTS_KEY,{})
+);
+
+store.set(FESTIVAL_BONUS_PAYMENTS_KEY,FESTIVAL_BONUS_PAYMENTS);
+
+function festivalBonusOccasions_() {
+  return (HOLIDAY_DATA.majorDays || [])
+    .map(date => {
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(date || ''));
+
+      if (!match) {
+        return null;
+      }
+
+      const name = String(
+        HOLIDAY_DATA.holidays?.[date] || ''
+      );
+      const type = name.includes('추석')
+        ? 'chuseok'
+        : name.includes('설')
+          ? 'seollal'
+          : null;
+
+      if (!type) {
+        return null;
+      }
+
+      const year = Number(match[1]);
+      const month = Number(match[2]);
+      const day = Number(match[3]);
+
+      return {
+        id: `${year}-${type}`,
+        year,
+        month,
+        day,
+        date,
+        type,
+        label: type === 'chuseok' ? '추석' : '설'
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function saveFestivalBonusPayments_() {
+  store.set(
+    FESTIVAL_BONUS_PAYMENTS_KEY,
+    FESTIVAL_BONUS_PAYMENTS
+  );
+}
+
+function createFestivalBonusPaymentsSnapshot_() {
+  const payments = {};
+
+  festivalBonusOccasions_().forEach(item => {
+    payments[item.id] = {
+      paid: FESTIVAL_BONUS_PAYMENTS[item.id] === true,
+      date: item.date,
+      type: item.type,
+      label: item.label,
+      year: item.year,
+      month: item.month
+    };
+  });
+
+  return {
+    capturedAt: new Date().toISOString(),
+    payments
+  };
+}
+
+function festivalBonusOccasionsForRecord_(record) {
+  const snapshot = record && record.festivalBonusPaymentsSnapshot;
+
+  if (
+    snapshot &&
+    snapshot.payments &&
+    typeof snapshot.payments === 'object'
+  ) {
+    return Object.entries(snapshot.payments)
+      .map(([id, raw]) => {
+        const source = raw && typeof raw === 'object' ? raw : {};
+        const date = String(source.date || '');
+        const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+
+        if (!match) {
+          return null;
+        }
+
+        const type =
+          source.type === 'chuseok' ||
+          String(id).endsWith('-chuseok')
+            ? 'chuseok'
+            : 'seollal';
+
+        return {
+          id,
+          year: Number(source.year) || Number(match[1]),
+          month: Number(source.month) || Number(match[2]),
+          day: Number(match[3]),
+          date,
+          type,
+          label: type === 'chuseok' ? '추석' : '설',
+          paid: source.paid === true
+        };
+      })
+      .filter(Boolean);
+  }
+
+  /*
+    기능 도입 전 기록에는 snapshot이 없으므로
+    현재 지급상태 설정으로 재계산한다.
+  */
+  return festivalBonusOccasions_().map(item => ({
+    ...item,
+    paid: FESTIVAL_BONUS_PAYMENTS[item.id] === true
+  }));
 }
 
 const WAGE_AGREEMENTS_KEY='wageAgreements';
@@ -6822,6 +6965,16 @@ function calculateFixedBonus_(settings=SAL){
   );
 }
 
+function calculateFestivalBonus_(settings = SAL) {
+  return Math.round(
+    (
+      (Number(settings.base1) || 0) +
+      (Number(settings.base3) || 0)
+    ) *
+    (Math.max(0, Number(settings.festivalBonusRate) || 0)) / 100
+  );
+}
+
 function calculateAutoHourly_(settings=SAL){
   const basis=Math.max(
     1,
@@ -6972,108 +7125,138 @@ function formatWageDateTime_(value){
   });
 }
 
-function normalizeWageAgreementDraft_(draft){
-  const currentMonth=monthKey_(
+function normalizeWageAgreementDraft_(draft) {
+  const currentMonth = monthKey_(
     today.getFullYear(),
-    today.getMonth()+1
+    today.getMonth() + 1
   );
-  const january=monthKey_(today.getFullYear(),1);
-  const source=draft&&typeof draft==='object'?draft:{};
+  const january = monthKey_(today.getFullYear(), 1);
+  const source = draft && typeof draft === 'object' ? draft : {};
 
-  const numericRate=Number(source.rate);
+  const numericRate = Number(source.rate);
+  const rawEncouragement = String(
+    source.encouragementBonus ?? ''
+  ).trim();
+  const encouragementBonus = Number(rawEncouragement);
 
   return {
     rate:
-      Number.isFinite(numericRate)&&numericRate>=0
-        ?String(source.rate)
-        :'',
+      Number.isFinite(numericRate) && numericRate >= 0
+        ? String(source.rate)
+        : '',
     retroStartMonth:
-      monthIndex_(source.retroStartMonth)!==null
-        ?source.retroStartMonth
-        :january,
+      monthIndex_(source.retroStartMonth) !== null
+        ? source.retroStartMonth
+        : january,
     paymentMonth:
-      monthIndex_(source.paymentMonth)!==null
-        ?source.paymentMonth
-        :currentMonth,
+      monthIndex_(source.paymentMonth) !== null
+        ? source.paymentMonth
+        : currentMonth,
     effectiveAt:
       parseWageEffectiveAt_(source.effectiveAt)
-        ?String(source.effectiveAt)
-        :''
+        ? String(source.effectiveAt)
+        : '',
+    encouragementBonus:
+      rawEncouragement !== '' &&
+      Number.isFinite(encouragementBonus) &&
+      encouragementBonus >= 0
+        ? rawEncouragement
+        : ''
   };
 }
 
-function normalizeWageAgreements_(){
-  const normalized=[];
+function normalizeWageAgreements_() {
+  const normalized = [];
 
-  (Array.isArray(WAGE_AGREEMENTS)?WAGE_AGREEMENTS:[])
-    .forEach((record,index)=>{
-      if(!record||typeof record!=='object'){
+  (Array.isArray(WAGE_AGREEMENTS) ? WAGE_AGREEMENTS : [])
+    .forEach((record, index) => {
+      if (!record || typeof record !== 'object') {
         return;
       }
 
-      const retroStartMonth=String(record.retroStartMonth||'');
-      const paymentMonth=String(record.paymentMonth||'');
-      const before=record.before||{};
-      const after=record.after||{};
+      const retroStartMonth = String(record.retroStartMonth || '');
+      const paymentMonth = String(record.paymentMonth || '');
+      const before = record.before || {};
+      const after = record.after || {};
 
-      if(
-        monthIndex_(retroStartMonth)===null||
-        monthIndex_(paymentMonth)===null
-      ){
+      if (
+        monthIndex_(retroStartMonth) === null ||
+        monthIndex_(paymentMonth) === null
+      ) {
         return;
       }
 
-      const normalizedStatus=
-        record.status==='cancelled'
-          ?'cancelled'
-          :record.status==='scheduled'
-            ?'scheduled'
-            :'applied';
-      const effectiveDate=parseWageEffectiveAt_(
-        record.effectiveAt||record.appliedAt
+      const normalizedStatus =
+        record.status === 'cancelled'
+          ? 'cancelled'
+          : record.status === 'scheduled'
+            ? 'scheduled'
+            : 'applied';
+      const effectiveDate = parseWageEffectiveAt_(
+        record.effectiveAt || record.appliedAt
       );
 
-      normalized.push({
+      const normalizedRecord = {
         ...record,
-        id:String(record.id||`wage-${Date.now()}-${index}`),
-        status:normalizedStatus,
-        effectiveAt:effectiveDate
-          ?effectiveDate.toISOString()
-          :null,
-        rate:Math.max(0,Number(record.rate)||0),
+        id: String(record.id || `wage-${Date.now()}-${index}`),
+        status: normalizedStatus,
+        effectiveAt: effectiveDate
+          ? effectiveDate.toISOString()
+          : null,
+        rate: Math.max(0, Number(record.rate) || 0),
         retroStartMonth,
         paymentMonth,
-        before:{
-          base1:Math.max(0,Number(before.base1)||0),
-          base3:Math.max(0,Number(before.base3)||0)
+        encouragementBonus: Math.max(
+          0,
+          Number(record.encouragementBonus) || 0
+        ),
+        before: {
+          base1: Math.max(0, Number(before.base1) || 0),
+          base3: Math.max(0, Number(before.base3) || 0)
         },
-        after:{
-          base1:Math.max(0,Number(after.base1)||0),
-          base3:Math.max(0,Number(after.base3)||0)
+        after: {
+          base1: Math.max(0, Number(after.base1) || 0),
+          base3: Math.max(0, Number(after.base3) || 0)
         },
-        salarySnapshotBefore:{
+        salarySnapshotBefore: {
           ...SAL,
-          ...(record.salarySnapshotBefore&&
-            typeof record.salarySnapshotBefore==='object'
-              ?record.salarySnapshotBefore
-              :{}),
-          base1:Math.max(0,Number(before.base1)||0),
-          base3:Math.max(0,Number(before.base3)||0)
+          ...(record.salarySnapshotBefore &&
+            typeof record.salarySnapshotBefore === 'object'
+              ? record.salarySnapshotBefore
+              : {}),
+          base1: Math.max(0, Number(before.base1) || 0),
+          base3: Math.max(0, Number(before.base3) || 0)
         },
-        salarySnapshotAfter:{
+        salarySnapshotAfter: {
           ...SAL,
-          ...(record.salarySnapshotAfter&&
-            typeof record.salarySnapshotAfter==='object'
-              ?record.salarySnapshotAfter
-              :{}),
-          base1:Math.max(0,Number(after.base1)||0),
-          base3:Math.max(0,Number(after.base3)||0)
+          ...(record.salarySnapshotAfter &&
+            typeof record.salarySnapshotAfter === 'object'
+              ? record.salarySnapshotAfter
+              : {}),
+          base1: Math.max(0, Number(after.base1) || 0),
+          base3: Math.max(0, Number(after.base3) || 0)
         }
-      });
+      };
+
+      /*
+        snapshot이 없던 기능 도입 전 기록은 필드를 만들지 않는다.
+        그래야 현재 설/추석 지급상태로 재계산할 수 있다.
+      */
+      if (
+        record.festivalBonusPaymentsSnapshot &&
+        typeof record.festivalBonusPaymentsSnapshot === 'object'
+      ) {
+        normalizedRecord.festivalBonusPaymentsSnapshot =
+          record.festivalBonusPaymentsSnapshot;
+      } else {
+        delete normalizedRecord.festivalBonusPaymentsSnapshot;
+      }
+
+      normalized.push(normalizedRecord);
     });
 
-  WAGE_AGREEMENTS=normalized;
-  store.set(WAGE_AGREEMENTS_KEY,WAGE_AGREEMENTS);
+  WAGE_AGREEMENTS = normalized;
+  store.set(WAGE_AGREEMENTS_KEY, WAGE_AGREEMENTS);
 }
 
 function saveWageAgreementDraft_(){
@@ -7137,24 +7320,26 @@ function applyWageAgreementRecordToSalary_(record){
   store.set('salarySettings',SAL);
 }
 
-function activateDueWageAgreements_(){
-  const now=Date.now();
-  const activated=[];
+function activateDueWageAgreements_() {
+  const now = Date.now();
+  const activated = [];
 
-  scheduledWageAgreements_().forEach(record=>{
-    const effectiveDate=parseWageEffectiveAt_(record.effectiveAt);
+  scheduledWageAgreements_().forEach(record => {
+    const effectiveDate = parseWageEffectiveAt_(record.effectiveAt);
 
-    if(!effectiveDate||effectiveDate.getTime()>now){
+    if (!effectiveDate || effectiveDate.getTime() > now) {
       return;
     }
 
-    record.status='applied';
-    record.appliedAt=new Date().toISOString();
+    record.festivalBonusPaymentsSnapshot =
+      createFestivalBonusPaymentsSnapshot_();
+    record.status = 'applied';
+    record.appliedAt = new Date().toISOString();
     applyWageAgreementRecordToSalary_(record);
     activated.push(record);
   });
 
-  if(activated.length){
+  if (activated.length) {
     saveWageAgreements_();
   }
 
@@ -7288,134 +7473,217 @@ function allowancePayFromHours_(hours,settings,hourlyOverride=null){
   };
 }
 
-function calculateWageAgreementRetro_(record){
-  const startIndex=monthIndex_(record.retroStartMonth);
-  const paymentIndex=monthIndex_(record.paymentMonth);
-  const endIndex=paymentIndex===null?null:paymentIndex-1;
-  const result={
-    startMonth:record.retroStartMonth,
-    endMonth:endIndex===null?null:monthPartsFromIndex_(endIndex).key,
-    monthCount:0,
-    baseDifference:0,
-    allowanceDifference:0,
-    total:0,
-    hourlyBefore:0,
-    hourlyAfter:0,
-    hourlyDifference:0,
-    months:[]
+function festivalBonusRetroForPayMonth_(record, year, month, beforeSettings, afterSettings) {
+  const paid = festivalBonusOccasionsForRecord_(record)
+    .filter(item =>
+      item.paid === true &&
+      item.year === year &&
+      item.month === month
+    );
+  const perPaymentDifference =
+    calculateFestivalBonus_(afterSettings) -
+    calculateFestivalBonus_(beforeSettings);
+
+  return {
+    difference: paid.length * perPaymentDifference,
+    items: paid.map(item => ({
+      ...item,
+      difference: perPaymentDifference
+    }))
+  };
+}
+
+function calculateWageAgreementRetro_(record) {
+  const startIndex = monthIndex_(record.retroStartMonth);
+  const paymentIndex = monthIndex_(record.paymentMonth);
+  const endIndex = paymentIndex === null ? null : paymentIndex - 1;
+  const result = {
+    startMonth: record.retroStartMonth,
+    endMonth: endIndex === null ? null : monthPartsFromIndex_(endIndex).key,
+    monthCount: 0,
+    baseDifference: 0,
+    fixedBonusDifference: 0,
+    allowanceDifference: 0,
+    annualAllowanceDifference: 0,
+    festivalBonusDifference: 0,
+    total: 0,
+    hourlyBefore: 0,
+    hourlyAfter: 0,
+    hourlyDifference: 0,
+    months: []
   };
 
-  if(
-    startIndex===null||
-    endIndex===null||
-    startIndex>endIndex
-  ){
-    result.endMonth=null;
+  if (
+    startIndex === null ||
+    endIndex === null ||
+    startIndex > endIndex
+  ) {
+    result.endMonth = null;
     return result;
   }
 
-  const beforeSettings={
+  const beforeSettings = {
     ...record.salarySnapshotBefore,
-    base1:record.before.base1,
-    base3:record.before.base3
+    base1: record.before.base1,
+    base3: record.before.base3
   };
-  const afterSettings={
+  const afterSettings = {
     ...record.salarySnapshotAfter,
-    base1:record.after.base1,
-    base3:record.after.base3
+    base1: record.after.base1,
+    base3: record.after.base3
   };
-  const hourlyPair=wageAgreementHourlyPair_(record);
-  const monthlyBaseDifference=
-    (record.after.base1-record.before.base1)+
-    (record.after.base3-record.before.base3);
+  const hourlyPair = wageAgreementHourlyPair_(record);
+  const monthlyBaseDifference =
+    (record.after.base1 - record.before.base1) +
+    (record.after.base3 - record.before.base3);
+  const monthlyFixedBonusDifference =
+    calculateFixedBonus_(afterSettings) -
+    calculateFixedBonus_(beforeSettings);
 
-  result.hourlyBefore=hourlyPair.before;
-  result.hourlyAfter=hourlyPair.after;
-  result.hourlyDifference=hourlyPair.difference;
+  result.hourlyBefore = hourlyPair.before;
+  result.hourlyAfter = hourlyPair.after;
+  result.hourlyDifference = hourlyPair.difference;
 
-  for(let index=startIndex;index<=endIndex;index++){
-    const pay=monthPartsFromIndex_(index);
-    const work=previousPayWorkMonth_(pay.year,pay.month);
-    const hours=calcHoursForMonth(work.year,work.month);
-    const beforeAllowances=allowancePayFromHours_(
+  for (let index = startIndex; index <= endIndex; index++) {
+    const pay = monthPartsFromIndex_(index);
+    const work = previousPayWorkMonth_(pay.year, pay.month);
+    const hours = calcHoursForMonth(work.year, work.month);
+    const beforeAllowances = allowancePayFromHours_(
       hours,
       beforeSettings,
       hourlyPair.before
     );
-    const afterAllowances=allowancePayFromHours_(
+    const afterAllowances = allowancePayFromHours_(
       hours,
       afterSettings,
       hourlyPair.after
     );
-    const allowanceDifference=Object.keys(afterAllowances)
+    const allowanceDifference = Object.keys(afterAllowances)
       .reduce(
-        (sum,key)=>
-          sum+
-          (Number(afterAllowances[key])||0)-
-          (Number(beforeAllowances[key])||0),
+        (sum, key) =>
+          sum +
+          (Number(afterAllowances[key]) || 0) -
+          (Number(beforeAllowances[key]) || 0),
         0
       );
-    const monthTotal=
-      monthlyBaseDifference+
-      allowanceDifference;
+    const beforeAnnual =
+      calculateAnnualAllowanceForPayMonth_(
+        pay.year,
+        pay.month,
+        hourlyPair.before,
+        beforeSettings
+      );
+    const afterAnnual =
+      calculateAnnualAllowanceForPayMonth_(
+        pay.year,
+        pay.month,
+        hourlyPair.after,
+        afterSettings
+      );
+    const annualAllowanceDifference =
+      (Number(afterAnnual.amount) || 0) -
+      (Number(beforeAnnual.amount) || 0);
+    const festivalRetro =
+      festivalBonusRetroForPayMonth_(
+        record,
+        pay.year,
+        pay.month,
+        beforeSettings,
+        afterSettings
+      );
+    const festivalBonusDifference =
+      festivalRetro.difference;
+    const monthTotal =
+      monthlyBaseDifference +
+      monthlyFixedBonusDifference +
+      allowanceDifference +
+      annualAllowanceDifference +
+      festivalBonusDifference;
 
-    result.baseDifference+=monthlyBaseDifference;
-    result.allowanceDifference+=allowanceDifference;
-    result.total+=monthTotal;
+    result.baseDifference += monthlyBaseDifference;
+    result.fixedBonusDifference += monthlyFixedBonusDifference;
+    result.allowanceDifference += allowanceDifference;
+    result.annualAllowanceDifference += annualAllowanceDifference;
+    result.festivalBonusDifference += festivalBonusDifference;
+    result.total += monthTotal;
     result.monthCount++;
     result.months.push({
-      key:pay.key,
-      baseDifference:monthlyBaseDifference,
+      key: pay.key,
+      baseDifference: monthlyBaseDifference,
+      fixedBonusDifference: monthlyFixedBonusDifference,
       allowanceDifference,
-      total:monthTotal
+      annualAllowanceDifference,
+      festivalBonusDifference,
+      festivalBonuses: festivalRetro.items,
+      total: monthTotal
     });
   }
 
   return result;
 }
 
-function retroPayForMonth_(year,month){
-  const target=monthKey_(year,month);
+function retroPayForMonth_(year, month) {
+  const target = monthKey_(year, month);
 
   return appliedWageAgreements_()
-    .filter(record=>record.paymentMonth===target)
+    .filter(record => record.paymentMonth === target)
     .reduce(
-      (total,record)=>
-        total+calculateWageAgreementRetro_(record).total,
+      (total, record) =>
+        total + calculateWageAgreementRetro_(record).total,
       0
     );
 }
 
-function buildWageAgreementPreviewRecord_(){
-  const rate=Number(WAGE_AGREEMENT_DRAFT.rate);
-  const before={
-    base1:Math.max(0,Number(SAL.base1)||0),
-    base3:Math.max(0,Number(SAL.base3)||0)
+function encouragementBonusForMonth_(year, month) {
+  const target = monthKey_(year, month);
+
+  return appliedWageAgreements_()
+    .filter(record => record.paymentMonth === target)
+    .reduce(
+      (total, record) =>
+        total + Math.max(
+          0,
+          Number(record.encouragementBonus) || 0
+        ),
+      0
+    );
+}
+
+function buildWageAgreementPreviewRecord_() {
+  const rate = Number(WAGE_AGREEMENT_DRAFT.rate);
+  const before = {
+    base1: Math.max(0, Number(SAL.base1) || 0),
+    base3: Math.max(0, Number(SAL.base3) || 0)
   };
-  const multiplier=1+(Number.isFinite(rate)?rate:0)/100;
-  const after={
-    base1:Math.round(before.base1*multiplier),
-    base3:Math.round(before.base3*multiplier)
+  const multiplier = 1 + (Number.isFinite(rate) ? rate : 0) / 100;
+  const after = {
+    base1: Math.round(before.base1 * multiplier),
+    base3: Math.round(before.base3 * multiplier)
   };
 
   return {
-    id:'preview',
-    status:'preview',
-    rate:Number.isFinite(rate)?rate:0,
-    retroStartMonth:WAGE_AGREEMENT_DRAFT.retroStartMonth,
-    paymentMonth:WAGE_AGREEMENT_DRAFT.paymentMonth,
-    effectiveAt:WAGE_AGREEMENT_DRAFT.effectiveAt,
+    id: 'preview',
+    status: 'preview',
+    rate: Number.isFinite(rate) ? rate : 0,
+    retroStartMonth: WAGE_AGREEMENT_DRAFT.retroStartMonth,
+    paymentMonth: WAGE_AGREEMENT_DRAFT.paymentMonth,
+    effectiveAt: WAGE_AGREEMENT_DRAFT.effectiveAt,
+    encouragementBonus: Math.max(
+      0,
+      Number(WAGE_AGREEMENT_DRAFT.encouragementBonus) || 0
+    ),
     before,
     after,
-    salarySnapshotBefore:{...SAL,...before},
-    salarySnapshotAfter:{...SAL,...after}
+    salarySnapshotBefore: { ...SAL, ...before },
+    salarySnapshotAfter: { ...SAL, ...after }
   };
 }
 
 function calculateAnnualAllowanceForPayMonth_(
   payYear,
   payMonth,
-  hourly
+  hourly,
+  settings=SAL
 ){
   const empty={
     amount:0,
@@ -7485,7 +7753,8 @@ function calculateAnnualAllowanceForPayMonth_(
       8*
       1.5
     )*
-    summary.compensationDays
+    summary.compensationDays,
+    settings
   );
 
   return {
@@ -7900,7 +8169,8 @@ function calcSalary(y,m){
     calculateAnnualAllowanceForPayMonth_(
       payPeriod.year,
       payPeriod.month,
-      hr
+      hr,
+      salarySettings
     );
   const pay={};
 
@@ -7969,6 +8239,15 @@ function calcSalary(y,m){
 
   if(retroPay!==0){
     pay['임금인상 소급분']=retroPay;
+  }
+
+  const encouragementBonus=encouragementBonusForMonth_(
+    payPeriod.year,
+    payPeriod.month
+  );
+
+  if(encouragementBonus!==0){
+    pay['격려금']=encouragementBonus;
   }
 
   const extra={
@@ -9515,6 +9794,13 @@ function readSalaryForm_(){
     'sal-fixedBonusManual'
   );
 
+  SAL.festivalBonusRate=salaryInputNumber_(
+    'sal-festivalBonusRate',
+    Number.isFinite(Number(SAL.festivalBonusRate))
+      ?Number(SAL.festivalBonusRate)
+      :100
+  );
+
   SAL.manualHourly=salaryInputNumber_(
     'sal-manualHourly'
   );
@@ -9622,6 +9908,7 @@ function updateSalaryPreviews_(){
 
   const autoHourly=calculateAutoHourly_(SAL);
   const fixedBonus=calculateFixedBonus_(SAL);
+  const festivalBonus=calculateFestivalBonus_(SAL);
   const appliedHourly=getAppliedHourly_(SAL);
 
   const autoHourlyEl=
@@ -9632,6 +9919,9 @@ function updateSalaryPreviews_(){
 
   const fixedBonusEl=
     document.getElementById('fixedBonusPreview');
+
+  const festivalBonusEl=
+    document.getElementById('festivalBonusPreview');
 
   const shiftOtEl=
     document.getElementById('shiftOtPreview');
@@ -9646,6 +9936,10 @@ function updateSalaryPreviews_(){
 
   if(fixedBonusEl){
     fixedBonusEl.textContent=fmtW(fixedBonus);
+  }
+
+  if(festivalBonusEl){
+    festivalBonusEl.textContent=fmtW(festivalBonus);
   }
 
   if(shiftOtEl){
@@ -9795,81 +10089,109 @@ function wageRetroPeriodText_(retro){
   return `${formatWageMonth_(retro.startMonth)}~${formatWageMonth_(retro.endMonth)} · ${retro.monthCount}개월`;
 }
 
-function wageMonthlyDetailHtml_(retro){
-  if(!retro.months.length){
+function wageMonthlyDetailHtml_(retro) {
+  if (!retro.months.length) {
     return '';
   }
 
-  return `<details class="wage-retro-detail"><summary>월별 소급 차액 보기</summary>${retro.months.map(item=>`<div class="wage-retro-month"><span>${formatWageMonth_(item.key)}</span><strong>${fmtW(item.total)}</strong></div>`).join('')}</details>`;
+  const row = item => {
+    const parts = [
+      ['기본급', item.baseDifference],
+      ['고정상여', item.fixedBonusDifference],
+      ['근무수당', item.allowanceDifference],
+      ['연차수당', item.annualAllowanceDifference],
+      ['설추석상여', item.festivalBonusDifference]
+    ].filter(([, value]) => Number(value) !== 0);
+
+    const detail = parts.length
+      ? parts
+        .map(([label, value]) => `${label} ${fmtW(value)}`)
+        .join(' · ')
+      : '차액 없음';
+
+    return `<div class="wage-retro-month"><span>${formatWageMonth_(item.key)}<br><small>${detail}</small></span><strong>${fmtW(item.total)}</strong></div>`;
+  };
+
+  return `<details class="wage-retro-detail"><summary>월별 소급 차액 보기</summary>${retro.months.map(row).join('')}</details>`;
 }
 
-function wagePreviewHtml_(){
-  const record=buildWageAgreementPreviewRecord_();
-  const retro=calculateWageAgreementRetro_(record);
-  const effectiveDate=parseWageEffectiveAt_(record.effectiveAt);
-  const validRate=record.rate>0;
-  const validMonths=
-    monthIndex_(record.retroStartMonth)!==null&&
-    monthIndex_(record.paymentMonth)!==null&&
-    monthIndex_(record.retroStartMonth)<=
+function wagePreviewHtml_() {
+  const record = buildWageAgreementPreviewRecord_();
+  const retro = calculateWageAgreementRetro_(record);
+  const effectiveDate = parseWageEffectiveAt_(record.effectiveAt);
+  const validRate = record.rate > 0;
+  const validMonths =
+    monthIndex_(record.retroStartMonth) !== null &&
+    monthIndex_(record.paymentMonth) !== null &&
+    monthIndex_(record.retroStartMonth) <=
       monthIndex_(record.paymentMonth);
-  const title=validRate
-    ?`임금협상 ${formatNumber_(record.rate)}% 미리보기`
-    :'임금협상 미리보기';
-  const isFuture=
-    effectiveDate&&effectiveDate.getTime()>Date.now();
-  const previewStatus=effectiveDate
-    ?(isFuture?'적용 예정':'즉시 적용')
-    :'적용일시 선택';
-  const previewStatusClass=isFuture?'scheduled':'';
+  const title = validRate
+    ? `임금협상 ${formatNumber_(record.rate)}% 미리보기`
+    : '임금협상 미리보기';
+  const isFuture =
+    effectiveDate && effectiveDate.getTime() > Date.now();
+  const previewStatus = effectiveDate
+    ? (isFuture ? '적용 예정' : '즉시 적용')
+    : '적용일시 선택';
+  const previewStatusClass = isFuture ? 'scheduled' : '';
+  const encouragementBonus =
+    Math.max(0, Number(record.encouragementBonus) || 0);
+  const combined =
+    (validRate && validMonths ? retro.total : 0) +
+    encouragementBonus;
 
-  const hourlyNotice=
-    validRate&&validMonths&&retro.hourlyDifference===0
-      ?'<div class="form-hint" style="margin-top:10px">통상시급 차액이 0원입니다. 기본급1·기본급3의 통상임금 포함 설정을 확인하세요.</div>'
-      :'';
+  const hourlyNotice =
+    validRate && validMonths && retro.hourlyDifference === 0
+      ? '<div class="form-hint" style="margin-top:10px">통상시급 차액이 0원입니다. 기본급1·기본급3의 통상임금 포함 설정을 확인하세요.</div>'
+      : '';
 
-  return `<div class="wage-preview-card"><div class="wage-preview-head"><div><div class="wage-preview-title">${title}</div><div class="small">선택한 실제 적용 일시 전까지는 기존 기본급이 유지됩니다.</div></div><span class="wage-status ${previewStatusClass}">${previewStatus}</span></div><div class="wage-preview-list"><div class="wage-preview-row"><span>인상률</span><strong>${validRate?formatNumber_(record.rate)+'%':'-'}</strong></div><div class="wage-preview-row"><span>소급 적용 시작 급여월</span><strong>${formatWageMonth_(record.retroStartMonth)}</strong></div><div class="wage-preview-row"><span>소급분 지급 급여월</span><strong>${formatWageMonth_(record.paymentMonth)}</strong></div><div class="wage-preview-row"><span>인상 기본급 정상 적용</span><strong>${formatWageMonth_(record.paymentMonth)}부터</strong></div><div class="wage-preview-row"><span>실제 적용 일시</span><strong>${effectiveDate?formatWageDateTime_(record.effectiveAt):'-'}</strong></div><div class="wage-preview-row"><span>적용 전 기본급1</span><strong>${fmtW(record.before.base1)}</strong></div><div class="wage-preview-row"><span>적용 후 기본급1</span><strong>${validRate?fmtW(record.after.base1):'-'}</strong></div><div class="wage-preview-row"><span>적용 전 기본급3</span><strong>${fmtW(record.before.base3)}</strong></div><div class="wage-preview-row"><span>적용 후 기본급3</span><strong>${validRate?fmtW(record.after.base3):'-'}</strong></div><div class="wage-preview-row"><span>적용 전 통상시급</span><strong>${validRate&&validMonths?fmtW(retro.hourlyBefore):'-'}</strong></div><div class="wage-preview-row"><span>적용 후 예상 통상시급</span><strong>${validRate&&validMonths?fmtW(retro.hourlyAfter):'-'}</strong></div><div class="wage-preview-row"><span>통상시급 차액</span><strong>${validRate&&validMonths?fmtW(retro.hourlyDifference):'-'}</strong></div><div class="wage-preview-row"><span>소급 대상 기간</span><strong>${validRate&&validMonths?wageRetroPeriodText_(retro):'-'}</strong></div><div class="wage-preview-row"><span>기본급 소급 차액</span><strong>${validRate&&validMonths?fmtW(retro.baseDifference):'-'}</strong></div><div class="wage-preview-row"><span>OT·심야·휴일 등 수당 차액</span><strong>${validRate&&validMonths?fmtW(retro.allowanceDifference):'-'}</strong></div></div><div class="wage-preview-total"><span>소급분 총액</span><strong>${validRate&&validMonths?fmtW(retro.total):'-'}</strong></div>${hourlyNotice}${validRate&&validMonths?wageMonthlyDetailHtml_(retro):''}</div>`;
+  return `<div class="wage-preview-card"><div class="wage-preview-head"><div><div class="wage-preview-title">${title}</div><div class="small">격려금은 소급분과 분리된 일시금이며 지급 급여월에 한 번만 반영됩니다.</div></div><span class="wage-status ${previewStatusClass}">${previewStatus}</span></div><div class="wage-preview-list"><div class="wage-preview-row"><span>인상률</span><strong>${validRate ? formatNumber_(record.rate) + '%' : '-'}</strong></div><div class="wage-preview-row"><span>소급 적용 시작 급여월</span><strong>${formatWageMonth_(record.retroStartMonth)}</strong></div><div class="wage-preview-row"><span>소급분 지급 급여월</span><strong>${formatWageMonth_(record.paymentMonth)}</strong></div><div class="wage-preview-row"><span>인상 기본급 정상 적용</span><strong>${formatWageMonth_(record.paymentMonth)}부터</strong></div><div class="wage-preview-row"><span>실제 적용 일시</span><strong>${effectiveDate ? formatWageDateTime_(record.effectiveAt) : '-'}</strong></div><div class="wage-preview-row"><span>적용 전 기본급1</span><strong>${fmtW(record.before.base1)}</strong></div><div class="wage-preview-row"><span>적용 후 기본급1</span><strong>${validRate ? fmtW(record.after.base1) : '-'}</strong></div><div class="wage-preview-row"><span>적용 전 기본급3</span><strong>${fmtW(record.before.base3)}</strong></div><div class="wage-preview-row"><span>적용 후 기본급3</span><strong>${validRate ? fmtW(record.after.base3) : '-'}</strong></div><div class="wage-preview-row"><span>적용 전 통상시급</span><strong>${validRate && validMonths ? fmtW(retro.hourlyBefore) : '-'}</strong></div><div class="wage-preview-row"><span>적용 후 예상 통상시급</span><strong>${validRate && validMonths ? fmtW(retro.hourlyAfter) : '-'}</strong></div><div class="wage-preview-row"><span>통상시급 차액</span><strong>${validRate && validMonths ? fmtW(retro.hourlyDifference) : '-'}</strong></div><div class="wage-preview-row"><span>소급 대상 기간</span><strong>${validRate && validMonths ? wageRetroPeriodText_(retro) : '-'}</strong></div><div class="wage-preview-row"><span>기본급 소급 차액</span><strong>${validRate && validMonths ? fmtW(retro.baseDifference) : '-'}</strong></div><div class="wage-preview-row"><span>고정상여 소급 차액</span><strong>${validRate && validMonths ? fmtW(retro.fixedBonusDifference) : '-'}</strong></div><div class="wage-preview-row"><span>OT·심야·휴일 등 근무수당 차액</span><strong>${validRate && validMonths ? fmtW(retro.allowanceDifference) : '-'}</strong></div><div class="wage-preview-row"><span>연차수당 소급 차액</span><strong>${validRate && validMonths ? fmtW(retro.annualAllowanceDifference) : '-'}</strong></div><div class="wage-preview-row"><span>지급완료 설추석상여 차액</span><strong>${validRate && validMonths ? fmtW(retro.festivalBonusDifference) : '-'}</strong></div></div><div class="wage-preview-total"><span>소급분 총액</span><strong>${validRate && validMonths ? fmtW(retro.total) : '-'}</strong></div><div class="wage-preview-total"><span>격려금(일시금)</span><strong>${fmtW(encouragementBonus)}</strong></div><div class="wage-preview-total"><span>소급분 + 격려금 지급합계</span><strong>${validRate && validMonths ? fmtW(combined) : '-'}</strong></div>${hourlyNotice}${validRate && validMonths ? wageMonthlyDetailHtml_(retro) : ''}</div>`;
 }
 
-function wageHistoryHtml_(){
-  if(!WAGE_AGREEMENTS.length){
+function wageHistoryHtml_() {
+  if (!WAGE_AGREEMENTS.length) {
     return '<div class="form-hint">저장된 임금협상 기록이 없습니다.</div>';
   }
 
-  const latest=latestAppliedWageAgreement_();
+  const latest = latestAppliedWageAgreement_();
 
-  return `<div class="wage-history-list">${WAGE_AGREEMENTS.slice().reverse().map(record=>{
-    const retro=calculateWageAgreementRetro_(record);
-    const isLatest=
-      record.status==='applied'&&
-      latest&&
-      latest.id===record.id;
-    const isScheduled=record.status==='scheduled';
-    const cancelledFromScheduled=
-      record.status==='cancelled'&&
-      record.cancelledFromStatus==='scheduled';
-    const statusText=
-      record.status==='cancelled'
-        ?(cancelledFromScheduled?'예약 취소':'적용 취소')
-        :record.status==='scheduled'
-          ?'적용 예정'
-          :'적용 완료';
-    const deleteButton=
-      record.status==='cancelled'
-        ?`<button type="button" class="btn red wage-history-delete wage-agreement-delete" data-wage-id="${escapeAttr_(record.id)}">적용취소 이력삭제</button>`
-        :'';
-    const actionButton=isScheduled
-      ?`<button type="button" class="btn red wage-agreement-cancel" data-wage-id="${escapeAttr_(record.id)}" style="width:100%;margin-top:12px">적용 예약 취소</button>`
-      :isLatest
-        ?`<button type="button" class="btn red wage-agreement-cancel" data-wage-id="${escapeAttr_(record.id)}" style="width:100%;margin-top:12px">적용 취소 및 이전 금액 복구</button>`
-        :'';
+  return `<div class="wage-history-list">${WAGE_AGREEMENTS.slice().reverse().map(record => {
+    const retro = calculateWageAgreementRetro_(record);
+    const encouragementBonus =
+      Math.max(0, Number(record.encouragementBonus) || 0);
+    const isLatest =
+      record.status === 'applied' &&
+      latest &&
+      latest.id === record.id;
+    const isScheduled = record.status === 'scheduled';
+    const cancelledFromScheduled =
+      record.status === 'cancelled' &&
+      record.cancelledFromStatus === 'scheduled';
+    const statusText =
+      record.status === 'cancelled'
+        ? (cancelledFromScheduled ? '예약 취소' : '적용 취소')
+        : record.status === 'scheduled'
+          ? '적용 예정'
+          : '적용 완료';
+    const deleteButton =
+      record.status === 'cancelled'
+        ? `<button type="button" class="btn red wage-history-delete wage-agreement-delete" data-wage-id="${escapeAttr_(record.id)}">적용취소 이력삭제</button>`
+        : '';
+    const actionButton = isScheduled
+      ? `<button type="button" class="btn red wage-agreement-cancel" data-wage-id="${escapeAttr_(record.id)}" style="width:100%;margin-top:12px">적용 예약 취소</button>`
+      : isLatest
+        ? `<button type="button" class="btn red wage-agreement-cancel" data-wage-id="${escapeAttr_(record.id)}" style="width:100%;margin-top:12px">적용 취소 및 이전 금액 복구</button>`
+        : '';
+    const snapshotText = record.festivalBonusPaymentsSnapshot
+      ? '적용시점 지급상태 snapshot'
+      : '기존 기록 · 현재 지급상태로 계산';
 
-    return `<div class="wage-history-card"><div class="wage-preview-head"><div><b>${formatWageMonth_(record.paymentMonth)} 임금협상</b><div class="small">${formatNumber_(record.rate)}% 인상</div></div><div class="wage-history-actions"><span class="wage-status ${record.status}">${statusText}</span>${deleteButton}</div></div><div class="wage-preview-list"><div class="wage-preview-row"><span>소급 적용 시작 급여월</span><strong>${formatWageMonth_(record.retroStartMonth)}</strong></div><div class="wage-preview-row"><span>소급분 지급 급여월</span><strong>${formatWageMonth_(record.paymentMonth)}</strong></div><div class="wage-preview-row"><span>인상 기본급 정상 적용</span><strong>${formatWageMonth_(record.paymentMonth)}부터</strong></div><div class="wage-preview-row"><span>실제 적용 일시</span><strong>${formatWageDateTime_(record.effectiveAt||record.appliedAt)}</strong></div><div class="wage-preview-row"><span>기본급1</span><strong>${fmtW(record.before.base1)} → ${fmtW(record.after.base1)}</strong></div><div class="wage-preview-row"><span>기본급3</span><strong>${fmtW(record.before.base3)} → ${fmtW(record.after.base3)}</strong></div><div class="wage-preview-row"><span>소급 대상 기간</span><strong>${wageRetroPeriodText_(retro)}</strong></div><div class="wage-preview-row"><span>예상 소급분 총액</span><strong>${fmtW(retro.total)}</strong></div></div>${wageMonthlyDetailHtml_(retro)}${actionButton}</div>`;
+    return `<div class="wage-history-card"><div class="wage-preview-head"><div><b>${formatWageMonth_(record.paymentMonth)} 임금협상</b><div class="small">${formatNumber_(record.rate)}% 인상</div></div><div class="wage-history-actions"><span class="wage-status ${record.status}">${statusText}</span>${deleteButton}</div></div><div class="wage-preview-list"><div class="wage-preview-row"><span>소급 적용 시작 급여월</span><strong>${formatWageMonth_(record.retroStartMonth)}</strong></div><div class="wage-preview-row"><span>소급분 지급 급여월</span><strong>${formatWageMonth_(record.paymentMonth)}</strong></div><div class="wage-preview-row"><span>인상 기본급 정상 적용</span><strong>${formatWageMonth_(record.paymentMonth)}부터</strong></div><div class="wage-preview-row"><span>실제 적용 일시</span><strong>${formatWageDateTime_(record.effectiveAt || record.appliedAt)}</strong></div><div class="wage-preview-row"><span>기본급1</span><strong>${fmtW(record.before.base1)} → ${fmtW(record.after.base1)}</strong></div><div class="wage-preview-row"><span>기본급3</span><strong>${fmtW(record.before.base3)} → ${fmtW(record.after.base3)}</strong></div><div class="wage-preview-row"><span>설추석상여 지급상태</span><strong>${snapshotText}</strong></div><div class="wage-preview-row"><span>소급 대상 기간</span><strong>${wageRetroPeriodText_(retro)}</strong></div><div class="wage-preview-row"><span>소급분 총액</span><strong>${fmtW(retro.total)}</strong></div><div class="wage-preview-row"><span>격려금(일시금)</span><strong>${fmtW(encouragementBonus)}</strong></div><div class="wage-preview-row"><span>지급합계</span><strong>${fmtW(retro.total + encouragementBonus)}</strong></div></div>${wageMonthlyDetailHtml_(retro)}${actionButton}</div>`;
   }).join('')}</div>`;
 }
 
-function renderWageAgreementSection_(){
-  return `<details id="wageAgreementAccordion" class="salary-accordion wage-agreement-accordion" ${wageAgreementAccordionOpen_?'open':''}><summary>임금협상 기록 및 미리보기</summary><div class="salary-accordion-body"><div class="notice info">인상률과 적용 일시를 먼저 정하세요. 미래 시각을 선택하면 그 시각까지는 현재 기본급이 유지되고, 앱이 열려 있거나 다음에 앱을 열 때 자동 적용됩니다.</div><div class="salary-two-col"><div class="form-group"><label class="form-label">인상률(%)</label><input id="wageAgreementRate" data-wage-draft="rate" type="number" min="0" step="0.01" class="form-input" value="${WAGE_AGREEMENT_DRAFT.rate}" placeholder="예: 3.5"></div><div class="form-group"><label class="form-label">소급 적용 시작 급여월</label><input id="wageAgreementRetroStart" data-wage-draft="retroStartMonth" type="month" class="form-input" value="${WAGE_AGREEMENT_DRAFT.retroStartMonth}"></div><div class="form-group"><label class="form-label">소급분 지급 급여월</label><input id="wageAgreementPaymentMonth" data-wage-draft="paymentMonth" type="month" class="form-input" value="${WAGE_AGREEMENT_DRAFT.paymentMonth}"></div><div class="form-group"><label class="form-label">실제 적용 일시</label><input id="wageAgreementEffectiveAt" data-wage-draft="effectiveAt" type="datetime-local" class="form-input" value="${WAGE_AGREEMENT_DRAFT.effectiveAt}"><div class="form-hint">미래 시각은 예약 적용, 현재·과거 시각은 즉시 적용됩니다.</div></div></div><div id="wageAgreementPreview">${wagePreviewHtml_()}</div><button id="applyWageAgreementBtn" type="button" class="btn green" style="width:100%;margin-top:12px">임금협상 적용</button><hr class="sep"><div class="card-title">임금협상 기록</div><div id="wageAgreementHistory">${wageHistoryHtml_()}</div></div></details>`;
+function renderWageAgreementSection_() {
+  return `<details id="wageAgreementAccordion" class="salary-accordion wage-agreement-accordion" ${wageAgreementAccordionOpen_ ? 'open' : ''}><summary>임금협상 기록 및 미리보기</summary><div class="salary-accordion-body"><div class="notice info">소급분은 기본급·고정상여·근무수당·연차수당·지급완료 설추석상여의 인상 차액을 계산합니다. 격려금은 별도 일시금으로 지급 급여월에 한 번만 반영됩니다.</div><div class="salary-two-col"><div class="form-group"><label class="form-label">인상률(%)</label><input id="wageAgreementRate" data-wage-draft="rate" type="number" min="0" step="0.01" class="form-input" value="${WAGE_AGREEMENT_DRAFT.rate}" placeholder="예: 3.5"></div><div class="form-group"><label class="form-label">격려금(일시금)</label><input id="wageAgreementEncouragementBonus" data-wage-draft="encouragementBonus" type="number" min="0" step="1" class="form-input" value="${WAGE_AGREEMENT_DRAFT.encouragementBonus}" placeholder="미입력 시 0"><div class="form-hint">자동 계산하지 않으며 지급 급여월에 딱 한 번 지급합니다.</div></div><div class="form-group"><label class="form-label">소급 적용 시작 급여월</label><input id="wageAgreementRetroStart" data-wage-draft="retroStartMonth" type="month" class="form-input" value="${WAGE_AGREEMENT_DRAFT.retroStartMonth}"></div><div class="form-group"><label class="form-label">소급분 지급 급여월</label><input id="wageAgreementPaymentMonth" data-wage-draft="paymentMonth" type="month" class="form-input" value="${WAGE_AGREEMENT_DRAFT.paymentMonth}"></div><div class="form-group"><label class="form-label">실제 적용 일시</label><input id="wageAgreementEffectiveAt" data-wage-draft="effectiveAt" type="datetime-local" class="form-input" value="${WAGE_AGREEMENT_DRAFT.effectiveAt}"><div class="form-hint">미래 시각은 예약 적용, 현재·과거 시각은 즉시 적용됩니다.</div></div></div><div id="wageAgreementPreview">${wagePreviewHtml_()}</div><button id="applyWageAgreementBtn" type="button" class="btn green" style="width:100%;margin-top:12px">임금협상 적용</button><hr class="sep"><div class="card-title">임금협상 기록</div><div id="wageAgreementHistory">${wageHistoryHtml_()}</div></div></details>`;
 }
 
 function renderWageAgreementPreview_(){
@@ -9893,112 +10215,123 @@ function renderWageAgreementPreview_(){
   }
 }
 
-function applyWageAgreement_(){
+function applyWageAgreement_() {
   readSalaryForm_();
-  const preview=buildWageAgreementPreviewRecord_();
-  const startIndex=monthIndex_(preview.retroStartMonth);
-  const paymentIndex=monthIndex_(preview.paymentMonth);
-  const effectiveDate=parseWageEffectiveAt_(preview.effectiveAt);
+  const preview = buildWageAgreementPreviewRecord_();
+  const startIndex = monthIndex_(preview.retroStartMonth);
+  const paymentIndex = monthIndex_(preview.paymentMonth);
+  const effectiveDate = parseWageEffectiveAt_(preview.effectiveAt);
 
-  if(preview.rate<=0){
+  if (preview.rate <= 0) {
     alert('0보다 큰 임금 인상률을 입력하세요.');
     return;
   }
 
-  if(
-    startIndex===null||
-    paymentIndex===null||
-    startIndex>paymentIndex
-  ){
+  if (
+    startIndex === null ||
+    paymentIndex === null ||
+    startIndex > paymentIndex
+  ) {
     alert('소급 적용 시작월과 지급월을 확인하세요.');
     return;
   }
 
-  if(!effectiveDate){
+  if (!effectiveDate) {
     alert('실제 적용 일시를 선택하세요.');
     return;
   }
 
-  const scheduledAgreement=latestScheduledWageAgreement_();
+  const scheduledAgreement = latestScheduledWageAgreement_();
 
-  if(scheduledAgreement){
+  if (scheduledAgreement) {
     alert(
       `이미 적용 예정인 임금협상이 있습니다. (${formatWageDateTime_(scheduledAgreement.effectiveAt)})\n먼저 기존 예약을 취소하세요.`
     );
     return;
   }
 
-  const latestAgreement=latestAppliedWageAgreement_();
+  const latestAgreement = latestAppliedWageAgreement_();
 
-  if(
-    latestAgreement&&
-    paymentIndex<=monthIndex_(latestAgreement.paymentMonth)
-  ){
+  if (
+    latestAgreement &&
+    paymentIndex <= monthIndex_(latestAgreement.paymentMonth)
+  ) {
     alert(
       `새 임금협상의 지급월은 최근 적용 기록(${formatWageMonth_(latestAgreement.paymentMonth)})보다 뒤여야 합니다.`
     );
     return;
   }
 
-  const retro=calculateWageAgreementRetro_(preview);
-  const isScheduled=effectiveDate.getTime()>Date.now();
-  const applyTimingText=isScheduled
-    ?`예약 적용: ${formatWageDateTime_(effectiveDate)}`
-    :`즉시 적용: ${formatWageDateTime_(effectiveDate)}`;
-  const confirmed=confirm(
-    `임금협상 내용을 ${isScheduled?'예약':'적용'}합니다.\n\n`+
-    `인상률: ${formatNumber_(preview.rate)}%\n`+
-    `기본급1: ${fmtW(preview.before.base1)} → ${fmtW(preview.after.base1)}\n`+
-    `기본급3: ${fmtW(preview.before.base3)} → ${fmtW(preview.after.base3)}\n`+
-    `통상시급: ${fmtW(retro.hourlyBefore)} → ${fmtW(retro.hourlyAfter)}\n`+
-    `소급 대상: ${wageRetroPeriodText_(retro)}\n`+
-    `예상 소급분: ${fmtW(retro.total)}\n`+
-    `${applyTimingText}\n\n`+
+  const retro = calculateWageAgreementRetro_(preview);
+  const encouragementBonus =
+    Math.max(0, Number(preview.encouragementBonus) || 0);
+  const paymentTotal = retro.total + encouragementBonus;
+  const isScheduled = effectiveDate.getTime() > Date.now();
+  const applyTimingText = isScheduled
+    ? `예약 적용: ${formatWageDateTime_(effectiveDate)}`
+    : `즉시 적용: ${formatWageDateTime_(effectiveDate)}`;
+  const confirmed = confirm(
+    `임금협상 내용을 ${isScheduled ? '예약' : '적용'}합니다.\n\n` +
+    `인상률: ${formatNumber_(preview.rate)}%\n` +
+    `기본급1: ${fmtW(preview.before.base1)} → ${fmtW(preview.after.base1)}\n` +
+    `기본급3: ${fmtW(preview.before.base3)} → ${fmtW(preview.after.base3)}\n` +
+    `통상시급: ${fmtW(retro.hourlyBefore)} → ${fmtW(retro.hourlyAfter)}\n` +
+    `소급 대상: ${wageRetroPeriodText_(retro)}\n` +
+    `소급분 총액: ${fmtW(retro.total)}\n` +
+    `격려금(일시금): ${fmtW(encouragementBonus)}\n` +
+    `지급합계: ${fmtW(paymentTotal)}\n` +
+    `${applyTimingText}\n\n` +
     (isScheduled
-      ?'선택한 시각 전까지 현재 기본급이 유지됩니다.'
-      :'적용 후에는 기록에서 취소하여 이전 금액으로 복구할 수 있습니다.')
+      ? '설추석상여 지급상태는 예약 시점이 아니라 실제 적용 시점에 snapshot으로 고정됩니다.'
+      : '적용 시점의 설추석상여 지급상태가 snapshot으로 고정됩니다.')
   );
 
-  if(!confirmed){
+  if (!confirmed) {
     return;
   }
 
-  const now=new Date().toISOString();
-  const hourlyPair=wageAgreementHourlyPair_(preview);
-  const record={
+  const now = new Date().toISOString();
+  const hourlyPair = wageAgreementHourlyPair_(preview);
+  const record = {
     ...preview,
-    id:`wage-${Date.now()}`,
-    status:isScheduled?'scheduled':'applied',
-    effectiveAt:effectiveDate.toISOString(),
-    scheduledAt:isScheduled?now:null,
-    appliedAt:isScheduled?null:now,
-    salarySnapshotBefore:{...SAL,...preview.before},
-    salarySnapshotAfter:{
+    id: `wage-${Date.now()}`,
+    status: isScheduled ? 'scheduled' : 'applied',
+    effectiveAt: effectiveDate.toISOString(),
+    scheduledAt: isScheduled ? now : null,
+    appliedAt: isScheduled ? null : now,
+    salarySnapshotBefore: { ...SAL, ...preview.before },
+    salarySnapshotAfter: {
       ...SAL,
       ...preview.after,
       manualHourly:
-        SAL.hourlyMode==='manual'
-          ?hourlyPair.after
-          :SAL.manualHourly
+        SAL.hourlyMode === 'manual'
+          ? hourlyPair.after
+          : SAL.manualHourly
     }
   };
 
+  if (!isScheduled) {
+    record.festivalBonusPaymentsSnapshot =
+      createFestivalBonusPaymentsSnapshot_();
+  }
+
   WAGE_AGREEMENTS.push(record);
 
-  if(!isScheduled){
+  if (!isScheduled) {
     applyWageAgreementRecordToSalary_(record);
   }
 
   saveWageAgreements_();
 
-  WAGE_AGREEMENT_DRAFT={
-    rate:'',
-    retroStartMonth:monthKey_(today.getFullYear(),1),
-    paymentMonth:monthKey_(today.getFullYear(),today.getMonth()+1),
-    effectiveAt:''
+  WAGE_AGREEMENT_DRAFT = {
+    rate: '',
+    retroStartMonth: monthKey_(today.getFullYear(), 1),
+    paymentMonth: monthKey_(today.getFullYear(), today.getMonth() + 1),
+    effectiveAt: '',
+    encouragementBonus: ''
   };
   saveWageAgreementDraft_();
-  wageAgreementAccordionOpen_=true;
+  wageAgreementAccordionOpen_ = true;
   scheduleWageAgreementActivationCheck_();
 
   renderSalaryFields();
@@ -10006,8 +10339,8 @@ function applyWageAgreement_(){
   renderDashboard();
   showAppToast_(
     isScheduled
-      ?`임금협상 적용이 ${formatWageDateTime_(record.effectiveAt)}로 예약되었습니다.`
-      :'임금협상이 적용되었습니다.',
+      ? `임금협상 적용이 ${formatWageDateTime_(record.effectiveAt)}로 예약되었습니다.`
+      : '임금협상이 적용되었습니다.',
     'success',
     3200
   );
@@ -10171,14 +10504,15 @@ function bindWageAgreementSection_(){
   renderWageAgreementPreview_();
 }
 
-function getReservedSalaryItemNames_(){
+function getReservedSalaryItemNames_() {
   return new Set([
-    '기본급1','기본급3','면허수당','고정상여',
-    '연장수당','주휴수당','주휴연장수당',
-    '휴일수당','휴일연장수당','명절기본수당',
-    '명절연장수당','심야수당','교대조수당',
-    '연차수당','임금인상 소급분',
-    '중식비(기지급)','개인연금2(회사분·기지급)'
+    '기본급1', '기본급3', '면허수당', '고정상여',
+    '설추석상여', '격려금',
+    '연장수당', '주휴수당', '주휴연장수당',
+    '휴일수당', '휴일연장수당', '명절기본수당',
+    '명절연장수당', '심야수당', '교대조수당',
+    '연차수당', '임금인상 소급분',
+    '중식비(기지급)', '개인연금2(회사분·기지급)'
   ]);
 }
 
@@ -10361,6 +10695,43 @@ function addCustomSalaryItem_(){
   }
 }
 
+function festivalBonusPaymentsHtml_() {
+  const occasions = festivalBonusOccasions_();
+
+  if (!occasions.length) {
+    return '<div class="form-hint">설/추석 기준일을 불러오지 못했습니다.</div>';
+  }
+
+  return occasions.map(item =>
+    `<label><input type="checkbox" data-festival-payment-id="${escapeAttr_(item.id)}" ${FESTIVAL_BONUS_PAYMENTS[item.id] === true ? 'checked' : ''}>${item.year}년 ${item.label} · ${item.month}/${item.day} 지급완료</label>`
+  ).join('');
+}
+
+function bindFestivalBonusPayments_() {
+  document
+    .querySelectorAll('[data-festival-payment-id]')
+    .forEach(input => {
+      input.onchange = () => {
+        const id = String(input.dataset.festivalPaymentId || '');
+
+        if (!id) {
+          return;
+        }
+
+        FESTIVAL_BONUS_PAYMENTS[id] = input.checked;
+        saveFestivalBonusPayments_();
+
+        /*
+          snapshot이 없는 기능 도입 전 임금협상 기록은
+          현재 지급상태 설정을 사용하므로 즉시 다시 계산한다.
+        */
+        renderSalaryFields();
+        renderSalary();
+        renderDashboard();
+      };
+    });
+}
+
 function renderSalaryFields(){
   const latestInsurance=
     ACTUAL_INSURANCE_HISTORY[
@@ -10448,6 +10819,33 @@ function renderSalaryFields(){
     <div class="salary-result">
       <span>현재 적용 고정상여</span>
       <strong id="fixedBonusPreview">0원</strong>
+    </div>
+
+    <hr class="sep">
+
+    <div class="card-title">설추석상여</div>
+    <div class="notice info">
+      정규 급여와 별도로 지급합니다. 지급완료로 표시한 설·추석만 임금협상 소급에 포함됩니다.
+      신규 임금협상은 실제 적용 시점의 지급상태가 snapshot으로 고정됩니다.
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">설추석상여 비율(%)</label>
+      <input id="sal-festivalBonusRate" type="number" min="0" step="0.01" class="form-input" value="${escapeAttr_(SAL.festivalBonusRate)}">
+      <div class="form-hint">(기본급1 + 기본급3) × 비율 · 기본 100%</div>
+    </div>
+
+    <div class="salary-result">
+      <span>1회 예상액</span>
+      <strong id="festivalBonusPreview">0원</strong>
+    </div>
+
+    <label class="form-label" style="margin-top:10px">설/추석 지급 상태</label>
+    <div id="festivalBonusPaymentList" class="salary-check-list">
+      ${festivalBonusPaymentsHtml_()}
+    </div>
+    <div class="form-hint">
+      체크 = 지급완료 · 해제 = 미지급. 기능 도입 전 임금협상 기록은 현재 지급상태로 재계산할 수 있습니다.
     </div>
 
     <hr class="sep">
@@ -10655,6 +11053,7 @@ function renderSalaryFields(){
     });
 
   bindWageAgreementSection_();
+  bindFestivalBonusPayments_();
 
   renderCustomSalaryItems_();
 

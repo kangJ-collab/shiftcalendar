@@ -128,8 +128,8 @@ if (html.includes('kangj-collab.github.io/shiftcalendar/data/')) {
   failures.push('production GitHub Pages data URL is still embedded');
 }
 
-if (!serviceWorker.includes("const CACHE_VERSION = 'shiftcalendar-pwa-v37'")) {
-  failures.push('operating service worker cache version must be v37');
+if (!serviceWorker.includes("const CACHE_VERSION = 'shiftcalendar-pwa-v39'")) {
+  failures.push('operating service worker cache version must be v39');
 }
 
 if (
@@ -155,10 +155,32 @@ if (!html.includes("DEVICE_BACKUP_DB='shiftcalendar-device-backup'")) {
   'annualLeaveSettings',
   'shiftTeamPatternConfig',
   'salarySettings',
+  'festivalBonusPayments',
   'teamHistory'
 ].forEach(key => {
   if (!html.includes(`'${key}'`)) {
     failures.push(`existing storage key is missing from the operating source: ${key}`);
+  }
+});
+
+
+[
+  'festivalBonusRate:100',
+  "const FESTIVAL_BONUS_PAYMENTS_KEY='festivalBonusPayments'",
+  'function calculateFestivalBonus_',
+  'function createFestivalBonusPaymentsSnapshot_',
+  'function festivalBonusRetroForPayMonth_',
+  'festivalBonusPaymentsSnapshot',
+  'fixedBonusDifference',
+  'annualAllowanceDifference',
+  'festivalBonusDifference',
+  'encouragementBonusForMonth_',
+  "pay['격려금']",
+  '격려금(일시금)',
+  '소급분 + 격려금 지급합계'
+].forEach(marker => {
+  if (!html.includes(marker)) {
+    failures.push(`festival bonus / wage agreement marker is missing: ${marker}`);
   }
 });
 
