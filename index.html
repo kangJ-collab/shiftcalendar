@@ -2675,6 +2675,7 @@ input[type="time"].form-input::-webkit-date-and-time-value{
   align-items:center;
   justify-content:space-between;
   gap:8px;
+  flex-wrap:wrap;
 }
 .salary-custom-ordinary{
   display:flex;
@@ -4288,6 +4289,8 @@ window.addEventListener('unhandledrejection',function(e){
 });
 </script>
 
+<script src="./data/income-tax-2026.js"></script>
+<script src="./payroll-tax.js"></script>
 <script>
 /* 모든 DOM 요소를 명시적으로 연결: iOS Safari에서 id 자동 전역변수에 의존하지 않음 */
 const app=document.getElementById('app');
@@ -6605,6 +6608,15 @@ const SALARY_DEF={
   prevAnnual:0,
   employ:0.9,
   incomeTaxRate:8.3,
+  incomeTaxMode:'table',
+  taxFamilyCount:1,
+  taxChildCount:0,
+  withholdingPercent:100,
+  taxableMeal:false,
+  taxablePensionSup:true,
+  nonTaxablePay:0,
+  unionRoundingMode:'round10',
+  netRoundingUnit:100,
   unionRate:1.8
 };
 
@@ -6831,7 +6843,13 @@ function normalizeCustomSalaryItems_(){
         Number(item&&item.amount)||0
       ),
       includeOrdinary:
-        item&&item.includeOrdinary===true
+        item&&item.includeOrdinary===true,
+      fromMonth:/^\d{4}-(0[1-9]|1[0-2])$/.test(String(item&&item.fromMonth||''))
+        ?String(item.fromMonth)
+        :item&&item.recurring===false
+          ?monthKey_(today.getFullYear(),today.getMonth()+1)
+          :'',
+      recurring:item&&item.recurring!==false
     });
   });
 
@@ -6843,6 +6861,12 @@ function normalizeCustomSalaryItems_(){
 }
 
 normalizeCustomSalaryItems_();
+
+function customSalaryItemsForPayMonth_(year,month,items=CUSTOM_SALARY_ITEMS){
+  const key=monthKey_(year,month);
+  return items.filter(item=>!item.fromMonth ||
+    (item.recurring!==false?key>=item.fromMonth:key===item.fromMonth));
+}
 
 let ACTUAL_INSURANCE_HISTORY=store.get(
   'actualInsuranceHistory',
@@ -6865,6 +6889,7 @@ function normalizeActualInsuranceHistory_(){
 
     const normalized={
       from,
+      healthIncludesCare:rule.healthIncludesCare===true,
       healthOnly:
         rule.healthOnly==='' ||
         rule.healthOnly===null ||
@@ -6975,7 +7000,7 @@ function calculateFestivalBonus_(settings = SAL) {
   );
 }
 
-function calculateAutoHourly_(settings=SAL){
+function calculateAutoHourly_(settings=SAL,customItems=customSalaryItemsForPayMonth_(today.getFullYear(),today.getMonth()+1)){
   const basis=Math.max(
     1,
     Number(settings.basisHours)||179
@@ -6991,7 +7016,7 @@ function calculateAutoHourly_(settings=SAL){
     [settings.includeFixedBonus,fixedBonus],
     [settings.includeMeal,settings.meal],
     [settings.includeOtherOrdinary,settings.otherOrdinary],
-    ...CUSTOM_SALARY_ITEMS.map(
+    ...customItems.map(
       item=>[
         item.includeOrdinary===true,
         item.amount
@@ -7013,16 +7038,16 @@ function calculateAutoHourly_(settings=SAL){
   );
 }
 
-function getAppliedHourly_(settings=SAL){
+function getAppliedHourly_(settings=SAL,customItems){
   if(settings.hourlyMode==='manual'){
     return Number(settings.manualHourly)||0;
   }
 
-  return calculateAutoHourly_(settings);
+  return calculateAutoHourly_(settings,customItems);
 }
 
 function autoUnion(settings=SAL){
-  return Math.round(
+  const value=(
     (
       (Number(settings.base1)||0)+
       (Number(settings.base3)||0)
@@ -7030,6 +7055,9 @@ function autoUnion(settings=SAL){
     (Number(settings.unionRate)||0)/
     100
   );
+  return settings.unionRoundingMode==='round10'
+    ?Math.round(value/10)*10
+    :Math.round(value);
 }
 
 function roundPay(value,settings=SAL){
@@ -7420,7 +7448,11 @@ function salarySettingsForPayMonth_(year,month){
   };
 }
 
-function wageAgreementHourlyPair_(record){
+function wageAgreementHourlyPair_(record,customItems=null){
+  if(customItems===null){
+    const [year,month]=String(record.paymentMonth||monthKey_(today.getFullYear(),today.getMonth()+1)).split('-').map(Number);
+    customItems=customSalaryItemsForPayMonth_(year,month);
+  }
   const beforeSettings={
     ...record.salarySnapshotBefore,
     base1:record.before.base1,
@@ -7434,8 +7466,8 @@ function wageAgreementHourlyPair_(record){
 
   if(beforeSettings.hourlyMode==='manual'){
     const before=Number(beforeSettings.manualHourly)||0;
-    const autoBefore=calculateAutoHourly_(beforeSettings);
-    const autoAfter=calculateAutoHourly_(afterSettings);
+    const autoBefore=calculateAutoHourly_(beforeSettings,customItems);
+    const autoAfter=calculateAutoHourly_(afterSettings,customItems);
     const after=Math.max(0,before+(autoAfter-autoBefore));
 
     return {
@@ -7445,8 +7477,8 @@ function wageAgreementHourlyPair_(record){
     };
   }
 
-  const before=getAppliedHourly_(beforeSettings);
-  const after=getAppliedHourly_(afterSettings);
+  const before=getAppliedHourly_(beforeSettings,customItems);
+  const after=getAppliedHourly_(afterSettings,customItems);
 
   return {
     before,
@@ -7548,15 +7580,18 @@ function calculateWageAgreementRetro_(record) {
     const pay = monthPartsFromIndex_(index);
     const work = previousPayWorkMonth_(pay.year, pay.month);
     const hours = calcHoursForMonth(work.year, work.month);
+    const monthlyHourlyPair=wageAgreementHourlyPair_(
+      record,customSalaryItemsForPayMonth_(pay.year,pay.month)
+    );
     const beforeAllowances = allowancePayFromHours_(
       hours,
       beforeSettings,
-      hourlyPair.before
+      monthlyHourlyPair.before
     );
     const afterAllowances = allowancePayFromHours_(
       hours,
       afterSettings,
-      hourlyPair.after
+      monthlyHourlyPair.after
     );
     const allowanceDifference = Object.keys(afterAllowances)
       .reduce(
@@ -7570,14 +7605,14 @@ function calculateWageAgreementRetro_(record) {
       calculateAnnualAllowanceForPayMonth_(
         pay.year,
         pay.month,
-        hourlyPair.before,
+        monthlyHourlyPair.before,
         beforeSettings
       );
     const afterAnnual =
       calculateAnnualAllowanceForPayMonth_(
         pay.year,
         pay.month,
-        hourlyPair.after,
+        monthlyHourlyPair.after,
         afterSettings
       );
     const annualAllowanceDifference =
@@ -7876,32 +7911,26 @@ function addOffDayOtHours_(hours,total,night,isMajor,isHoliday){
   }
 }
 
-function addRegularShiftHours_(hours,baseCode,isHoliday){
-  if(baseCode==='주'){
-    hours.workDays++;
-    hours.attendanceDays++;
-    // 근태월보의 '정상'은 휴일 여부와 관계없이 본근무 12시간을 기록한다.
-    hours.normal+=12;
-
-    if(isHoliday){
-      hours.holiday+=8;
-      hours.holidayExt+=4;
-    }
-
+function addRegularShiftHours_(hours,baseCode,isHoliday,isMajor=false){
+  if(baseCode!=='주'&&baseCode!=='야'){
     return;
   }
 
-  if(baseCode==='야'){
-    hours.workDays++;
-    hours.attendanceDays++;
-    hours.night+=8;
-    // 야간 본근무도 근태월보 정상 12시간에 포함한다.
-    hours.normal+=12;
+  hours.workDays++;
+  hours.attendanceDays++;
+  // 근태월보의 '정상'은 휴일 여부와 관계없이 본근무 12시간을 기록한다.
+  hours.normal+=12;
 
-    if(isHoliday){
-      hours.holiday+=8;
-      hours.holidayExt+=4;
-    }
+  if(baseCode==='야'){
+    hours.night+=8;
+  }
+
+  if(isMajor){
+    hours.festBase+=8;
+    hours.festExt+=4;
+  }else if(isHoliday){
+    hours.holiday+=8;
+    hours.holidayExt+=4;
   }
 }
 
@@ -7977,34 +8006,19 @@ function calculateHoursForDate_(date){
   const holiday=isPayHoliday(date);
 
   if(displayCode==='주'){
-    addRegularShiftHours_(h,'주',holiday);
+    addRegularShiftHours_(h,'주',holiday,major);
   }
   else if(displayCode==='야'){
-    addRegularShiftHours_(h,'야',holiday);
+    addRegularShiftHours_(h,'야',holiday,major);
   }
   else if(displayCode==='주+반OT'){
-    h.workDays++;
-    h.attendanceDays++;
-    h.normal+=12;
+    addRegularShiftHours_(h,'주',holiday,major);
     h.extend+=4;
     h.night+=1;
-
-    if(holiday){
-      h.holiday+=8;
-      h.holidayExt+=4;
-    }
   }
   else if(displayCode==='야+반OT'){
-    h.workDays++;
-    h.attendanceDays++;
-    h.normal+=12;
-    h.night+=8;
+    addRegularShiftHours_(h,'야',holiday,major);
     h.extend+=4;
-
-    if(holiday){
-      h.holiday+=8;
-      h.holidayExt+=4;
-    }
   }
   else if(displayCode==='주8OT'){
     addOffDayOtHours_(h,8,0,major,holiday);
@@ -8064,7 +8078,8 @@ function calculateHoursForDate_(date){
         addRegularShiftHours_(
           h,
           scheduledCode,
-          holiday
+          holiday,
+          major
         );
 
         h.extend+=calculated.total;
@@ -8079,7 +8094,9 @@ function calculateHoursForDate_(date){
     h.annualUsedUnits+=.5;
     h.normal+=8;
 
-    if(holiday){
+    if(major){
+      h.festBase+=8;
+    }else if(holiday){
       h.holiday+=8;
     }
   }
@@ -8091,7 +8108,9 @@ function calculateHoursForDate_(date){
     h.normal+=8;
     h.night+=7;
 
-    if(holiday){
+    if(major){
+      h.festBase+=8;
+    }else if(holiday){
       h.holiday+=8;
     }
   }
@@ -8159,11 +8178,12 @@ function calcHoursForMonth(y,m){
 
 function calcSalary(y,m){
   const payPeriod=nextMonthYear_(y,m);
+  const customItems=customSalaryItemsForPayMonth_(payPeriod.year,payPeriod.month);
   const salarySettings=salarySettingsForPayMonth_(
     payPeriod.year,
     payPeriod.month
   );
-  const hr=getAppliedHourly_(salarySettings);
+  const hr=getAppliedHourly_(salarySettings,customItems);
   const h=calcHoursForMonth(y,m);
   const annualAllowance=
     calculateAnnualAllowanceForPayMonth_(
@@ -8179,7 +8199,7 @@ function calcSalary(y,m){
   pay['면허수당']=Number(salarySettings.license)||0;
   pay['고정상여']=calculateFixedBonus_(salarySettings);
 
-  CUSTOM_SALARY_ITEMS.forEach(item=>{
+  customItems.forEach(item=>{
     const name=String(item.name||'').trim();
     const amount=Math.max(
       0,
@@ -8255,19 +8275,30 @@ function calcSalary(y,m){
     '개인연금2(회사분·기지급)':Number(salarySettings.pensionSup)||0
   };
 
-  const totalPay=Object.values(pay).reduce(
-    (sum,value)=>sum+value,
-    0
-  );
-
   const totalExtra=Object.values(extra).reduce(
     (sum,value)=>sum+value,
     0
   );
 
+  // 기지급액은 안내만 한다. 이번 달 지급총액과 실수령액에 다시 더하지 않는다.
+  // 기지급액의 과세 여부는 개인 설정으로 선택한다.
+  const autoPay={...pay};
+  const payOverride=(salOvr[`${payPeriod.year}-${payPeriod.month}`]||{}).pay||{};
+  Object.keys(pay).forEach(name=>{
+    if(Object.prototype.hasOwnProperty.call(payOverride,name)&&Number.isFinite(Number(payOverride[name]))){
+      pay[name]=Math.max(0,Number(payOverride[name]));
+    }
+  });
+  const appliedTotalPay=Object.values(pay).reduce((sum,value)=>sum+value,0);
+  const taxablePay=Math.max(0,
+    appliedTotalPay-(Math.max(0,Number(salarySettings.nonTaxablePay)||0))+
+    (salarySettings.taxableMeal?Number(salarySettings.meal)||0:0)+
+    (salarySettings.taxablePensionSup?Number(salarySettings.pensionSup)||0:0)
+  );
+
   return {
     hr,
-    autoHr:calculateAutoHourly_(salarySettings),
+    autoHr:calculateAutoHourly_(salarySettings,customItems),
     fixedBonus:calculateFixedBonus_(salarySettings),
     salarySettings,
     payYear:payPeriod.year,
@@ -8275,14 +8306,16 @@ function calcSalary(y,m){
     annualAllowance,
     h,
     pay,
+    autoPay,
     extra,
-    totalPay,
+    totalPay:appliedTotalPay,
     totalExtra,
-    totalA:totalPay+totalExtra
+    taxablePay,
+    totalA:appliedTotalPay
   };
 }
 
-function calcDeductions(totalA,salY,salM){
+function calcDeductions(totalA,salY,salM,taxablePay=totalA){
   const key=`${salY}-${salM}`;
   const ovr=salOvr[key]||{};
   const dateStr=`${salY}-${pad2(salM)}-21`;
@@ -8308,7 +8341,7 @@ function calcDeductions(totalA,salY,salM){
   const prevMonthly=(Number(SAL.prevAnnual)||0)/12;
 
   const npsBase=Math.min(
-    Math.max(prevMonthly,npsRule.minIncome),
+    Math.max(Math.floor(prevMonthly/1000)*1000,npsRule.minIncome),
     npsRule.maxIncome
   );
 
@@ -8327,7 +8360,7 @@ function calcDeductions(totalA,salY,salM){
   );
 
   const autoNpsVal=
-    Math.round(
+    ShiftPayrollTax.floor10(
       npsBase*
       npsRule.employeeRate/
       100
@@ -8339,15 +8372,16 @@ function calcDeductions(totalA,salY,salM){
     2. 설정에서 적용 시작월과 함께 저장한 고정 보험료
     3. 보험 요율을 이용한 자동 예상값
   */
+  const healthIncludesCare=ovr.healthIncludesCare??actualInsuranceRule?.healthIncludesCare??false;
   const healthVal=
     ovr.healthOnly??
     actualInsuranceRule?.healthOnly??
-    healthRaw;
+    (healthRaw+(healthIncludesCare?ltcareRaw:0));
 
-  const ltcareVal=
+  const ltcareVal=healthIncludesCare?0:(
     ovr.longTermCare??
     actualInsuranceRule?.longTermCare??
-    ltcareRaw;
+    ltcareRaw);
 
   const npsVal=
     ovr.nps??
@@ -8356,32 +8390,34 @@ function calcDeductions(totalA,salY,salM){
 
   const employVal=
     ovr.employ??
-    Math.round(
-      totalA*
+    ShiftPayrollTax.floor10(
+      taxablePay*
       (Number(SAL.employ)||0)/
       100
     );
 
   const incomeTax=
     ovr.incomeTax??
-    Math.round(
-      totalA*
-      (Number(SAL.incomeTaxRate)||0)/
-      100
-    );
+    (SAL.incomeTaxMode==='rate'
+      ?ShiftPayrollTax.floor10(taxablePay*(Number(SAL.incomeTaxRate)||0)/100)
+      :ShiftPayrollTax.calculate(taxablePay,{
+        familyCount:SAL.taxFamilyCount,
+        childCount:SAL.taxChildCount,
+        withholdingPercent:SAL.withholdingPercent
+      }));
 
   const localTax=
     ovr.localTax??
-    Math.round(incomeTax*.1);
+    ShiftPayrollTax.floor10(incomeTax*.1);
 
   const ded={
-    '건강보험료':healthVal,
+    [healthIncludesCare?'건강보험료(장기요양 포함)':'건강보험료']:healthVal,
     '노인장기요양보험':ltcareVal,
     '국민연금':npsVal,
     '고용보험':employVal,
     '소득세':incomeTax,
     '지방소득세':localTax,
-    '노조비':autoUnion(
+    '노조비':ovr.union??autoUnion(
       salarySettingsForPayMonth_(salY,salM)
     ),
     '매칭그랜트':Number(SAL.matching)||0,
@@ -8410,8 +8446,10 @@ function calcDeductions(totalA,salY,salM){
 
   const net0=totalA-pre;
 
-  ded['우수리']=Math.round(
-    net0-Math.floor(net0/100)*100
+  const netRoundingUnit=[1,10,100,1000].includes(Number(SAL.netRoundingUnit))
+    ?Number(SAL.netRoundingUnit):100;
+  ded['우수리']=ovr.smallChange??Math.round(
+    net0-Math.floor(net0/netRoundingUnit)*netRoundingUnit
   );
 
   const totalDed=Object.values(ded).reduce(
@@ -8426,6 +8464,8 @@ function calcDeductions(totalA,salY,salM){
     healthRule,
     npsRule,
     actualInsuranceRule,
+    healthIncludesCare,
+    taxablePay,
     prevMonthly:Math.round(prevMonthly),
     npsBase:Math.round(npsBase),
     healthRaw,
@@ -9866,6 +9906,15 @@ function readSalaryForm_(){
     'sal-incomeTaxRate',
     8.3
   );
+  SAL.incomeTaxMode=document.getElementById('sal-incomeTaxMode')?.value||'table';
+  SAL.taxFamilyCount=Math.max(1,Math.floor(salaryInputNumber_('sal-taxFamilyCount',1)));
+  SAL.taxChildCount=Math.max(0,Math.floor(salaryInputNumber_('sal-taxChildCount',0)));
+  SAL.withholdingPercent=salaryInputNumber_('sal-withholdingPercent',100);
+  SAL.taxableMeal=salaryInputChecked_('sal-taxableMeal');
+  SAL.taxablePensionSup=salaryInputChecked_('sal-taxablePensionSup',true);
+  SAL.nonTaxablePay=Math.max(0,salaryInputNumber_('sal-nonTaxablePay'));
+  SAL.unionRoundingMode=document.getElementById('sal-unionRoundingMode')?.value||'round10';
+  SAL.netRoundingUnit=salaryInputNumber_('sal-netRoundingUnit',100);
   SAL.unionRate=salaryInputNumber_(
     'sal-unionRate',
     1.8
@@ -9906,10 +9955,11 @@ function setSalaryMode_(modeName,value){
 function updateSalaryPreviews_(){
   readSalaryForm_();
 
-  const autoHourly=calculateAutoHourly_(SAL);
+  const customItems=customSalaryItemsForPayMonth_(salaryViewYear,salaryViewMonth);
+  const autoHourly=calculateAutoHourly_(SAL,customItems);
   const fixedBonus=calculateFixedBonus_(SAL);
   const festivalBonus=calculateFestivalBonus_(SAL);
-  const appliedHourly=getAppliedHourly_(SAL);
+  const appliedHourly=getAppliedHourly_(SAL,customItems);
 
   const autoHourlyEl=
     document.getElementById('autoHourlyPreview');
@@ -9984,7 +10034,7 @@ function renderActualInsuranceHistoryList_(){
             <b>${rule.from.replace('-','년 ')}월부터</b>
             <div class="small">
               건강 ${formatInsuranceRuleValue_(rule.healthOnly)} ·
-              장기요양 ${formatInsuranceRuleValue_(rule.longTermCare)} ·
+              ${rule.healthIncludesCare?'장기요양 포함':'장기요양 '+formatInsuranceRuleValue_(rule.longTermCare)} ·
               국민연금 ${formatInsuranceRuleValue_(rule.nps)}
             </div>
           </div>
@@ -10037,6 +10087,7 @@ function saveActualInsuranceRule_(){
 
   const rule={
     from,
+    healthIncludesCare:salaryInputChecked_('sal-healthIncludesCare'),
     healthOnly:readOptionalAmount(
       'sal-healthOnlyActual'
     ),
@@ -10584,6 +10635,21 @@ function renderCustomSalaryItems_(){
     amountInput.className='form-input';
     amountInput.value=String(item.amount);
 
+    const monthGroup=document.createElement('div');
+    monthGroup.className='form-group';
+    const monthLabel=document.createElement('label');
+    monthLabel.className='form-label';
+    monthLabel.textContent=item.recurring!==false?'지급 시작월':'지급월 (이 달만)';
+    const monthInput=document.createElement('input');
+    monthInput.type='month';
+    monthInput.className='form-input';
+    monthInput.value=item.fromMonth||'';
+    monthGroup.append(monthLabel,monthInput);
+    const monthHint=document.createElement('div');
+    monthHint.className='form-hint';
+    monthHint.textContent=item.fromMonth?'':'기존 항목: 모든 급여월에 적용';
+    monthGroup.appendChild(monthHint);
+
     const actions=document.createElement('div');
     actions.className='salary-custom-actions';
     const ordinaryLabel=document.createElement('label');
@@ -10596,6 +10662,13 @@ function renderCustomSalaryItems_(){
     ordinaryLabel.appendChild(ordinaryInput);
     ordinaryLabel.appendChild(ordinaryText);
 
+    const repeatLabel=document.createElement('label');
+    repeatLabel.className='salary-custom-ordinary';
+    const repeatInput=document.createElement('input');
+    repeatInput.type='checkbox';
+    repeatInput.checked=item.recurring!==false;
+    repeatLabel.append(repeatInput,document.createTextNode('다음 달에도 유지'));
+
     const deleteButton=document.createElement('button');
     deleteButton.type='button';
     deleteButton.className='btn red salary-custom-delete';
@@ -10606,9 +10679,11 @@ function renderCustomSalaryItems_(){
     amountGroup.appendChild(amountLabel);
     amountGroup.appendChild(amountInput);
     actions.appendChild(ordinaryLabel);
+    actions.appendChild(repeatLabel);
     actions.appendChild(deleteButton);
     row.appendChild(nameGroup);
     row.appendChild(amountGroup);
+    row.appendChild(monthGroup);
     row.appendChild(actions);
     list.appendChild(row);
 
@@ -10658,6 +10733,28 @@ function renderCustomSalaryItems_(){
       updateSalaryPreviews_();
     };
 
+    monthInput.onchange=()=>{
+      if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(monthInput.value)){
+        monthInput.value=item.fromMonth||'';
+        return;
+      }
+      item.fromMonth=monthInput.value;
+      monthHint.textContent='';
+      saveCustomSalaryItems_();
+      updateSalaryPreviews_();
+    };
+    repeatInput.onchange=()=>{
+      item.recurring=repeatInput.checked;
+      if(!item.recurring&&!item.fromMonth){
+        item.fromMonth=monthKey_(salaryViewYear,salaryViewMonth);
+        monthInput.value=item.fromMonth;
+        monthHint.textContent='';
+      }
+      monthLabel.textContent=item.recurring?'지급 시작월':'지급월 (이 달만)';
+      saveCustomSalaryItems_();
+      updateSalaryPreviews_();
+    };
+
     deleteButton.onclick=()=>{
       CUSTOM_SALARY_ITEMS.splice(index,1);
       saveCustomSalaryItems_();
@@ -10672,7 +10769,9 @@ function addCustomSalaryItem_(){
     id:createCustomSalaryItemId_(),
     name:nextCustomSalaryItemName_(),
     amount:0,
-    includeOrdinary:false
+    includeOrdinary:false,
+    fromMonth:monthKey_(salaryViewYear,salaryViewMonth),
+    recurring:false
   });
 
   saveCustomSalaryItems_();
@@ -10788,7 +10887,7 @@ function renderSalaryFields(){
       >+ 추가</button>
     </div>
     <div class="form-hint">
-      추가한 항목은 매월 지급내역·지급합계·공제·실수령액에 반영됩니다.
+      지급월을 선택하고 ‘다음 달에도 유지’를 체크하면 그달부터 매월 반영합니다. 해제하면 선택한 달에만 반영합니다.
       ‘통상시급 인정’은 기본 미체크이며 실제 통상시급에 포함되는 항목만 직접 체크하세요.
     </div>
     <div
@@ -10982,6 +11081,11 @@ function renderSalaryFields(){
       </div>
     </div>
 
+    <label class="salary-custom-ordinary" style="margin-bottom:10px">
+      <input id="sal-healthIncludesCare" type="checkbox" ${latestInsurance?.healthIncludesCare?'checked':''}>
+      위 건강보험료에 장기요양보험료 포함 (중복 공제하지 않음)
+    </label>
+
     <button
       id="saveActualInsuranceRuleBtn"
       type="button"
@@ -11006,6 +11110,7 @@ function renderSalaryFields(){
       <div class="form-group">
         <label class="form-label">예상 소득세율(%)</label>
         <input id="sal-incomeTaxRate" type="number" step="0.01" class="form-input" value="${escapeAttr_(SAL.incomeTaxRate)}">
+        <div class="form-hint">아래 계산 방식에서 ‘예상 세율’을 선택할 때만 사용합니다.</div>
       </div>
       <div class="form-group">
         <label class="form-label">노조비율(%)</label>
@@ -11027,6 +11132,56 @@ function renderSalaryFields(){
         <label class="form-label">사택료</label>
         <input id="sal-house" type="number" class="form-input" value="${escapeAttr_(SAL.house)}">
       </div>
+    </div>
+    <div class="salary-two-col">
+      <div class="form-group">
+        <label class="form-label" for="sal-incomeTaxMode">소득세 계산 방식</label>
+        <select id="sal-incomeTaxMode" class="form-input">
+          <option value="table" ${SAL.incomeTaxMode!=='rate'?'selected':''}>2026년 근로소득 간이세액표</option>
+          <option value="rate" ${SAL.incomeTaxMode==='rate'?'selected':''}>직접 설정한 예상 세율</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="sal-taxFamilyCount">공제대상 가족 수 (본인 포함)</label>
+        <input id="sal-taxFamilyCount" type="number" min="1" step="1" class="form-input" value="${escapeAttr_(SAL.taxFamilyCount)}">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="sal-taxChildCount">공제대상 중 8~20세 자녀 수</label>
+        <input id="sal-taxChildCount" type="number" min="0" step="1" class="form-input" value="${escapeAttr_(SAL.taxChildCount)}">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="sal-withholdingPercent">원천징수 비율</label>
+        <select id="sal-withholdingPercent" class="form-input">
+          ${[80,100,120].map(value=>`<option value="${value}" ${Number(SAL.withholdingPercent)===value?'selected':''}>${value}%</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="sal-nonTaxablePay">지급내역 중 비과세액 (기지급 제외)</label>
+        <input id="sal-nonTaxablePay" type="number" min="0" class="form-input" value="${escapeAttr_(SAL.nonTaxablePay)}">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="sal-unionRoundingMode">노조비 금액 처리</label>
+        <select id="sal-unionRoundingMode" class="form-input">
+          <option value="round10" ${SAL.unionRoundingMode!=='won'?'selected':''}>10원 단위 반올림</option>
+          <option value="won" ${SAL.unionRoundingMode==='won'?'selected':''}>1원 단위 반올림</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="sal-netRoundingUnit">실수령액 우수리 절사 단위</label>
+        <select id="sal-netRoundingUnit" class="form-input">
+          ${[1,10,100,1000].map(value=>`<option value="${value}" ${Number(SAL.netRoundingUnit)===value?'selected':''}>${value.toLocaleString()}원</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <label class="form-label">소득세·고용보험 계산에 포함할 기지급액</label>
+    <div class="salary-check-list">
+      <label><input id="sal-taxableMeal" type="checkbox" ${SAL.taxableMeal?'checked':''}>중식비</label>
+      <label><input id="sal-taxablePensionSup" type="checkbox" ${SAL.taxablePensionSup?'checked':''}>개인연금2 회사분</label>
+    </div>
+    <div class="form-hint">
+      기지급액은 지급합계·실수령액에 다시 더하지 않습니다. 과세 여부는 명세서에 맞게 선택하세요.
+      간이세액표는 <a href="https://www.law.go.kr/LSW/flDownload.do?bylClsCd=110201&amp;flSeq=161861245&amp;gubun=" target="_blank" rel="noopener">2026. 2. 27. 개정표</a> 기준 예상액입니다.
+      이전 연도나 회사의 상여 정산 방식이 다른 달은 해당 월 실제 공제를 입력하세요.
     </div>
   `;
 
@@ -11076,6 +11231,14 @@ function renderSalaryFields(){
   }
 
   renderActualInsuranceHistoryList_();
+
+  const combinedHealthInput=document.getElementById('sal-healthIncludesCare');
+  const careInput=document.getElementById('sal-longTermCareActual');
+  const syncCombinedHealth=()=>{
+    if(careInput){careInput.disabled=combinedHealthInput?.checked===true;}
+  };
+  if(combinedHealthInput){combinedHealthInput.onchange=syncCombinedHealth;}
+  syncCombinedHealth();
 
   setSalaryMode_('fixedBonusMode',SAL.fixedBonusMode);
   setSalaryMode_('hourlyMode',SAL.hourlyMode);
@@ -11464,7 +11627,8 @@ function renderDashboard(){
   const ded=calcDeductions(
     sal.totalA,
     payY,
-    payM
+    payM,
+    sal.taxablePay
   );
 
   const nextPay=nextMonthYear_(payY,payM);
@@ -11472,7 +11636,8 @@ function renderDashboard(){
   const nextDed=calcDeductions(
     nextSal.totalA,
     nextPay.year,
-    nextPay.month
+    nextPay.month,
+    nextSal.taxablePay
   );
 
   dashboardTitle.textContent=
@@ -11617,7 +11782,8 @@ function renderSalary(){
   const ded=calcDeductions(
     sal.totalA,
     salaryViewYear,
-    salaryViewMonth
+    salaryViewMonth,
+    sal.taxablePay
   );
 
   const overrideValue=key=>
@@ -11629,7 +11795,7 @@ function renderSalary(){
   salaryContent.innerHTML=`
     <div class="notice warn">
       근태 반영월: ${by}년 ${bm}월 · 지급일: ${salaryViewYear}년 ${salaryViewMonth}월 21일<br>
-      소득세는 설정한 예상 세율을 사용합니다.
+      소득세는 ${SAL.incomeTaxMode==='rate'?'설정한 예상 세율':'2026년 간이세액표와 설정한 가족 수·원천징수 비율'}을 사용합니다.
       보험료는 저장된 실제 보험료가 있으면 우선 적용하고, 없으면 자동 예상값을 사용합니다.
     </div>
 
@@ -11666,10 +11832,10 @@ function renderSalary(){
         <table class="slip-table">
           ${Object.entries(sal.pay).map(
             ([key,value])=>
-              `<tr><td>${escapeHtml_(key)}</td><td>${value?fmtW(value):'-'}</td></tr>`
+              `<tr><td>${escapeHtml_(key)}${Object.prototype.hasOwnProperty.call(monthlyOverride.pay||{},key)?'<div class="small">이 달 직접입력</div>':''}</td><td>${value?fmtW(value):'-'}</td></tr>`
           ).join('')}
           <tr>
-            <td colspan="2" style="font-size:11px;color:#888">기지급내역</td>
+            <td colspan="2" style="font-size:11px;color:#888">기지급내역 (지급합계·실수령액에 다시 더하지 않음)</td>
           </tr>
           ${Object.entries(sal.extra).map(
             ([key,value])=>
@@ -11698,6 +11864,19 @@ function renderSalary(){
     </div>
 
     <details class="card">
+      <summary class="card-title" style="cursor:pointer">고급: 이 달만 지급액 수정</summary>
+      <div class="form-hint" style="margin:10px 0">
+        회사 명세서의 실제 지급액을 입력하면 이 급여월에만 반영합니다. 빈칸은 자동 계산입니다.
+        근무시간과 통상시급 계산 기준은 유지되며, 공제·실수령액은 입력한 지급액으로 다시 계산합니다.
+        새 항목은 설정의 ‘추가 급여항목’에서 먼저 추가하세요.
+      </div>
+      <div class="actual-deduction-grid">
+        ${Object.entries(sal.autoPay).map(([name,value])=>`<div><label class="form-label">${escapeHtml_(name)}</label><input class="form-input actual-pay-input" type="number" min="0" step="1" data-pay-name="${escapeAttr_(name)}" value="${escapeAttr_(monthlyOverride.pay?.[name]??'')}" placeholder="자동 ${escapeAttr_(fmtW(value))}"></div>`).join('')}
+      </div>
+      <button id="saveActualPayBtn" class="btn primary" style="width:100%;margin-top:10px">이 달 실제 지급액 저장</button>
+    </details>
+
+    <details class="card">
       <summary class="card-title" style="cursor:pointer">
         고급: 이 달만 공제 수정
       </summary>
@@ -11715,6 +11894,14 @@ function renderSalary(){
         <div>
           <label class="form-label">노인장기요양보험</label>
           <input id="actual-longTermCare" type="number" class="form-input" value="${escapeAttr_(overrideValue('longTermCare'))}" placeholder="${escapeAttr_(ded.ltcareRaw)}">
+        </div>
+        <div>
+          <label class="form-label" for="actual-healthIncludesCare">건강보험료 표시 방식</label>
+          <select id="actual-healthIncludesCare" class="form-input">
+            <option value="" ${monthlyOverride.healthIncludesCare===undefined?'selected':''}>설정 내역 사용</option>
+            <option value="include" ${monthlyOverride.healthIncludesCare===true?'selected':''}>장기요양 포함</option>
+            <option value="separate" ${monthlyOverride.healthIncludesCare===false?'selected':''}>장기요양 별도</option>
+          </select>
         </div>
         <div>
           <label class="form-label">국민연금</label>
@@ -11748,6 +11935,14 @@ function renderSalary(){
           <label class="form-label">기타 일회성 공제</label>
           <input id="actual-otherDeduction" type="number" class="form-input" value="${escapeAttr_(overrideValue('otherDeduction'))}">
         </div>
+        <div>
+          <label class="form-label">노조비</label>
+          <input id="actual-union" type="number" min="0" class="form-input" value="${escapeAttr_(overrideValue('union'))}">
+        </div>
+        <div>
+          <label class="form-label">우수리</label>
+          <input id="actual-smallChange" type="number" min="0" class="form-input" value="${escapeAttr_(overrideValue('smallChange'))}" placeholder="자동 계산">
+        </div>
       </div>
 
       <button id="saveActualDeductionBtn" class="btn primary" style="width:100%;margin-top:10px">
@@ -11762,6 +11957,8 @@ function renderSalary(){
         <tr><td>자동계산 통상시급</td><td>${fmtW(sal.autoHr)}</td></tr>
         <tr><td>교대 적용일수</td><td>${sal.h.shiftApplicableDays}일</td></tr>
         <tr><td>교대조 OT시간</td><td>${sal.h.shiftOT.toFixed(2)}시간</td></tr>
+        <tr><td>소득세·고용보험 계산 대상액</td><td>${fmtW(sal.taxablePay)}</td></tr>
+        <tr><td>소득세 계산 방식</td><td>${monthlyOverride.incomeTax!==undefined?'이 달 실제 입력':SAL.incomeTaxMode==='rate'?'예상 세율 '+escapeHtml_(SAL.incomeTaxRate)+'%':'2026년 간이세액표 · 가족 '+escapeHtml_(SAL.taxFamilyCount)+'명 · 자녀 '+escapeHtml_(SAL.taxChildCount)+'명 · '+escapeHtml_(SAL.withholdingPercent)+'%'}</td></tr>
         <tr>
           <td>보험료 적용 방식</td>
           <td>
@@ -11820,10 +12017,15 @@ function renderSalary(){
         healthSettlement:'actual-healthSettlement',
         longTermCareSettlement:'actual-longTermCareSettlement',
         yearEndTax:'actual-yearEndTax',
-        otherDeduction:'actual-otherDeduction'
+        otherDeduction:'actual-otherDeduction',
+        union:'actual-union',
+        smallChange:'actual-smallChange'
       };
 
       const next={...monthlyOverride};
+      const healthDisplay=document.getElementById('actual-healthIncludesCare')?.value||'';
+      if(healthDisplay===''){delete next.healthIncludesCare;}
+      else{next.healthIncludesCare=healthDisplay==='include';}
 
       Object.entries(fieldMap).forEach(
         ([key,inputId])=>{
@@ -11844,6 +12046,28 @@ function renderSalary(){
         delete salOvr[deductionKey];
       }
 
+      store.set('salOvr',salOvr);
+      renderSalary();
+    };
+  }
+
+  const saveActualPayButton=document.getElementById('saveActualPayBtn');
+  if(saveActualPayButton){
+    saveActualPayButton.onclick=()=>{
+      const inputs=[...salaryContent.querySelectorAll('.actual-pay-input')];
+      const invalid=inputs.find(input=>!input.checkValidity());
+      if(invalid){invalid.reportValidity();return;}
+      const pay={};
+      inputs.forEach(input=>{
+        const value=input.value.trim();
+        if(value!==''&&Number.isFinite(Number(value))&&Number(value)>=0){
+          pay[input.dataset.payName]=Math.round(Number(value));
+        }
+      });
+      const next={...monthlyOverride};
+      if(Object.keys(pay).length){next.pay=pay;}else{delete next.pay;}
+      if(Object.keys(next).length){salOvr[deductionKey]=next;}
+      else{delete salOvr[deductionKey];}
       store.set('salOvr',salOvr);
       renderSalary();
     };
