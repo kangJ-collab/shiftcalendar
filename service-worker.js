@@ -1,10 +1,12 @@
-const CACHE_VERSION = 'shiftcalendar-pwa-v39';
+const CACHE_VERSION = 'shiftcalendar-pwa-v40';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 
 const CORE_FILES = [
   './',
   './index.html',
+  './data/income-tax-2026.js',
+  './payroll-tax.js',
   './manifest.webmanifest',
   './icons/icon-192.png',
   './icons/icon-512.png',
