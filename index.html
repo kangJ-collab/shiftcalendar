@@ -7911,32 +7911,26 @@ function addOffDayOtHours_(hours,total,night,isMajor,isHoliday){
   }
 }
 
-function addRegularShiftHours_(hours,baseCode,isHoliday){
-  if(baseCode==='주'){
-    hours.workDays++;
-    hours.attendanceDays++;
-    // 근태월보의 '정상'은 휴일 여부와 관계없이 본근무 12시간을 기록한다.
-    hours.normal+=12;
-
-    if(isHoliday){
-      hours.holiday+=8;
-      hours.holidayExt+=4;
-    }
-
+function addRegularShiftHours_(hours,baseCode,isHoliday,isMajor=false){
+  if(baseCode!=='주'&&baseCode!=='야'){
     return;
   }
 
-  if(baseCode==='야'){
-    hours.workDays++;
-    hours.attendanceDays++;
-    hours.night+=8;
-    // 야간 본근무도 근태월보 정상 12시간에 포함한다.
-    hours.normal+=12;
+  hours.workDays++;
+  hours.attendanceDays++;
+  // 근태월보의 '정상'은 휴일 여부와 관계없이 본근무 12시간을 기록한다.
+  hours.normal+=12;
 
-    if(isHoliday){
-      hours.holiday+=8;
-      hours.holidayExt+=4;
-    }
+  if(baseCode==='야'){
+    hours.night+=8;
+  }
+
+  if(isMajor){
+    hours.festBase+=8;
+    hours.festExt+=4;
+  }else if(isHoliday){
+    hours.holiday+=8;
+    hours.holidayExt+=4;
   }
 }
 
@@ -8012,34 +8006,19 @@ function calculateHoursForDate_(date){
   const holiday=isPayHoliday(date);
 
   if(displayCode==='주'){
-    addRegularShiftHours_(h,'주',holiday);
+    addRegularShiftHours_(h,'주',holiday,major);
   }
   else if(displayCode==='야'){
-    addRegularShiftHours_(h,'야',holiday);
+    addRegularShiftHours_(h,'야',holiday,major);
   }
   else if(displayCode==='주+반OT'){
-    h.workDays++;
-    h.attendanceDays++;
-    h.normal+=12;
+    addRegularShiftHours_(h,'주',holiday,major);
     h.extend+=4;
     h.night+=1;
-
-    if(holiday){
-      h.holiday+=8;
-      h.holidayExt+=4;
-    }
   }
   else if(displayCode==='야+반OT'){
-    h.workDays++;
-    h.attendanceDays++;
-    h.normal+=12;
-    h.night+=8;
+    addRegularShiftHours_(h,'야',holiday,major);
     h.extend+=4;
-
-    if(holiday){
-      h.holiday+=8;
-      h.holidayExt+=4;
-    }
   }
   else if(displayCode==='주8OT'){
     addOffDayOtHours_(h,8,0,major,holiday);
@@ -8099,7 +8078,8 @@ function calculateHoursForDate_(date){
         addRegularShiftHours_(
           h,
           scheduledCode,
-          holiday
+          holiday,
+          major
         );
 
         h.extend+=calculated.total;
@@ -8114,7 +8094,9 @@ function calculateHoursForDate_(date){
     h.annualUsedUnits+=.5;
     h.normal+=8;
 
-    if(holiday){
+    if(major){
+      h.festBase+=8;
+    }else if(holiday){
       h.holiday+=8;
     }
   }
@@ -8126,7 +8108,9 @@ function calculateHoursForDate_(date){
     h.normal+=8;
     h.night+=7;
 
-    if(holiday){
+    if(major){
+      h.festBase+=8;
+    }else if(holiday){
       h.holiday+=8;
     }
   }

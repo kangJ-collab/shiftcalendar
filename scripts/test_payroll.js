@@ -182,3 +182,55 @@ test('tax assets are required offline resources',()=>{
   assert.ok(sw.includes("'./data/income-tax-2026.js'"));
   assert.ok(sw.includes("'./payroll-tax.js'"));
 });
+
+test('festival premiums include regular day/night shifts and preserve attendance hours',()=>{
+  const ctx=vm.createContext({});
+  vm.runInContext(`
+    let displayCode='주',scheduledCode='주',major=true,holiday=true;
+    const toPayCode=code=>code;
+    const getMyDisplayShift=()=>displayCode;
+    const getScheduledShift_=()=>scheduledCode;
+    const isMajorDay=()=>major;
+    const isPayHoliday=()=>holiday;
+    const getCallWork=()=>({start:'17:00',end:'19:00'});
+    const calculateCallWorkHours_=()=>({total:2,night:1});
+  `,ctx);
+  for(const name of ['createDailyHoursBucket_','addOffDayOtHours_',
+    'addRegularShiftHours_','addDayWorkHours_','calculateHoursForDate_']){
+    vm.runInContext(html.match(new RegExp('^function '+name+'\\([\\s\\S]*?^\\}','m'))[0],ctx);
+  }
+  const daily=code=>vm.runInContext(`displayCode=${JSON.stringify(code)};calculateHoursForDate_(new Date(2030,0,1))`,ctx);
+  for(const code of ['주','야','주+반OT','야+반OT','호출']){
+    const h=daily(code);
+    assert.equal(h.festBase,8,code);
+    assert.equal(h.festExt,4,code);
+    assert.equal(h.holiday+h.holidayExt,0,code);
+    assert.equal(h.normal,12,code);
+    assert.equal(h.workDays,1,code);
+    assert.equal(h.attendanceDays,1,code);
+  }
+  assert.equal(daily('야').night,8);
+  assert.equal(daily('주+반OT').extend,4);
+  assert.equal(daily('주+반OT').night,1);
+  assert.equal(daily('야+반OT').night,8);
+  assert.equal(daily('호출').extend,2);
+  for(const code of ['주간반차','야간반차']){
+    const h=daily(code);
+    assert.equal(h.festBase,8);
+    assert.equal(h.festExt,0);
+    assert.equal(h.holiday,0);
+    assert.equal(h.annualUsedUnits,.5);
+  }
+  const off=daily('주OT');
+  assert.equal(off.festBase,8);
+  assert.equal(off.festExt,4);
+  vm.runInContext('major=false',ctx);
+  const ordinaryHoliday=daily('주');
+  assert.equal(ordinaryHoliday.holiday,8);
+  assert.equal(ordinaryHoliday.holidayExt,4);
+  assert.equal(ordinaryHoliday.festBase+ordinaryHoliday.festExt,0);
+  vm.runInContext('holiday=false',ctx);
+  const ordinaryDay=daily('주');
+  assert.equal(ordinaryDay.holiday+ordinaryDay.holidayExt+ordinaryDay.festBase+ordinaryDay.festExt,0);
+  assert.equal(ordinaryDay.normal,12);
+});
