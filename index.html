@@ -8183,6 +8183,7 @@ function calcSalary(y,m){
     payPeriod.year,
     payPeriod.month
   );
+  const festivalBonus=festivalBonusForPayMonth_(payPeriod.year,payPeriod.month,salarySettings);
   const hr=getAppliedHourly_(salarySettings,customItems);
   const h=calcHoursForMonth(y,m);
   const annualAllowance=
@@ -8198,6 +8199,9 @@ function calcSalary(y,m){
   pay['기본급3']=Number(salarySettings.base3)||0;
   pay['면허수당']=Number(salarySettings.license)||0;
   pay['고정상여']=calculateFixedBonus_(salarySettings);
+  if(festivalBonus.includeInPay){
+    pay['설추석상여']=festivalBonus.amount;
+  }
 
   customItems.forEach(item=>{
     const name=String(item.name||'').trim();
@@ -8290,8 +8294,12 @@ function calcSalary(y,m){
     }
   });
   const appliedTotalPay=Object.values(pay).reduce((sum,value)=>sum+value,0);
+  const appliedFestivalBonus=festivalBonus.includeInPay
+    ?Number(pay['설추석상여'])||0:festivalBonus.amount;
   const taxablePay=Math.max(0,
     appliedTotalPay-(Math.max(0,Number(salarySettings.nonTaxablePay)||0))+
+    (festivalBonus.includeInTax?appliedFestivalBonus:0)-
+    (festivalBonus.includeInPay?appliedFestivalBonus:0)+
     (salarySettings.taxableMeal?Number(salarySettings.meal)||0:0)+
     (salarySettings.taxablePensionSup?Number(salarySettings.pensionSup)||0:0)
   );
@@ -8304,6 +8312,7 @@ function calcSalary(y,m){
     payYear:payPeriod.year,
     payMonth:payPeriod.month,
     annualAllowance,
+    festivalBonus,
     h,
     pay,
     autoPay,
@@ -8312,6 +8321,17 @@ function calcSalary(y,m){
     totalExtra,
     taxablePay,
     totalA:appliedTotalPay
+  };
+}
+
+function festivalBonusForPayMonth_(year,month,settings=SAL){
+  const saved=(salOvr[`${year}-${month}`]||{}).festivalBonus||{};
+  const amount=saved.amount===undefined||saved.amount===null||saved.amount===''
+    ?calculateFestivalBonus_(settings):Math.max(0,Math.round(Number(saved.amount)||0));
+  return {
+    amount,
+    includeInPay:saved.includeInPay===true,
+    includeInTax:saved.includeInTax===true
   };
 }
 
@@ -10065,16 +10085,7 @@ function renderActualInsuranceHistoryList_(){
     });
 }
 
-function saveActualInsuranceRule_(){
-  const from=document.getElementById(
-    'sal-insuranceFrom'
-  )?.value||'';
-
-  if(!/^\d{4}-\d{2}$/.test(from)){
-    alert('보험료 적용 시작 급여월을 선택하세요.');
-    return;
-  }
-
+function readActualInsuranceForm_(){
   const readOptionalAmount=id=>{
     const raw=String(
       document.getElementById(id)?.value||''
@@ -10085,8 +10096,8 @@ function saveActualInsuranceRule_(){
       :Math.max(0,Number(raw)||0);
   };
 
-  const rule={
-    from,
+  return {
+    from:document.getElementById('sal-insuranceFrom')?.value||'',
     healthIncludesCare:salaryInputChecked_('sal-healthIncludesCare'),
     healthOnly:readOptionalAmount(
       'sal-healthOnlyActual'
@@ -10098,6 +10109,20 @@ function saveActualInsuranceRule_(){
       'sal-npsActual'
     )
   };
+}
+
+let actualInsuranceFormSnapshot_='';
+
+function saveActualInsuranceRule_({silent=false}={}){
+  const rule=readActualInsuranceForm_();
+  const from=rule.from;
+  if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(from)){
+    alert('보험료 적용 시작 급여월을 선택하세요.');
+    return false;
+  }
+  const invalid=['sal-healthOnlyActual','sal-longTermCareActual','sal-npsActual']
+    .map(id=>document.getElementById(id)).find(input=>input&&!input.disabled&&!input.checkValidity());
+  if(invalid){invalid.reportValidity();return false;}
 
   if(
     rule.healthOnly===null &&
@@ -10105,7 +10130,7 @@ function saveActualInsuranceRule_(){
     rule.nps===null
   ){
     alert('저장할 보험료를 하나 이상 입력하세요.');
-    return;
+    return false;
   }
 
   ACTUAL_INSURANCE_HISTORY=
@@ -10115,10 +10140,12 @@ function saveActualInsuranceRule_(){
 
   ACTUAL_INSURANCE_HISTORY.push(rule);
   normalizeActualInsuranceHistory_();
+  actualInsuranceFormSnapshot_=JSON.stringify(readActualInsuranceForm_());
   renderActualInsuranceHistoryList_();
   renderCurrent();
 
-  alert(`${from.replace('-','년 ')}월부터 적용할 보험료를 저장했습니다.`);
+  if(!silent){alert(`${from.replace('-','년 ')}월부터 적용할 보험료를 저장했습니다.`);}
+  return true;
 }
 
 function formatWageMonth_(value){
@@ -10924,7 +10951,8 @@ function renderSalaryFields(){
 
     <div class="card-title">설추석상여</div>
     <div class="notice info">
-      정규 급여와 별도로 지급합니다. 지급완료로 표시한 설·추석만 임금협상 소급에 포함됩니다.
+      지급월의 급여명세서에서 명절상여의 지급총액·과세액 반영 여부를 각각 선택할 수 있습니다. 기본은 별도 지급으로 제외합니다.
+      지급완료로 표시한 설·추석만 임금협상 소급에 포함됩니다.
       신규 임금협상은 실제 적용 시점의 지급상태가 snapshot으로 고정됩니다.
     </div>
 
@@ -11239,6 +11267,7 @@ function renderSalaryFields(){
   };
   if(combinedHealthInput){combinedHealthInput.onchange=syncCombinedHealth;}
   syncCombinedHealth();
+  actualInsuranceFormSnapshot_=JSON.stringify(readActualInsuranceForm_());
 
   setSalaryMode_('fixedBonusMode',SAL.fixedBonusMode);
   setSalaryMode_('hourlyMode',SAL.hourlyMode);
@@ -11863,6 +11892,28 @@ function renderSalary(){
       </div>
     </div>
 
+    <details class="card" ${monthlyOverride.festivalBonus?'open':''}>
+      <summary class="card-title" style="cursor:pointer">이 달 명절상여 반영</summary>
+      <div class="form-hint" style="margin:10px 0">
+        지급받는 급여월에서 선택하세요. 별도 지급이면 두 항목을 해제하고,
+        기지급 상여의 세금만 이번 급여에서 공제하면 과세액만 선택하세요.
+        설정의 설·추석 지급완료 체크와는 별개이며, 추가 급여항목에 같은 상여를 등록했다면 중복 반영하지 마세요.
+      </div>
+      <label class="form-label" for="monthly-festivalBonusAmount">명절상여 금액</label>
+      <input id="monthly-festivalBonusAmount" class="form-input" type="number" min="0" step="1"
+        value="${escapeAttr_(monthlyOverride.festivalBonus?.amount??'')}" placeholder="자동 ${escapeAttr_(fmtW(calculateFestivalBonus_(sal.salarySettings)))}">
+      <label class="salary-custom-ordinary" style="margin-top:10px">
+        <input id="monthly-festivalBonusPay" type="checkbox" ${sal.festivalBonus.includeInPay?'checked':''}>
+        이 달 지급총액에 포함
+      </label>
+      <label class="salary-custom-ordinary" style="margin-top:10px">
+        <input id="monthly-festivalBonusTax" type="checkbox" ${sal.festivalBonus.includeInTax?'checked':''}>
+        이 달 소득세·고용보험 과세액에 포함
+      </label>
+      <div class="form-hint" style="margin-top:10px">비워 둔 금액은 이 달 기본급과 설추석상여 비율로 계산합니다. 지급내역의 비과세액에 같은 상여를 다시 입력하지 마세요.</div>
+      <button id="saveMonthlyFestivalBonusBtn" class="btn primary" style="width:100%;margin-top:10px">이 달 명절상여 설정 저장</button>
+    </details>
+
     <details class="card">
       <summary class="card-title" style="cursor:pointer">고급: 이 달만 지급액 수정</summary>
       <div class="form-hint" style="margin:10px 0">
@@ -12004,6 +12055,37 @@ function renderSalary(){
 
   const saveActualButton=
     document.getElementById('saveActualDeductionBtn');
+
+  const monthlyHealthDisplay=document.getElementById('actual-healthIncludesCare');
+  const monthlyCareInput=document.getElementById('actual-longTermCare');
+  const syncMonthlyCombinedHealth=()=>{
+    const mode=monthlyHealthDisplay?.value||'';
+    const combined=mode==='include'||(mode===''&&getActualInsuranceRule_(salaryViewYear,salaryViewMonth)?.healthIncludesCare===true);
+    if(monthlyCareInput){monthlyCareInput.disabled=combined;}
+  };
+  if(monthlyHealthDisplay){monthlyHealthDisplay.onchange=syncMonthlyCombinedHealth;}
+  syncMonthlyCombinedHealth();
+
+  const saveFestivalButton=document.getElementById('saveMonthlyFestivalBonusBtn');
+  if(saveFestivalButton){
+    saveFestivalButton.onclick=()=>{
+      const amountInput=document.getElementById('monthly-festivalBonusAmount');
+      if(!amountInput.checkValidity()){amountInput.reportValidity();return;}
+      const includeInPay=document.getElementById('monthly-festivalBonusPay').checked;
+      const includeInTax=document.getElementById('monthly-festivalBonusTax').checked;
+      const next={...monthlyOverride};
+      if(includeInPay||includeInTax){
+        next.festivalBonus={includeInPay,includeInTax};
+        if(amountInput.value.trim()!==''){next.festivalBonus.amount=Math.round(Number(amountInput.value));}
+      }else{
+        delete next.festivalBonus;
+      }
+      if(Object.keys(next).length){salOvr[deductionKey]=next;}else{delete salOvr[deductionKey];}
+      store.set('salOvr',salOvr);
+      renderSalary();
+      renderDashboard();
+    };
+  }
 
   if(saveActualButton){
     saveActualButton.onclick=()=>{
@@ -12711,6 +12793,8 @@ saveAnnualLeaveSettingsBtn.onclick=()=>{
 });
 
 saveSalaryBtn.onclick=()=>{
+  if(actualInsuranceFormSnapshot_!==JSON.stringify(readActualInsuranceForm_())&&
+    !saveActualInsuranceRule_({silent:true})){return;}
   readSalaryForm_();
   store.set('salarySettings',SAL);
   renderSalaryFields();

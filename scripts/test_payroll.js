@@ -37,7 +37,8 @@ function context(){
   for(const name of [
     'monthKey_','createCustomSalaryItemId_','normalizeCustomSalaryItems_',
     'customSalaryItemsForPayMonth_','roundMoneyByMode_',
-    'calculateFixedBonusRaw_','calculateFixedBonus_','calculateAutoHourly_',
+    'calculateFixedBonusRaw_','calculateFixedBonus_','calculateFestivalBonus_',
+    'festivalBonusForPayMonth_','calculateAutoHourly_',
     'getAppliedHourly_','wageAgreementHourlyPair_','autoUnion','roundPay','nextMonthYear_',
     'findRule','getActualInsuranceRule_','calcSalary','calcDeductions'
   ]){
@@ -145,6 +146,30 @@ test('monthly actual payments, including zero, change tax and net only in their 
   assert.equal(c.run('calcSalary(2026,10).totalA'),before.totalA);
 });
 
+test('festival bonus pay and taxable treatment are independent, opt-in and monthly',()=>{
+  const c=context();
+  c.run('Object.assign(SAL,{base1:4000000,base3:100000,hourlyMode:"manual",manualHourly:20000});');
+  const before=c.run('calcSalary(2026,11)');
+  assert.equal(before.pay['설추석상여'],undefined);
+  for(const includeInPay of [false,true]){
+    for(const includeInTax of [false,true]){
+      c.run(`salOvr['2026-12']={festivalBonus:{includeInPay:${includeInPay},includeInTax:${includeInTax},amount:250000}};`);
+      const result=c.run('calcSalary(2026,11)');
+      assert.equal(result.totalA,before.totalA+(includeInPay?250000:0));
+      assert.equal(result.taxablePay,before.taxablePay+(includeInTax?250000:0));
+      assert.equal(c.run('calcSalary(2026,12).totalA'),before.totalA);
+    }
+  }
+  c.run(`salOvr['2026-12']={festivalBonus:{includeInPay:true,includeInTax:true}};`);
+  assert.equal(c.run('calcSalary(2026,11).pay["설추석상여"]'),4100000);
+  c.run(`salOvr['2026-12'].pay={'설추석상여':150000};`);
+  assert.equal(c.run('calcSalary(2026,11).taxablePay'),before.taxablePay+150000);
+  c.run(`salOvr['2026-12'].festivalBonus.includeInTax=false;`);
+  assert.equal(c.run('calcSalary(2026,11).taxablePay'),before.taxablePay);
+  c.run(`salOvr['2026-12'].pay['설추석상여']=0;`);
+  assert.equal(c.run('calcSalary(2026,11).totalA'),before.totalA);
+});
+
 test('deduction priorities, combined health, 10-won truncation and net remainder',()=>{
   const c=context();
   c.run(`Object.assign(SAL,{prevAnnual:100000000,base1:4000000,unionRate:1.234,netRoundingUnit:1000});
@@ -167,6 +192,45 @@ test('deduction priorities, combined health, 10-won truncation and net remainder
   assert.equal(actual.ded['노조비'],17);
   assert.equal(actual.ded['우수리'],426);
   assert.equal(actual.netPay,6123456-actual.totalDed);
+});
+
+test('main salary save persists combined health so reopening cannot restore double care',()=>{
+  const c=context();
+  c.run(`
+    const savedValues={};
+    store.set=(key,value)=>savedValues[key]=JSON.parse(JSON.stringify(value));
+    let actualInsuranceFormSnapshot_='before edit';
+    const inputs={
+      'sal-insuranceFrom':{value:'2026-09'},
+      'sal-healthOnlyActual':{value:'220000'},
+      'sal-longTermCareActual':{value:'28000',disabled:true},
+      'sal-npsActual':{value:'300000'},
+      'sal-healthIncludesCare':{checked:true}
+    };
+    Object.values(inputs).forEach(input=>input.checkValidity=()=>true);
+    const document={getElementById:id=>inputs[id]};
+    const salaryInputChecked_=id=>inputs[id]?.checked===true;
+    const alerts=[];const alert=text=>alerts.push(text);
+    const renderActualInsuranceHistoryList_=()=>{};
+    const renderCurrent=()=>{};
+    const renderSalaryFields=()=>{};
+    const readSalaryForm_=()=>{SAL.taxFamilyCount=4;};
+    const saveSalaryBtn={};
+  `);
+  for(const name of ['readActualInsuranceForm_','normalizeActualInsuranceHistory_','saveActualInsuranceRule_']){
+    c.run(html.match(new RegExp('^function '+name+'\\([\\s\\S]*?^\\}','m'))[0]);
+  }
+  c.run(html.match(/^saveSalaryBtn\.onclick=\(\)=>\{[\s\S]*?^\};/m)[0]);
+  c.run('saveSalaryBtn.onclick();');
+  assert.equal(c.run('savedValues.actualInsuranceHistory[0].healthIncludesCare'),true);
+  assert.equal(c.run('savedValues.salarySettings.taxFamilyCount'),4);
+  c.run('ACTUAL_INSURANCE_HISTORY=JSON.parse(JSON.stringify(savedValues.actualInsuranceHistory));');
+  assert.equal(c.run('calcDeductions(6000000,2026,10).ded["노인장기요양보험"]'),0);
+  assert.equal(c.run('calcDeductions(6000000,2026,10).ded["건강보험료(장기요양 포함)"]'),220000);
+  assert.equal(c.run('alerts.length'),1);
+  c.run(`inputs['sal-insuranceFrom'].value='';saveSalaryBtn.onclick();`);
+  assert.equal(c.run('savedValues.actualInsuranceHistory.length'),1);
+  assert.equal(c.run('savedValues.actualInsuranceHistory[0].healthIncludesCare'),true);
 });
 
 test('rate mode uses the selected taxable amount and still honors monthly actual tax',()=>{
