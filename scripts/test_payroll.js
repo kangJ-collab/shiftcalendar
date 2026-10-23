@@ -40,7 +40,7 @@ function context(){
     'calculateFixedBonusRaw_','calculateFixedBonus_','calculateFestivalBonus_',
     'festivalBonusForPayMonth_','calculateAutoHourly_',
     'getAppliedHourly_','wageAgreementHourlyPair_','autoUnion','roundPay','nextMonthYear_',
-    'findRule','getActualInsuranceRule_','calcSalary','calcDeductions'
+    'findRule','getActualInsuranceRule_','holidayAllowanceParts_','calcSalary','calcDeductions'
   ]){
     const expression=new RegExp('^function '+name+'\\([\\s\\S]*?^\\}','m');
     const match=html.match(expression);
@@ -260,7 +260,7 @@ test('festival premiums include regular day/night shifts and preserve attendance
     const calculateCallWorkHours_=()=>({total:2,night:1});
   `,ctx);
   for(const name of ['createDailyHoursBucket_','addOffDayOtHours_',
-    'addRegularShiftHours_','addDayWorkHours_','calculateHoursForDate_']){
+    'addRegularShiftHours_','addDayWorkHours_','isDayWorkCode_','calculateHoursForDate_']){
     vm.runInContext(html.match(new RegExp('^function '+name+'\\([\\s\\S]*?^\\}','m'))[0],ctx);
   }
   const daily=code=>vm.runInContext(`displayCode=${JSON.stringify(code)};calculateHoursForDate_(new Date(2030,0,1))`,ctx);
@@ -297,4 +297,146 @@ test('festival premiums include regular day/night shifts and preserve attendance
   const ordinaryDay=daily('주');
   assert.equal(ordinaryDay.holiday+ordinaryDay.holidayExt+ordinaryDay.festBase+ordinaryDay.festExt,0);
   assert.equal(ordinaryDay.normal,12);
+});
+
+function dayWorkContext(){
+  const c=context();
+  c.run(`
+    const records=new Map();
+    store.get=(key,fallback)=>records.has(key)?records.get(key):fallback;
+    store.set=(key,value)=>records.set(key,JSON.parse(JSON.stringify(value)));
+    store.remove=key=>records.delete(key);
+    const dateKey=d=>d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
+    let shifts={};
+    const getMyDisplayShift=d=>shifts[dateKey(d)]||'휴';
+    const getScheduledShift_=()=> '일근08~17';
+    const toPayCode=code=>code;
+    const isMajorDay=()=>false;
+    const isPayHoliday=()=>false;
+    const isInDayWorkPeriod_=()=>true;
+    const getCallWork=()=>null;
+    Object.assign(SAL,{hourlyMode:'manual',manualHourly:20000,shiftOtMode:'manual',shiftH:0});
+  `);
+  for(const name of ['isDayWorkCode_','getDayWorkOt_','setDayWorkOt_',
+    'timeToMinutes_','overlapMinutes_','calculateCallWorkHours_',
+    'calculateDayWorkOt_','dayWorkOtForDate_','createDailyHoursBucket_',
+    'addDayWorkHours_','calculateHoursForDate_','calcHoursForMonth',
+    'countShiftApplicableDays_','calculateShiftOtHours_','weeklyWorkHoursForDate_']){
+    const match=html.match(new RegExp('^function '+name+'\\([\\s\\S]*?^\\}','m'));
+    assert.ok(match,`missing ${name}`);
+    c.run(match[0]);
+  }
+  return c;
+}
+
+test('day work keeps 08-17 as the default and adds only selected morning and evening OT',()=>{
+  const c=dayWorkContext();
+  c.run(`const date=new Date(2026,8,15);shifts[dateKey(date)]='일근08~17';`);
+  for(const [code,end,extended,weekly,pay] of [
+    ['일근08~17','17:00',0,8,0],
+    ['일근07~17','17:00',1,9,30000],
+    ['일근+1 OT','17:00',1,9,30000],
+    ['일근08~17','18:00',1,9,30000],
+    ['일근08~17','19:00',2,10,60000],
+    ['일근07~17','18:00',2,10,60000],
+    ['일근07~17','19:00',3,11,90000]
+  ]){
+    c.run(`shifts[dateKey(date)]=${JSON.stringify(code)};setDayWorkOt_(date,${JSON.stringify(end)});`);
+    const h=c.run('calculateHoursForDate_(date)');
+    assert.equal(h.normal,8,code+end);
+    assert.equal(h.extend,extended,code+end);
+    assert.equal(h.night,0);
+    assert.equal(c.run('weeklyWorkHoursForDate_(date)'),weekly);
+    assert.equal(c.run('calcSalary(2026,9).pay["연장수당"]'),pay);
+    assert.equal(c.run('calcHoursForMonth(2026,9).extend'),extended);
+  }
+});
+
+test('evening OT counts 22-06 night premiums and belongs to its starting attendance month',()=>{
+  const c=dayWorkContext();
+  c.run(`const date=new Date(2026,8,30);shifts[dateKey(date)]='일근07~17';setDayWorkOt_(date,'02:00');`);
+  const h=c.run('calculateHoursForDate_(date)');
+  assert.equal(h.normal,8);
+  assert.equal(h.extend,10);
+  assert.equal(h.night,4);
+  assert.equal(c.run('weeklyWorkHoursForDate_(date)'),18);
+  const pay=c.run('calcSalary(2026,9).pay');
+  assert.equal(pay['연장수당'],300000);
+  assert.equal(pay['심야수당'],40000);
+  assert.equal(c.run('calcSalary(2026,10).pay["연장수당"]'),0);
+  assert.equal(c.run('calculateDayWorkOt_("일근08~17","00:00").night'),2);
+  assert.equal(c.run('calculateDayWorkOt_("일근08~17","19:30").after'),2.5);
+  assert.equal(c.run('calculateDayWorkOt_("일근08~17","17:00").after'),0);
+  for(const end of ['16:00','08:00','24:00','bad']){
+    assert.equal(c.run(`calculateDayWorkOt_('일근08~17',${JSON.stringify(end)})`),null);
+  }
+  c.run(`shifts[dateKey(date)]='휴';`);
+  assert.equal(c.run('calculateHoursForDate_(date).extend'),0);
+  c.run(`setDayWorkOt_(date,'17:00');`);
+  assert.equal(c.run('records.has("dayworkot-2026-09-30")'),false);
+});
+
+test('new and existing day-work periods still schedule 08-17 without automatic morning OT',()=>{
+  const ctx=vm.createContext({});
+  vm.runInContext(`
+    const getWorkPeriodForDate_=()=>({start:'2026-09-01',end:'2026-09-30'});
+    const isShiftReturnedOnEndDate_=()=>false;
+    const isPayHoliday=()=>false;
+    const getBaseShiftForDate_=()=> '주간';
+  `,ctx);
+  vm.runInContext(html.match(/^function getScheduledShift_\([\s\S]*?^\}/m)[0],ctx);
+  assert.equal(vm.runInContext('getScheduledShift_(new Date(2026,8,15))',ctx),'일근08~17');
+  assert.equal(vm.runInContext('getScheduledShift_(new Date(2026,8,19))',ctx),'휴무');
+});
+
+test('ordinary hourly wage uses the selected payable amounts before per-item hourly rounding',()=>{
+  const c=context();
+  c.run(`Object.assign(SAL,{base1:100101,base3:20101,license:0,meal:0,
+    fixedBonusMode:'auto',fixedBonusRate:50,hourlyMode:'auto',roundingMode:'ceil100'});`);
+  const salary=c.run('calcSalary(2026,9)');
+  assert.equal(salary.pay['기본급1'],100200);
+  assert.equal(salary.pay['기본급3'],20200);
+  assert.equal(salary.pay['고정상여'],60200);
+  assert.equal(salary.autoHr,560+113+336);
+  c.run(`SAL.roundingMode='round100';`);
+  assert.equal(c.run('calcSalary(2026,9).pay["기본급1"]'),100100);
+  assert.equal(c.run('calcSalary(2026,9).autoHr'),559+112+336);
+  c.run(`SAL.hourlyMode='manual';SAL.manualHourly=1234;`);
+  assert.equal(c.run('calcSalary(2026,9).hr'),1234);
+});
+
+test('holiday and festival breakdown preserves a single rounding of each combined payment',()=>{
+  const c=context();
+  c.run(`Object.assign(SAL,{hourlyMode:'manual',manualHourly:101,roundingMode:'ceil100'});
+    calcHoursForMonth=()=>({extend:0,weekly:0,weeklyExt:0,holiday:1,holidayExt:1,festBase:1,festExt:1,night:0,shiftOT:0});`);
+  c.run(html.match(/^function allowancePayFromHours_\([\s\S]*?^\}/m)[0]);
+  const pay=c.run('calcSalary(2026,9).pay');
+  assert.equal(pay['휴일수당'],200);
+  assert.equal(pay['휴일수당']+pay['명절기본수당'],400);
+  assert.equal(pay['휴일연장수당']+pay['명절연장수당'],500);
+  const retro=c.run('allowancePayFromHours_(calcHoursForMonth(),SAL)');
+  assert.equal(retro.holiday+retro.festivalBase,400);
+  assert.equal(retro.holidayExtension+retro.festivalExtension,500);
+});
+
+test('retroactive basic pay uses the same payable rounding as regular monthly payroll',()=>{
+  const c=context();
+  c.run(`
+    const monthIndex_=key=>{const [y,m]=key.split('-').map(Number);return y*12+m-1;};
+    const monthPartsFromIndex_=index=>({year:Math.floor(index/12),month:index%12+1,key:'2026-09'});
+    const previousPayWorkMonth_=()=>({year:2026,month:8});
+    const festivalBonusRetroForPayMonth_=()=>({difference:0,items:[]});
+    const settings={...SAL,hourlyMode:'auto',includeBase1:false,includeBase3:false,
+      includeFixedBonus:false,fixedBonusMode:'manual',fixedBonusManual:0,roundingMode:'ceil100'};
+    const record={paymentMonth:'2026-10',retroStartMonth:'2026-09',
+      before:{base1:100001,base3:20101},after:{base1:100151,base3:20101},
+      salarySnapshotBefore:settings,salarySnapshotAfter:settings};
+  `);
+  for(const name of ['allowancePayFromHours_','calculateWageAgreementRetro_']){
+    c.run(html.match(new RegExp('^function '+name+'\\([\\s\\S]*?^\\}','m'))[0]);
+  }
+  const retro=c.run('calculateWageAgreementRetro_(record)');
+  assert.equal(retro.monthCount,1);
+  assert.equal(retro.baseDifference,100);
+  assert.equal(retro.total,100);
 });
