@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "version": "2026.11.02.0555",
-  "updatedAt": "2026-11-02T05:55:08.136699+00:00",
+  "version": "2026.11.09.0614",
+  "updatedAt": "2026-11-09T06:14:47.183380+00:00",
   "generatedBy": "GitHub Actions + 한국천문연구원 특일 정보 API",
   "sourceName": "한국천문연구원 특일 정보 API",
   "sourceUrl": "https://www.data.go.kr/data/15012690/openapi.do",
